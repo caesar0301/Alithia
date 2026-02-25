@@ -51,6 +51,7 @@ def create_app(config: Dict[str, Any] | None = None, storage: StorageBackend | N
 
     @asynccontextmanager
     async def lifespan(_app: FastAPI):
+        ws_hub.capture_loop()
         await scheduler.start()
         yield
         scheduler.stop()

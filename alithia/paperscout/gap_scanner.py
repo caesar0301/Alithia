@@ -3,7 +3,7 @@ Gap Scanner: detects and fills missing recommendation slots (RFC-0002 PS-002).
 """
 
 from datetime import date
-from typing import TYPE_CHECKING, Dict, List
+from typing import TYPE_CHECKING, Dict, List, Optional
 
 from noesium.core.utils import get_logger
 
@@ -19,13 +19,17 @@ logger = get_logger(__name__)
 class GapScanner:
     """Detects and fills missing recommendation slots."""
 
-    def __init__(self, storage: StorageBackend, user_id: str):
+    def __init__(self, storage: StorageBackend, user_id: str, big_bang: Optional[date] = None):
         self._storage = storage
         self._user_id = user_id
+        self._big_bang = big_bang
 
     def scan(self, query_categories: str, window_days: int = 7) -> List[date]:
-        """Return dates with missing notifications within the window."""
-        return self._storage.get_missing_notification_dates(self._user_id, query_categories, window_days)
+        """Return dates with missing notifications within the window, respecting big_bang."""
+        missing = self._storage.get_missing_notification_dates(self._user_id, query_categories, window_days)
+        if self._big_bang:
+            missing = [d for d in missing if d >= self._big_bang]
+        return missing
 
     async def fill_gaps(
         self,

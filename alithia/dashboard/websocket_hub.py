@@ -57,6 +57,10 @@ class WebSocketHub:
 
             self._connections -= stale
 
+    def capture_loop(self) -> None:
+        """Capture the running event loop for cross-thread scheduling."""
+        self._loop = asyncio.get_running_loop()
+
     def on_task_update(self, task_id: str, updates: Dict[str, Any]) -> None:
         """Callback for TaskManager — safe to call from any thread."""
         coro = self.broadcast("task_update", {"task_id": task_id, **updates})
@@ -65,3 +69,5 @@ class WebSocketHub:
         except RuntimeError:
             if self._loop and self._loop.is_running():
                 asyncio.run_coroutine_threadsafe(coro, self._loop)
+            else:
+                coro.close()

@@ -27,7 +27,7 @@ classifiers = [
 requires-python = ">=3.11"
 
 dependencies = [
-    "noesium>=0.2.2",
+    "noesium[agents,llm]>=0.2.2",
     "supabase>=2.0.0",
 ]
 

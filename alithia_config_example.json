@@ -51,7 +51,8 @@
         "max_papers": 25,
         "max_papers_queried": 500,
         "send_empty": true,
-        "ignore_patterns": []
+        "ignore_patterns": [],
+        "big_bang": "2025-02-25"
     },
     "paperlens_agent": {
         "sbert_model": "all-MiniLM-L6-v2",

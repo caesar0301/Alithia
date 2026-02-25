@@ -43,6 +43,10 @@ class PaperScoutScheduler:
         self._tz_name = sched.get("timezone", "UTC")
         self._retry_window = sched.get("retry_window_days", DEFAULT_RETRY_WINDOW_DAYS)
 
+        ps_settings = config.get("paperscout_agent", config.get("arxrec", {}))
+        bb = ps_settings.get("big_bang")
+        self._big_bang: Optional[date] = date.fromisoformat(bb) if bb else None
+
     @property
     def enabled(self) -> bool:
         return self._enabled
@@ -104,17 +108,23 @@ class PaperScoutScheduler:
             logger.warning("Scheduler has no dispatcher, skipping")
             return
 
-        yesterday = (date.today() - timedelta(days=1)).isoformat()
-        logger.info(f"Scheduler: dispatching daily paperscout for {yesterday}")
+        yesterday = date.today() - timedelta(days=1)
+
+        if self._big_bang and yesterday < self._big_bang:
+            logger.info(f"Scheduler: yesterday ({yesterday}) is before big_bang ({self._big_bang}), skipping")
+            return
+
+        yesterday_iso = yesterday.isoformat()
+        logger.info(f"Scheduler: dispatching daily paperscout for {yesterday_iso}")
 
         try:
             req = RunAgentRequest(
                 agent_type="paperscout",
-                parameters={"from_date": yesterday, "to_date": yesterday, "source": "scheduler"},
+                parameters={"from_date": yesterday_iso, "to_date": yesterday_iso, "source": "scheduler"},
             )
             await self._dispatcher.dispatch(req)
         except Exception:
-            logger.exception(f"Scheduler: failed to dispatch paperscout for {yesterday}")
+            logger.exception(f"Scheduler: failed to dispatch paperscout for {yesterday_iso}")
 
         await self._retry_gaps()
 
@@ -138,8 +148,11 @@ class PaperScoutScheduler:
 
         for days_ago in range(2, self._retry_window + 1):
             gap_date = today - timedelta(days=days_ago)
-            gap_key = gap_date.strftime("%Y%m%d")
 
+            if self._big_bang and gap_date < self._big_bang:
+                break
+
+            gap_key = gap_date.strftime("%Y%m%d")
             if gap_key in processed_dates:
                 continue
 

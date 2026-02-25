@@ -177,10 +177,50 @@ class TestCalendarEndpoint:
         resp = client.get("/api/calendar?months=1")
         assert resp.status_code == 200
         data = resp.json()
-        # Check that at least one day shows "sent"
         all_days = [d for m in data for d in m["days"]]
         sent_days = [d for d in all_days if d["status"] == "sent"]
         assert len(sent_days) >= 1
+
+    def test_calendar_big_bang_clamps_start(self, config, storage, user_id):
+        """Calendar should not show dates before big_bang."""
+        today = date.today()
+        big_bang = (today - timedelta(days=3)).isoformat()
+        config.setdefault("paperscout_agent", {})["big_bang"] = big_bang
+        config.setdefault("storage", {})["user_id"] = user_id
+
+        from fastapi.testclient import TestClient
+
+        from alithia.dashboard.app import create_app
+
+        app = create_app(config, storage)
+        client = TestClient(app)
+
+        resp = client.get("/api/calendar?months=1")
+        assert resp.status_code == 200
+        data = resp.json()
+        all_days = [d for m in data for d in m["days"]]
+        all_dates = [d["date"] for d in all_days]
+        for d in all_dates:
+            assert d >= big_bang
+
+    def test_calendar_no_big_bang_shows_full_range(self, config, storage, user_id):
+        """Without big_bang, calendar shows the full month range."""
+        config.get("paperscout_agent", {}).pop("big_bang", None)
+        config.setdefault("storage", {})["user_id"] = user_id
+
+        from fastapi.testclient import TestClient
+
+        from alithia.dashboard.app import create_app
+
+        app = create_app(config, storage)
+        client = TestClient(app)
+
+        resp = client.get("/api/calendar?months=2")
+        assert resp.status_code == 200
+        data = resp.json()
+        all_days = [d for m in data for d in m["days"]]
+        # 2 months of days should be > 30
+        assert len(all_days) > 30
 
 
 # =============================================================================
@@ -206,6 +246,27 @@ class TestAgentEndpoints:
     def test_get_task_not_found(self, client):
         resp = client.get(f"/api/agents/tasks/{uuid.uuid4()}")
         assert resp.status_code == 404
+
+    def test_task_parameters_persisted(self, client, storage, user_id):
+        """Task parameters (from_date, to_date) should be persisted and returned."""
+        task_id = str(uuid.uuid4())
+        params = {"from_date": "2025-02-24", "to_date": "2025-02-24", "source": "test"}
+        storage.save_task(
+            {
+                "id": task_id,
+                "user_id": user_id,
+                "task_type": "paperscout",
+                "status": "completed",
+                "parameters": params,
+                "created_at": datetime.utcnow().isoformat(),
+            }
+        )
+
+        resp = client.get(f"/api/agents/tasks/{task_id}")
+        assert resp.status_code == 200
+        task = resp.json()
+        assert task["parameters"]["from_date"] == "2025-02-24"
+        assert task["parameters"]["source"] == "test"
 
 
 # =============================================================================

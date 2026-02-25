@@ -172,13 +172,17 @@ def run_paperscout_agent(args):
     try:
         # Gap fill mode
         if getattr(args, "fill_gaps", False):
+            from datetime import date as _date
+
             from alithia.paperscout.gap_scanner import GapScanner
 
             if not storage:
                 logger.error("Storage required for gap scanning")
                 sys.exit(1)
 
-            scanner = GapScanner(storage, user_id)
+            bb_str = paperscout_settings.get("big_bang")
+            big_bang = _date.fromisoformat(bb_str) if bb_str else None
+            scanner = GapScanner(storage, user_id, big_bang=big_bang)
             results = asyncio.run(scanner.fill_gaps(config, agent))
             for d, status in sorted(results.items()):
                 print(f"  {d.isoformat()}: {status}")

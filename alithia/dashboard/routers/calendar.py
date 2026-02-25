@@ -23,9 +23,16 @@ async def get_calendar(
     ps_settings = config.get("paperscout_agent", config.get("arxrec", {}))
     query = ps_settings.get("query", "")
 
+    # big_bang: the earliest date paperscout tracks; dates before it are not "missing"
+    bb_str = ps_settings.get("big_bang")
+    big_bang = date.fromisoformat(bb_str) if bb_str else None
+
     today = date.today()
     start = today.replace(day=1) - timedelta(days=30 * (months - 1))
     start = start.replace(day=1)
+
+    if big_bang and start < big_bang:
+        start = big_bang
 
     records = storage.get_notification_records_range(user_id, query, start, today)
     record_map = {}
@@ -40,7 +47,8 @@ async def get_calendar(
 
     while current <= today:
         if current.year != cur_year or current.month != cur_month:
-            result.append(CalendarMonth(year=cur_year, month=cur_month, days=month_days))
+            if month_days:
+                result.append(CalendarMonth(year=cur_year, month=cur_month, days=month_days))
             month_days = []
             cur_year, cur_month = current.year, current.month
 
