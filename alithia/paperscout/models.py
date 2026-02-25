@@ -5,7 +5,7 @@ Paper data models for the Alithia research agent.
 from datetime import date, datetime
 from typing import Any, Dict, List, Literal, Optional
 
-from cogents_core.utils import get_logger
+from noesium.core.utils import get_logger
 from pydantic import BaseModel, Field
 
 from alithia.models import ArxivPaper

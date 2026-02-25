@@ -10,7 +10,7 @@ import sys
 from pathlib import Path
 from typing import List
 
-from cogents_core.utils import get_logger
+from noesium.core.utils import get_logger
 
 logger = get_logger(__name__)
 
@@ -359,23 +359,36 @@ def run_sync(args):
 
 def run_dashboard(args):
     """Start the Dashboard server."""
-    from alithia.config_loader import load_config
-    from alithia.storage.factory import get_storage_backend
+    import os
 
-    config_dict = load_config(args.config)
-    storage = get_storage_backend(config_dict)
-    storage.connect()
+    import uvicorn
 
-    try:
-        from alithia.dashboard.app import create_app
+    if args.dev:
+        # Use import string for reload mode
+        # Set config path as environment variable for the factory to use
+        os.environ["ALITHIA_CONFIG_PATH"] = args.config or "alithia_config.json"
+        uvicorn.run(
+            "alithia.dashboard.app:create_app",
+            factory=True,
+            host=args.host,
+            port=args.port,
+            reload=True,
+        )
+    else:
+        from alithia.config_loader import load_config
+        from alithia.storage.factory import get_storage_backend
 
-        app = create_app(config_dict, storage)
+        config_dict = load_config(args.config)
+        storage = get_storage_backend(config_dict)
+        storage.connect()
 
-        import uvicorn
+        try:
+            from alithia.dashboard.app import create_app
 
-        uvicorn.run(app, host=args.host, port=args.port, reload=args.dev)
-    finally:
-        storage.disconnect()
+            app = create_app(config_dict, storage)
+            uvicorn.run(app, host=args.host, port=args.port, reload=False)
+        finally:
+            storage.disconnect()
 
 
 def main():

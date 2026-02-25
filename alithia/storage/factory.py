@@ -4,7 +4,7 @@ Storage backend factory for automatic selection and fallback.
 
 from typing import Any, Dict, Optional
 
-from cogents_core.utils import get_logger
+from noesium.core.utils import get_logger
 
 from .base import StorageBackend
 from .sqlite import SQLiteStorage

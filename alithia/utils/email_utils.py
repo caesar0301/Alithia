@@ -8,7 +8,7 @@ from email.header import Header
 from email.mime.text import MIMEText
 from email.utils import formataddr, parseaddr
 
-from cogents_core.utils import get_logger
+from noesium.core.utils import get_logger
 
 logger = get_logger(__name__)
 

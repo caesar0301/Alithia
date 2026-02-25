@@ -6,7 +6,7 @@ Strategy: SerpAPI (if key provided) -> scholarly library (fallback).
 
 from typing import Any, Dict, List, Optional, Tuple
 
-from cogents_core.utils import get_logger
+from noesium.core.utils import get_logger
 
 logger = get_logger(__name__)
 

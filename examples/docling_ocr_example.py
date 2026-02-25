@@ -8,7 +8,7 @@ from pathlib import Path
 project_root = Path(__file__).parent.parent
 sys.path.insert(0, str(project_root))
 
-from cogents_core.llm import get_llm_client
+from noesium.core.llm import get_llm_client
 
 from alithia.paperlens.paper_ocr.docling import DoclingOcr
 

@@ -2,14 +2,15 @@
 Agent dispatcher: translates API requests into agent runs.
 """
 
+import asyncio
+import uuid
 from typing import Any, Dict
 
-from cogents_core.utils import get_logger
+from noesium.core.utils import get_logger
 
 from alithia.storage.base import StorageBackend
 
 from .models import RunAgentRequest
-from .progress_reporter import ProgressReporter
 from .task_manager import TaskManager
 
 logger = get_logger(__name__)
@@ -40,8 +41,14 @@ class AgentDispatcher:
             raise ValueError(f"Unknown agent type: {request.agent_type}")
 
     async def _dispatch_paperscout(self, params: Dict[str, Any]):
+        task_id = str(uuid.uuid4())
+        tm = self._task_manager
+
+        def on_step(progress: float, label: str) -> None:
+            tm.update_progress(task_id, progress, label)
+            tm.add_milestone(task_id, label)
+
         async def _run():
-            from alithia.config_loader import load_config
             from alithia.constants import (
                 ALITHIA_MAX_PAPERS,
                 ALITHIA_MAX_PAPERS_QUERIED,
@@ -65,12 +72,19 @@ class AgentDispatcher:
                 debug=params.get("debug", self._config.get("debug", False)),
             )
 
-            agent = PaperScoutAgent(storage=self._storage, user_id=self._user_id)
-            return agent.run(config)
+            agent = PaperScoutAgent(
+                storage=self._storage, user_id=self._user_id, on_step=on_step,
+            )
+            return await asyncio.to_thread(agent.run, config)
 
-        return await self._task_manager.submit("paperscout", _run(), parameters=params)
+        return await self._task_manager.submit(
+            "paperscout", _run(), parameters=params, task_id=task_id,
+        )
 
     async def _dispatch_sync(self, params: Dict[str, Any]):
+        task_id = str(uuid.uuid4())
+        tm = self._task_manager
+
         async def _run():
             from alithia.researcher.profile import ResearcherProfile
             from alithia.sync.orchestrator import SyncOrchestrator
@@ -82,13 +96,19 @@ class AgentDispatcher:
             force_full = params.get("force_full", False)
 
             if connector:
+                tm.update_progress(task_id, 0.2, f"Syncing {connector}")
+                tm.add_milestone(task_id, f"Syncing {connector}")
                 result = await orchestrator.sync_one(connector, force_full=force_full)
                 return {"connector": connector, "status": result.status.value, "items": result.items_synced}
             else:
+                tm.update_progress(task_id, 0.1, "Starting full sync")
+                tm.add_milestone(task_id, "Starting full sync")
                 results = await orchestrator.sync_all(force_full=force_full)
                 return [
                     {"connector": r.connector_name, "status": r.status.value, "items": r.items_synced}
                     for r in results
                 ]
 
-        return await self._task_manager.submit("sync", _run(), parameters=params)
+        return await self._task_manager.submit(
+            "sync", _run(), parameters=params, task_id=task_id,
+        )

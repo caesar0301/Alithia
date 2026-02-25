@@ -555,17 +555,17 @@ Add a `sync` subcommand to the existing CLI:
 
 ```bash
 # Sync all configured services
-uv run python -m alithia.run sync --config config.json
+python -m alithia.run sync --config config.json
 
 # Sync specific connector
-uv run python -m alithia.run sync --config config.json --connector zotero
-uv run python -m alithia.run sync --config config.json --connector google_scholar
+python -m alithia.run sync --config config.json --connector zotero
+python -m alithia.run sync --config config.json --connector google_scholar
 
 # Force full sync (ignore incremental state)
-uv run python -m alithia.run sync --config config.json --full
+python -m alithia.run sync --config config.json --full
 
 # Show sync status
-uv run python -m alithia.run sync --config config.json --status
+python -m alithia.run sync --config config.json --status
 ```
 
 **Implementation in `run/__main__.py`**:

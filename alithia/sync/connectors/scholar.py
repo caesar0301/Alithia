@@ -7,7 +7,7 @@ Fetches profile and publications via SerpAPI (preferred) or scholarly (fallback)
 from datetime import datetime
 from typing import Optional
 
-from cogents_core.utils import get_logger
+from noesium.core.utils import get_logger
 
 from alithia.models.scholar_profile import ScholarProfile, ScholarPublication
 from alithia.researcher.connection import GoogleScholarConnection

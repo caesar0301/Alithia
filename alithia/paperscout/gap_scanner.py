@@ -5,7 +5,7 @@ Gap Scanner: detects and fills missing recommendation slots (RFC-0002 PS-002).
 from datetime import date, timedelta
 from typing import TYPE_CHECKING, Dict, List
 
-from cogents_core.utils import get_logger
+from noesium.core.utils import get_logger
 
 from alithia.storage.base import StorageBackend
 

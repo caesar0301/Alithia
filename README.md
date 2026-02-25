@@ -72,16 +72,41 @@ pip install alithia
 For PDF analysis and deep paper interaction:
 
 ```bash
-pip install alithia[paperlens]
+pip install alithia[docling]
 ```
 
 This installs:
 - `docling` - PDF parsing and OCR
 - `onnxruntime` - Model inference
 
+### Install with Scholar Support
+
+For Google Scholar integration:
+
+```bash
+pip install alithia[scholar]
+```
+
+This installs:
+- `scholarly` - Google Scholar scraping
+- `google-search-results` - SERP API integration
+
+### Install with Dashboard Support
+
+For the web dashboard:
+
+```bash
+pip install alithia[dashboard]
+```
+
+This installs:
+- `fastapi` - Web framework
+- `uvicorn` - ASGI server
+- `websockets` - WebSocket support
+
 ### Install All Features
 
-Install everything (Default/PaperScout + PaperLens):
+Install everything (Default + Docling + Scholar + Dashboard):
 
 ```bash
 pip install alithia[all]
@@ -94,16 +119,10 @@ For development, clone the repository and install with development dependencies:
 ```bash
 git clone https://github.com/caesar0301/alithia.git
 cd alithia
-uv sync --extra default --extra dev
-```
 
-Or using pip:
-
-```bash
+# Install with development dependencies
 pip install -e ".[default,dev]"
 ```
-
-**Note:** You can also use `alithia[paperscout,dev]` as `paperscout` is an alias for `default`.
 
 ## Quick Start
 
@@ -162,6 +181,70 @@ Alithia uses **Supabase** (PostgreSQL) as the default stateful storage backend, 
 - **SQLite (fallback)**: Local single-file database, works offline, no setup required
 
 For detailed setup instructions, see [docs/SUPABASE_SETUP.md](docs/SUPABASE_SETUP.md).
+
+## Dashboard
+
+Alithia provides a web dashboard for managing your research profile, viewing papers, and interacting with agents.
+
+### Prerequisites
+
+- Python environment with `alithia[default]` installed
+- Node.js 18+ and npm (for frontend development)
+
+### Running the Dashboard
+
+#### Production Mode
+
+1. Build the frontend:
+   ```bash
+   cd dashboard-frontend
+   npm install
+   npm run build
+   cd ..
+   ```
+
+2. Start the backend server:
+   ```bash
+   python -m alithia.run dashboard --config alithia_config.json
+   ```
+
+3. Open http://localhost:8080 in your browser
+
+#### Development Mode
+
+Run the backend and frontend separately for hot-reload:
+
+1. Start the backend (with auto-reload):
+   ```bash
+   python -m alithia.run dashboard --config alithia_config.json --dev
+   ```
+
+2. In another terminal, start the frontend dev server:
+   ```bash
+   cd dashboard-frontend
+   npm install
+   npm run dev
+   ```
+
+3. Open http://localhost:5173 in your browser (Vite dev server proxies API calls to the backend)
+
+### Backend Options
+
+| Option | Default | Description |
+|--------|---------|-------------|
+| `--config` | - | Path to configuration JSON file |
+| `--host` | `0.0.0.0` | Server host address |
+| `--port` | `8080` | Server port |
+| `--dev` | - | Enable auto-reload for development |
+
+### Frontend Scripts
+
+| Command | Description |
+|---------|-------------|
+| `npm run dev` | Start development server with hot-reload |
+| `npm run build` | Build for production (outputs to `dist/`) |
+| `npm run preview` | Preview production build locally |
+| `npm run lint` | Run ESLint |
 
 ## License
 

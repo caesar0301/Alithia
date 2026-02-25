@@ -108,12 +108,25 @@ class OverviewResponse(BaseModel):
     recent_tasks: List[BackgroundTask] = Field(default_factory=list)
 
 
+class ServiceConnectionInfo(BaseModel):
+    """Connection info for a single service on the profile page."""
+
+    name: str = ""
+    label: str = ""
+    connected: bool = False
+    error: Optional[str] = None
+    summary: Optional[str] = None
+    last_synced: Optional[str] = None
+    item_count: int = 0
+
+
 class ProfileResponse(BaseModel):
     """Researcher profile data."""
 
     email: str = ""
     research_interests: List[str] = Field(default_factory=list)
     expertise_level: str = "intermediate"
+    services: List[ServiceConnectionInfo] = Field(default_factory=list)
     zotero_connected: bool = False
     scholar_connected: bool = False
     scholar_h_index: Optional[int] = None

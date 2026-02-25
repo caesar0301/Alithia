@@ -2,6 +2,7 @@
 Dashboard FastAPI application factory.
 """
 
+import os
 from pathlib import Path
 from typing import Any, Dict
 
@@ -19,8 +20,25 @@ from .websocket_hub import WebSocketHub
 FRONTEND_DIR = Path(__file__).parent.parent.parent / "dashboard-frontend" / "dist"
 
 
-def create_app(config: Dict[str, Any], storage: StorageBackend) -> FastAPI:
-    """Create and configure the FastAPI application."""
+def create_app(config: Dict[str, Any] | None = None, storage: StorageBackend | None = None) -> FastAPI:
+    """Create and configure the FastAPI application.
+
+    For reload mode with uvicorn factory, config and storage will be None.
+    In that case, load from environment or defaults.
+    """
+    # Load config and storage if not provided (for reload mode)
+    if config is None:
+        from alithia.config_loader import load_config
+
+        config_path = os.environ.get("ALITHIA_CONFIG_PATH", "alithia_config.json")
+        config = load_config(config_path)
+
+    if storage is None:
+        from alithia.storage.factory import get_storage_backend
+
+        storage = get_storage_backend(config)
+        storage.connect()
+
     app = FastAPI(
         title="Alithia Dashboard",
         version="0.1.0",

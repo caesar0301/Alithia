@@ -20,7 +20,7 @@ def get_llm_client(conn: LLMConnection):
         LLM client instance
     """
     try:
-        from cogents_core.llm import get_llm_client
+        from noesium.core.llm import get_llm_client
 
         llm = get_llm_client(
             provider="openai",

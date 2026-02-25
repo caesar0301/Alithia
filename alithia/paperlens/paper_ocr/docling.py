@@ -3,8 +3,8 @@ from datetime import datetime
 from pathlib import Path
 from typing import Optional
 
-from cogents_core.llm import BaseLLMClient
-from cogents_core.utils import get_logger
+from noesium.core.llm import BaseLLMClient
+from noesium.core.utils import get_logger
 
 from alithia.paperlens.models import AcademicPaper, FileMetadata, PaperContent, PaperMetadata
 from alithia.paperlens.paper_ocr.base import PaperOcrBase

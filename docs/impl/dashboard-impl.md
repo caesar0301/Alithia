@@ -696,13 +696,13 @@ Add `dashboard` subcommand to `alithia/run/__main__.py`:
 
 ```bash
 # Start dashboard server
-uv run python -m alithia.run dashboard --config config.json
+python -m alithia.run dashboard --config config.json
 
 # Start with custom port
-uv run python -m alithia.run dashboard --config config.json --port 8080
+python -m alithia.run dashboard --config config.json --port 8080
 
 # Start in development mode (auto-reload)
-uv run python -m alithia.run dashboard --config config.json --dev
+python -m alithia.run dashboard --config config.json --dev
 ```
 
 Implementation:
@@ -780,6 +780,6 @@ The Dashboard adds one new table: `background_tasks`.
 ### 13.3 Deployment
 
 The Dashboard can be deployed as:
-1. **Local development**: `uv run python -m alithia.run dashboard --dev`
+1. **Local development**: `python -m alithia.run dashboard --dev`
 2. **Docker**: Single container with backend + built frontend
 3. **Separate services**: Backend API + CDN-served frontend SPA

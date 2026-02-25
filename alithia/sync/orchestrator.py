@@ -5,7 +5,7 @@ Sync orchestrator: runs all configured connectors concurrently.
 import asyncio
 from typing import List, Optional
 
-from cogents_core.utils import get_logger
+from noesium.core.utils import get_logger
 
 from alithia.researcher.profile import ResearcherProfile
 from alithia.storage.base import StorageBackend

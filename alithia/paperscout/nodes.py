@@ -8,7 +8,7 @@ node functions that capture the injected storage backend.
 from datetime import date, datetime, timedelta
 from typing import Any, Callable, Dict, List, Optional
 
-from cogents_core.utils import get_logger
+from noesium.core.utils import get_logger
 
 from alithia.config_loader import load_config
 from alithia.models.zotero_paper import ZoteroPaper

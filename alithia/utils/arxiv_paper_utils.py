@@ -21,7 +21,7 @@ from urllib.error import HTTPError
 
 import requests
 import tiktoken
-from cogents_core.llm import BaseLLMClient
+from noesium.core.llm import BaseLLMClient
 from requests.adapters import HTTPAdapter, Retry
 
 from alithia.models import ArxivPaper

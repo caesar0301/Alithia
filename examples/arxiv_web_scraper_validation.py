@@ -7,15 +7,11 @@ by testing various scenarios and providing detailed output.
 Usage:
     python examples/arxiv_web_scraper_validation.py
 
-    Or with uv:
-    uv run python examples/arxiv_web_scraper_validation.py
-
 Requirements:
     - beautifulsoup4 (bs4)
     - requests
 
     Install with: pip install beautifulsoup4 requests
-    Or with uv: uv pip install beautifulsoup4 requests
 """
 
 import logging
@@ -39,8 +35,6 @@ except ImportError as e:
     print(f"   {e}")
     print("\nPlease install required packages:")
     print("   pip install beautifulsoup4 requests")
-    print("   or")
-    print("   uv pip install beautifulsoup4 requests")
     print("\nAnd ensure the alithia package is installed:")
     print("   pip install -e .")
     sys.exit(1)

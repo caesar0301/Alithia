@@ -10,7 +10,7 @@ import sys
 from pathlib import Path
 from typing import List, Optional
 
-from cogents_core.utils import get_logger
+from noesium.core.utils import get_logger
 
 from alithia.paperlens.paper_ocr.docling import DoclingOcr
 from alithia.storage.base import StorageBackend

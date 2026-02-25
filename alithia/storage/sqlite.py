@@ -9,7 +9,7 @@ from datetime import date, datetime, timedelta
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
-from cogents_core.utils import get_logger
+from noesium.core.utils import get_logger
 
 from alithia.constants import DEFAULT_QUERY_HISTORY_LIMIT, DEFAULT_SQLITE_PATH
 

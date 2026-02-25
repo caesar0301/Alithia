@@ -79,7 +79,7 @@ alithia/
 - **Email**: SMTP for notifications
 - **Data Sources**: ArXiv, Zotero, Google Scholar
 - **Vector Storage**: Pinecone/Weaviate (planned)
-- **Package Management**: uv for dependency management
+- **Package Management**: pip with pyenv-managed Python
 
 ## Recent Updates
 
@@ -228,16 +228,16 @@ Use `alithia.config_loader.load_config()` to load configuration from:
 
 ```bash
 # Unit tests
-uv run pytest tests/unit/
+pytest tests/unit/
 
 # Integration tests
-uv run pytest tests/integration/
+pytest tests/integration/
 
 # All tests
-uv run pytest
+pytest
 
 # Specific test file
-uv run pytest tests/unit/test_paper_models.py
+pytest tests/unit/test_paper_models.py
 ```
 
 ### Test Structure
@@ -259,21 +259,29 @@ The project uses GitHub Actions for automated deployment:
 ### Local Development
 
 ```bash
+# Install Python via pyenv
+pyenv install 3.11
+pyenv local 3.11
+
+# Create and activate virtual environment
+python -m venv .venv
+source .venv/bin/activate
+
 # Install dependencies
-uv sync
+pip install -e ".[default,dev]"
 
 # Run ArXiv agent (requires configuration)
-uv run python -m alithia.run paperscout_agent
-uv run python -m alithia.run paperscout_agent --config config.json
+python -m alithia.run paperscout_agent
+python -m alithia.run paperscout_agent --config config.json
 
 # Run PaperLens (requires input file and PDF directory)
-uv run python -m alithia.run paperlens_agent -i topic.txt -d ./papers
-uv run python -m alithia.run paperlens_agent -i topic.txt -d ./papers -n 20 --verbose
+python -m alithia.run paperlens_agent -i topic.txt -d ./papers
+python -m alithia.run paperlens_agent -i topic.txt -d ./papers -n 20 --verbose
 
 # Run tests
-uv run pytest
-uv run pytest tests/unit/
-uv run pytest tests/integration/
+pytest
+pytest tests/unit/
+pytest tests/integration/
 ```
 
 **Note**: Pulse agent is not available for local development as it's not yet implemented.
@@ -343,7 +351,7 @@ Enable debug logging by setting `debug: true` in configuration or using `-v` fla
 
 1. Fork the repository
 2. Create a feature branch
-3. Install dependencies with `uv sync`
+3. Install dependencies with `pip install -e ".[default,dev]"`
 4. Make changes with proper testing
 5. Submit a pull request
 

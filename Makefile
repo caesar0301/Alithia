@@ -4,6 +4,7 @@ PYTHON_MODULES = alithia tests examples
 COVERAGE_MODULES = alithia
 TEST_DIR = tests
 LINE_LENGTH = 120
+VENV_DIR = .venv
 
 # Colors for output
 BLUE = \033[34m
@@ -25,19 +26,26 @@ help: ## Show this help message
 # SETUP COMMANDS
 # =============================================================================
 
-.PHONY: install setup check-env
+.PHONY: install setup check-env venv
+
+venv: ## Create virtual environment using pyenv Python
+	@echo "$(BLUE)🐍 Creating virtual environment...$(RESET)"
+	@$(PYTHON) -m venv $(VENV_DIR)
+	@echo "$(GREEN)✅ Virtual environment created at $(VENV_DIR)$(RESET)"
+	@echo "$(YELLOW)💡 Activate with: source $(VENV_DIR)/bin/activate$(RESET)"
 
 install: ## Install development dependencies
 	@echo "$(BLUE)🔧 Installing development dependencies...$(RESET)"
-	@uv sync --extra default --extra dev
+	@pip install -e ".[default,dev]"
 
-setup: install ## Setup development environment
+setup: venv install ## Setup development environment
 	@echo "$(GREEN)✅ Development environment ready$(RESET)"
 
 check-env: ## Check environment setup
 	@echo "$(BLUE)🔍 Checking environment...$(RESET)"
 	@echo "Python version: $$($(PYTHON) --version)"
-	@echo "uv version: $$(uv --version)"
+	@echo "pyenv version: $$(pyenv --version 2>/dev/null || echo 'pyenv not found')"
+	@echo "pip version: $$(pip --version)"
 	@echo "Working directory: $$(pwd)"
 	@echo "Python modules: $(PYTHON_MODULES)"
 
@@ -50,7 +58,7 @@ check-env: ## Check environment setup
 paperscout: ## Run PaperScout agent (use CONFIG=path/to/config.json, FROM_DATE=YYYY-MM-DD, TO_DATE=YYYY-MM-DD)
 	@echo "$(BLUE)📰 Running PaperScout agent...$(RESET)"
 	@set -e; \
-	CMD="uv run python -m alithia.run paperscout_agent"; \
+	CMD="python -m alithia.run paperscout_agent"; \
 	if [ -n "$(CONFIG)" ]; then CMD="$$CMD --config $(CONFIG)"; fi; \
 	if [ -n "$(FROM_DATE)" ]; then CMD="$$CMD --from-date $(FROM_DATE)"; fi; \
 	if [ -n "$(TO_DATE)" ]; then CMD="$$CMD --to-date $(TO_DATE)"; fi; \
@@ -65,7 +73,7 @@ paperlens: ## Run PaperLens agent (requires INPUT=path/to/topic.txt and DIRECTOR
 		exit 1; \
 	fi
 	@set -e; \
-	CMD="uv run python -m alithia.run paperlens_agent -i $(INPUT) -d $(DIRECTORY)"; \
+	CMD="python -m alithia.run paperlens_agent -i $(INPUT) -d $(DIRECTORY)"; \
 	if [ -n "$(TOP_N)" ]; then CMD="$$CMD -n $(TOP_N)"; fi; \
 	if [ -n "$(MODEL)" ]; then CMD="$$CMD --model $(MODEL)"; fi; \
 	if [ -n "$(VERBOSE)" ]; then CMD="$$CMD -v"; fi; \
@@ -81,23 +89,23 @@ paperlens: ## Run PaperLens agent (requires INPUT=path/to/topic.txt and DIRECTOR
 
 test: ## Run all tests.
 	@echo "$(BLUE)🧪 Running all tests...$(RESET)"
-	uv run pytest $(TEST_DIR) -v
+	pytest $(TEST_DIR) -v
 
 test-unit: ## Run unit tests only
 	@echo "$(BLUE)🧪 Running unit tests...$(RESET)"
-	uv run pytest $(TEST_DIR) -v -m "not integration"
+	pytest $(TEST_DIR) -v -m "not integration"
 
 test-integration: ## Run integration tests only
 	@echo "$(BLUE)🧪 Running integration tests...$(RESET)"
-	uv run pytest $(TEST_DIR) -v -m "integration"
+	pytest $(TEST_DIR) -v -m "integration"
 
 test-coverage: ## Run tests with coverage
 	@echo "$(BLUE)🧪 Running tests with coverage...$(RESET)"
-	uv run pytest $(TEST_DIR) --cov=$(COVERAGE_MODULES) --cov-report=html --cov-report=term-missing
+	pytest $(TEST_DIR) --cov=$(COVERAGE_MODULES) --cov-report=html --cov-report=term-missing
 
 test-watch: ## Run tests in watch mode
 	@echo "$(BLUE)👀 Running tests in watch mode...$(RESET)"
-	uv run pytest-watch $(TEST_DIR) -- -v
+	pytest-watch $(TEST_DIR) -- -v
 
 # =============================================================================
 # CODE QUALITY COMMANDS
@@ -107,22 +115,22 @@ test-watch: ## Run tests in watch mode
 
 format: ## Format code (black, isort, autoflake)
 	@echo "$(BLUE)🎨 Formatting code...$(RESET)"
-	@uvx --from autoflake autoflake --in-place --recursive --remove-all-unused-imports --remove-unused-variables $(PYTHON_MODULES)
-	@uvx --from isort isort $(PYTHON_MODULES) --line-length $(LINE_LENGTH)
-	@uvx --from black black $(PYTHON_MODULES) --line-length $(LINE_LENGTH)
+	@python -m autoflake --in-place --recursive --remove-all-unused-imports --remove-unused-variables $(PYTHON_MODULES)
+	@python -m isort $(PYTHON_MODULES) --line-length $(LINE_LENGTH)
+	@python -m black $(PYTHON_MODULES) --line-length $(LINE_LENGTH)
 
 format-check: ## Check if code is properly formatted
 	@echo "$(BLUE)🔍 Checking code formatting...$(RESET)"
-	@uv run black --check $(PYTHON_MODULES) || (echo "$(RED)❌ Code formatting check failed. Run 'make format' to fix.$(RESET)" && exit 1)
-	@uv run isort --check-only $(PYTHON_MODULES) || (echo "$(RED)❌ Import sorting check failed. Run 'make format' to fix.$(RESET)" && exit 1)
+	@python -m black --check $(PYTHON_MODULES) || (echo "$(RED)❌ Code formatting check failed. Run 'make format' to fix.$(RESET)" && exit 1)
+	@python -m isort --check-only $(PYTHON_MODULES) || (echo "$(RED)❌ Import sorting check failed. Run 'make format' to fix.$(RESET)" && exit 1)
 
 lint: ## Lint code
 	@echo "$(BLUE)🔍 Running linters...$(RESET)"
-	@uv run flake8 --max-line-length=$(LINE_LENGTH) --extend-ignore=E203,W503 $(PYTHON_MODULES)
+	@python -m flake8 --max-line-length=$(LINE_LENGTH) --extend-ignore=E203,W503 $(PYTHON_MODULES)
 
 lint-fix: ## Auto-fix linting issues where possible
 	@echo "$(BLUE)🔧 Auto-fixing linting issues...$(RESET)"
-	@uv run python -m autoflake --in-place --recursive --remove-all-unused-imports --remove-unused-variables $(PYTHON_MODULES)
+	@python -m autoflake --in-place --recursive --remove-all-unused-imports --remove-unused-variables $(PYTHON_MODULES)
 
 quality: format-check lint ## Run all quality checks
 	@echo "$(GREEN)🎉 All quality checks passed!$(RESET)"
@@ -137,15 +145,15 @@ autofix: lint-fix format ## Auto-fix all code quality issues
 
 build: ## Build package
 	@echo "$(BLUE)🔨 Building package...$(RESET)"
-	@uv build
+	@python -m build
 
 build-wheel: ## Build wheel
 	@echo "$(BLUE)🔨 Building wheel...$(RESET)"
-	@uv build --wheel
+	@python -m build --wheel
 
 build-sdist: ## Build source distribution
 	@echo "$(BLUE)🔨 Building source distribution...$(RESET)"
-	@uv build --sdist
+	@python -m build --sdist
 
 package: clean build ## Build and package for distribution
 
@@ -184,13 +192,13 @@ run-examples: ## Run all runnable examples
 	@echo "$(BLUE)📚 Running examples...$(RESET)"
 	@echo ""
 	@echo "$(GREEN)▶ Running ArXiv Search Example...$(RESET)"
-	@uv run python examples/arxiv_search_example.py || true
+	@python examples/arxiv_search_example.py || true
 	@echo ""
 	@echo "$(GREEN)▶ Running FlashRank Demo...$(RESET)"
-	@uv run python examples/flashrank_demo.py || true
+	@python examples/flashrank_demo.py || true
 	@echo ""
 	@echo "$(GREEN)▶ Running Yesterday Papers Diagnostic...$(RESET)"
-	@uv run python examples/diagnose_yesterday_papers.py || true
+	@python examples/diagnose_yesterday_papers.py || true
 	@echo ""
 	@echo "$(BLUE)💡 Note: docling_ocr_example.py requires a PDF file argument$(RESET)"
 	@echo "   Run with: make example-docling PDF=path/to/paper.pdf"
@@ -205,12 +213,11 @@ run-examples: ## Run all runnable examples
 
 shell: ## Activate development shell
 	@echo "$(BLUE)🐚 Activating development shell...$(RESET)"
-	@uv shell
+	@echo "$(YELLOW)💡 Run: source $(VENV_DIR)/bin/activate$(RESET)"
 
 requirements: ## Generate requirements files
 	@echo "$(BLUE)📋 Generating requirements files...$(RESET)"
-	@uv export --format requirements-txt --output-file requirements.txt
-	@uv export --format requirements-txt --output-file requirements-prod.txt --no-dev
+	@pip freeze > requirements.txt
 
 version: ## Show current version
 	@echo "$(BLUE)Current version:$(RESET)"
@@ -254,31 +261,32 @@ release: clean build ## Build all release artifacts
 
 publish: check-publish-prereqs ## Publish package to PyPI
 	@echo "$(BLUE)📦 Publishing to PyPI...$(RESET)"
-	@uv publish
+	@twine upload dist/*
 	@echo "$(GREEN)✅ Package published to PyPI$(RESET)"
 
 publish-test: check-publish-prereqs ## Publish package to TestPyPI
 	@echo "$(BLUE)📦 Publishing to TestPyPI...$(RESET)"
-	@uv publish --repository testpypi
+	@twine upload --repository testpypi dist/*
 	@echo "$(GREEN)✅ Package published to TestPyPI$(RESET)"
 
 check-publish-prereqs: ## Check prerequisites for publishing
 	@echo "$(BLUE)🔍 Checking publishing prerequisites...$(RESET)"
-	@uv --version >/dev/null 2>&1 || (echo "$(RED)❌ uv not found. Install with: curl -LsSf https://astral.sh/uv/install.sh | sh$(RESET)" && exit 1)
-	@if [ -z "$${UV_PUBLISH_TOKEN}" ] && [ ! -f ~/.pypirc ]; then \
-		echo "$(YELLOW)⚠️  PyPI credentials not found. Set UV_PUBLISH_TOKEN or configure ~/.pypirc$(RESET)"; \
+	@twine --version >/dev/null 2>&1 || (echo "$(RED)❌ twine not found. Install with: pip install twine$(RESET)" && exit 1)
+	@if [ -z "$${TWINE_USERNAME}" ] && [ ! -f ~/.pypirc ]; then \
+		echo "$(YELLOW)⚠️  PyPI credentials not found. Set TWINE_USERNAME/TWINE_PASSWORD or configure ~/.pypirc$(RESET)"; \
 		echo "$(BLUE)💡 You can set credentials with:$(RESET)"; \
-		echo "   export UV_PUBLISH_TOKEN=pypi-your_token_here"; \
+		echo "   export TWINE_USERNAME=__token__"; \
+		echo "   export TWINE_PASSWORD=pypi-your_token_here"; \
 		echo "   OR configure ~/.pypirc file"; \
 		echo "$(BLUE)💡 Get tokens from: https://pypi.org/manage/account/token/$(RESET)"; \
 	fi
 
 test-auth: ## Test PyPI authentication
 	@echo "$(BLUE)🔐 Testing PyPI authentication...$(RESET)"
-	@if [ -n "$${UV_PUBLISH_TOKEN}" ]; then \
-		echo "$(GREEN)✅ UV_PUBLISH_TOKEN is set$(RESET)"; \
+	@if [ -n "$${TWINE_USERNAME}" ]; then \
+		echo "$(GREEN)✅ TWINE_USERNAME is set$(RESET)"; \
 	else \
-		echo "$(YELLOW)⚠️  UV_PUBLISH_TOKEN not set$(RESET)"; \
+		echo "$(YELLOW)⚠️  TWINE_USERNAME not set$(RESET)"; \
 	fi
 	@if [ -f ~/.pypirc ]; then \
 		echo "$(GREEN)✅ ~/.pypirc file exists$(RESET)"; \

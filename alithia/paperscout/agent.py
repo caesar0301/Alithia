@@ -13,6 +13,50 @@ from .state import AgentState, PaperScoutConfig
 
 logger = logging.getLogger(__name__)
 
+NODE_PROGRESS: Dict[str, float] = {
+    "profile_analysis": 0.10,
+    "data_collection": 0.30,
+    "relevance_assessment": 0.55,
+    "content_generation": 0.80,
+    "communication": 0.95,
+}
+
+
+def _describe_result(name: str, result: dict) -> str:
+    """Generate a human-readable milestone from a node's return value."""
+    step = result.get("current_step", "")
+
+    if name == "profile_analysis":
+        if "error" in step:
+            return "Profile validation failed"
+        return "Profile validated"
+
+    if name == "data_collection":
+        papers = result.get("discovered_papers", [])
+        if papers:
+            return f"Collected {len(papers)} papers from ArXiv"
+        return "No new papers to process"
+
+    if name == "relevance_assessment":
+        scored = result.get("scored_papers", [])
+        if scored:
+            return f"Ranked {len(scored)} papers by relevance"
+        return "No papers to rank"
+
+    if name == "content_generation":
+        if result.get("email_content"):
+            return "Generated summaries & recommendations"
+        if "error" in step:
+            return "Content generation failed"
+        return "No content to generate"
+
+    if name == "communication":
+        if "error" in step:
+            return "Email delivery failed"
+        return "Workflow complete"
+
+    return step or name
+
 
 class PaperScoutAgent:
     """
@@ -20,17 +64,41 @@ class PaperScoutAgent:
     Delivers daily paper recommendations from ArXiv to your inbox.
     """
 
-    def __init__(self, storage: Optional[StorageBackend] = None, user_id: str = "default"):
+    def __init__(
+        self,
+        storage: Optional[StorageBackend] = None,
+        user_id: str = "default",
+        on_step: Optional[Callable[[float, str], None]] = None,
+    ):
         """
         Initialize the research agent.
 
         Args:
             storage: Injected storage backend (optional for backward compat)
             user_id: User identifier
+            on_step: Optional callback(progress, label) called after each major node
         """
         self._storage = storage
         self._user_id = user_id
+        self._on_step = on_step
         self.workflow = self._create_workflow()
+
+    def _wrap_node(self, fn: Callable, name: str) -> Callable:
+        """Wrap a node to report a descriptive milestone after execution."""
+        progress = NODE_PROGRESS[name]
+        callback = self._on_step
+
+        def wrapped(state):
+            result = fn(state)
+            if callback:
+                try:
+                    message = _describe_result(name, result)
+                    callback(progress, message)
+                except Exception:
+                    pass
+            return result
+
+        return wrapped
 
     def _create_workflow(self):
         """Create the LangGraph workflow."""
@@ -40,11 +108,11 @@ class PaperScoutAgent:
 
         workflow = StateGraph(AgentState)
 
-        workflow.add_node("profile_analysis", nodes["profile_analysis"])
-        workflow.add_node("data_collection", nodes["data_collection"])
-        workflow.add_node("relevance_assessment", nodes["relevance_assessment"])
-        workflow.add_node("content_generation", nodes["content_generation"])
-        workflow.add_node("communication", nodes["communication"])
+        for name, fn in nodes.items():
+            if self._on_step and name in NODE_PROGRESS:
+                workflow.add_node(name, self._wrap_node(fn, name))
+            else:
+                workflow.add_node(name, fn)
 
         workflow.add_edge("profile_analysis", "data_collection")
         workflow.add_edge("data_collection", "relevance_assessment")

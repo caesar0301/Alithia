@@ -7,7 +7,7 @@ This module provides connection management and helper functions for Supabase ope
 import time
 from typing import Any, Dict, List, Optional
 
-from cogents_core.utils import get_logger
+from noesium.core.utils import get_logger
 from supabase import Client, create_client
 
 logger = get_logger(__name__)

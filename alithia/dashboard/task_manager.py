@@ -7,7 +7,7 @@ import uuid
 from datetime import datetime
 from typing import Any, Callable, Coroutine, Dict, List, Optional
 
-from cogents_core.utils import get_logger
+from noesium.core.utils import get_logger
 
 from alithia.storage.base import StorageBackend
 
@@ -34,9 +34,10 @@ class TaskManager:
         task_type: str,
         coro: Coroutine,
         parameters: Optional[Dict[str, Any]] = None,
+        task_id: Optional[str] = None,
     ) -> BackgroundTask:
         """Submit an async coroutine as a background task."""
-        task_id = str(uuid.uuid4())
+        task_id = task_id or str(uuid.uuid4())
         now = datetime.utcnow().isoformat()
 
         task = BackgroundTask(
@@ -96,6 +97,14 @@ class TaskManager:
     def update_progress(self, task_id: str, progress: float, current_step: str = "") -> None:
         """Update task progress (called by agents via ProgressReporter)."""
         self._update_task(task_id, progress=progress, current_step=current_step)
+
+    def add_milestone(self, task_id: str, message: str) -> None:
+        """Append a major milestone to task logs and broadcast."""
+        existing = self._storage.get_task(task_id)
+        if existing:
+            logs = existing.get("logs", [])
+            logs.append(message)
+            self._update_task(task_id, logs=logs)
 
     def get_task(self, task_id: str) -> Optional[BackgroundTask]:
         data = self._storage.get_task(task_id)

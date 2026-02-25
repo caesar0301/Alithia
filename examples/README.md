@@ -15,21 +15,10 @@ pip install beautifulsoup4 requests
 pip install -e .
 ```
 
-Or with uv:
-```bash
-uv pip install beautifulsoup4 requests
-uv pip install -e .
-```
-
 ### Running the Validation
 
 ```bash
 python examples/arxiv_web_scraper_validation.py
-```
-
-Or with uv:
-```bash
-uv run python examples/arxiv_web_scraper_validation.py
 ```
 
 ### What It Tests
@@ -65,7 +54,7 @@ This diagnostic tool helps investigate why yesterday's ArXiv query might return 
 ### Running the Diagnostic
 
 ```bash
-uv run python examples/diagnose_yesterday_papers.py
+python examples/diagnose_yesterday_papers.py
 ```
 
 This tool runs multiple tests to diagnose the issue:
@@ -90,11 +79,6 @@ This example demonstrates how FlashRank is used to rerank papers based on semant
 
 ```bash
 python -m examples.flashrank_demo
-```
-
-Or with uv:
-```bash
-uv run python -m examples.flashrank_demo
 ```
 
 This comprehensive example demonstrates:
@@ -147,11 +131,6 @@ These examples are part of the Alithia package and use the same dependencies.
 If you haven't installed Alithia yet:
 ```bash
 pip install -e .
-```
-
-Or with uv:
-```bash
-uv pip install -e .
 ```
 
 The examples will then work with the installed dependencies (`flashrank`, `numpy`, etc.)

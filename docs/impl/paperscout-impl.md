@@ -652,13 +652,13 @@ The existing CLI remains backward-compatible:
 
 ```bash
 # Existing usage (unchanged)
-uv run python -m alithia.run paperscout_agent --config config.json
+python -m alithia.run paperscout_agent --config config.json
 
 # New: explicit date range
-uv run python -m alithia.run paperscout_agent --config config.json --from-date 2026-02-20 --to-date 2026-02-24
+python -m alithia.run paperscout_agent --config config.json --from-date 2026-02-20 --to-date 2026-02-24
 
 # New: run gap scanner
-uv run python -m alithia.run paperscout_agent --config config.json --fill-gaps
+python -m alithia.run paperscout_agent --config config.json --fill-gaps
 ```
 
 ### 11.3 Breaking Changes

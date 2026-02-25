@@ -8,7 +8,7 @@ and persist to storage.
 from datetime import datetime
 from typing import Optional
 
-from cogents_core.utils import get_logger
+from noesium.core.utils import get_logger
 
 from alithia.models.zotero_paper import ZoteroPaper
 from alithia.researcher.connection import ZoteroConnection

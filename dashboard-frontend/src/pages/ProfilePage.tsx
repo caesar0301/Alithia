@@ -1,6 +1,56 @@
 import { useEffect, useState } from 'react';
-import { User, BookOpen, GraduationCap, Hash, Quote } from 'lucide-react';
-import { api, type Profile } from '../api';
+import {
+  User, BookOpen, GraduationCap, Hash, Quote,
+  CheckCircle, AlertCircle, Github, Twitter, Mail, Bot,
+} from 'lucide-react';
+import { api, type Profile, type ServiceConnectionInfo } from '../api';
+
+const SERVICE_STYLE: Record<string, { icon: typeof BookOpen; color: string; bg: string }> = {
+  zotero:         { icon: BookOpen,       color: 'text-sky-600',    bg: 'bg-sky-50' },
+  google_scholar: { icon: GraduationCap,  color: 'text-purple-600', bg: 'bg-purple-50' },
+  github:         { icon: Github,         color: 'text-gray-800',   bg: 'bg-gray-100' },
+  x:              { icon: Twitter,        color: 'text-blue-500',   bg: 'bg-blue-50' },
+  email:          { icon: Mail,           color: 'text-rose-500',   bg: 'bg-rose-50' },
+  llm:            { icon: Bot,            color: 'text-emerald-600', bg: 'bg-emerald-50' },
+};
+
+const FALLBACK_STYLE = { icon: CheckCircle, color: 'text-gray-500', bg: 'bg-gray-50' };
+
+function ServiceCard({ svc }: { svc: ServiceConnectionInfo }) {
+  const style = SERVICE_STYLE[svc.name] || FALLBACK_STYLE;
+  const Icon = style.icon;
+  const connected = svc.connected;
+
+  return (
+    <div
+      className={`rounded-xl border p-4 transition-shadow hover:shadow-sm ${
+        connected ? `${style.bg} border-transparent` : 'bg-gray-50 border-dashed border-gray-300'
+      }`}
+    >
+      <div className="flex items-start gap-3">
+        <div className={`p-2 rounded-lg shrink-0 ${connected ? 'bg-white/70' : 'bg-gray-100'}`}>
+          <Icon size={18} className={connected ? style.color : 'text-gray-400'} />
+        </div>
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-1.5">
+            <p className="text-sm font-semibold text-gray-900 truncate">{svc.label}</p>
+            {connected ? (
+              <CheckCircle size={13} className="text-emerald-500 shrink-0" />
+            ) : (
+              <AlertCircle size={13} className="text-amber-400 shrink-0" />
+            )}
+          </div>
+          {connected && svc.summary && (
+            <p className="text-xs text-gray-600 mt-0.5 truncate">{svc.summary}</p>
+          )}
+          {!connected && svc.error && (
+            <p className="text-xs text-amber-600 mt-0.5 leading-relaxed">{svc.error}</p>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
 
 export default function ProfilePage() {
   const [profile, setProfile] = useState<Profile | null>(null);
@@ -40,20 +90,12 @@ export default function ProfilePage() {
           </div>
         </div>
 
-        <div className="grid grid-cols-2 gap-4">
-          <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg">
-            <BookOpen size={18} className="text-sky-500" />
-            <div>
-              <p className="text-sm font-medium">{profile.zotero_connected ? 'Connected' : 'Not connected'}</p>
-              <p className="text-xs text-gray-400">Zotero</p>
-            </div>
-          </div>
-          <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg">
-            <GraduationCap size={18} className="text-purple-500" />
-            <div>
-              <p className="text-sm font-medium">{profile.scholar_connected ? 'Connected' : 'Not connected'}</p>
-              <p className="text-xs text-gray-400">Google Scholar</p>
-            </div>
+        <div>
+          <h4 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">Connected Services</h4>
+          <div className="grid grid-cols-2 gap-3">
+            {profile.services.map((svc) => (
+              <ServiceCard key={svc.name} svc={svc} />
+            ))}
           </div>
         </div>
 

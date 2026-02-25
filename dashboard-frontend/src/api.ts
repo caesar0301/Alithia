@@ -22,6 +22,7 @@ export interface BackgroundTask {
   status: string;
   progress: number;
   current_step: string;
+  logs: string[];
   created_at: string | null;
   completed_at: string | null;
   error_message: string | null;
@@ -37,10 +38,21 @@ export interface Overview {
   recent_tasks: BackgroundTask[];
 }
 
+export interface ServiceConnectionInfo {
+  name: string;
+  label: string;
+  connected: boolean;
+  error: string | null;
+  summary: string | null;
+  last_synced: string | null;
+  item_count: number;
+}
+
 export interface Profile {
   email: string;
   research_interests: string[];
   expertise_level: string;
+  services: ServiceConnectionInfo[];
   zotero_connected: boolean;
   scholar_connected: boolean;
   scholar_h_index: number | null;

@@ -91,7 +91,7 @@ fi
 
 # Run PaperScout agent
 echo "🚀 Running PaperScout agent..."
-uv run python -m alithia.run paperscout_agent $CONFIG_ARG "${ARGS[@]}"
+python -m alithia.run paperscout_agent $CONFIG_ARG "${ARGS[@]}"
 
 echo "✅ PaperScout agent completed successfully"
 
