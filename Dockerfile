@@ -12,6 +12,9 @@ FROM registry.cn-hangzhou.aliyuncs.com/lacogito/python:3.11-bookworm AS backend
 
 WORKDIR /app
 
+# Use aliyun apt mirror for faster downloads in China
+RUN sed -i 's/deb.debian.org/mirrors.aliyun.com/g' /etc/apt/sources.list.d/debian.sources
+
 # System deps for psycopg and general use
 RUN apt-get update && apt-get install -y --no-install-recommends \
     gcc libpq-dev curl && \
