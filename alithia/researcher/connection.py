@@ -1,3 +1,5 @@
+from typing import Optional
+
 from pydantic import BaseModel
 
 
@@ -27,8 +29,8 @@ class GithubConnection(BaseModel):
 class GoogleScholarConnection(BaseModel):
     """Google Scholar connection."""
 
-    google_scholar_id: str
-    google_scholar_token: str
+    scholar_id: str
+    serpapi_key: Optional[str] = None
 
 
 class XConnection(BaseModel):

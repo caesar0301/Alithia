@@ -18,6 +18,8 @@ from alithia.researcher import ResearcherProfile
 
 from .models import ArxivPaper, EmailContent, ScoredPaper
 
+from alithia.models.zotero_paper import ZoteroPaper
+
 
 class PaperScoutConfig(BaseModel):
     """PaperScout agent configuration."""
@@ -36,6 +38,9 @@ class PaperScoutConfig(BaseModel):
     from_date: Optional[str] = None
     to_date: Optional[str] = None
 
+    # Gap Scanner
+    gap_scan_window_days: int = 7
+
     debug: bool = False
 
 
@@ -52,7 +57,7 @@ class AgentState(BaseModel):
 
     # Discovery State
     discovered_papers: List[ArxivPaper] = Field(default_factory=list)
-    zotero_corpus: List[Dict[str, Any]] = Field(default_factory=list)
+    zotero_corpus: List[ZoteroPaper] = Field(default_factory=list)
 
     # Assessment State
     scored_papers: List[ScoredPaper] = Field(default_factory=list)

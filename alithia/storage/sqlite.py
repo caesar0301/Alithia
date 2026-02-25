@@ -5,7 +5,7 @@ SQLite storage backend implementation (fallback).
 import json
 import sqlite3
 import uuid
-from datetime import datetime, timedelta
+from datetime import date, datetime, timedelta
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
@@ -35,8 +35,8 @@ class SQLiteStorage(StorageBackend):
     def connect(self) -> None:
         """Establish connection to SQLite."""
         try:
-            self.conn = sqlite3.connect(str(self.db_path))
-            self.conn.row_factory = sqlite3.Row  # Enable column access by name
+            self.conn = sqlite3.connect(str(self.db_path), check_same_thread=False)
+            self.conn.row_factory = sqlite3.Row
             self._create_tables()
             logger.info(f"Connected to SQLite database at {self.db_path}")
         except Exception as e:
@@ -159,6 +159,126 @@ class SQLiteStorage(StorageBackend):
         """
         )
 
+        # Assessed papers (PaperScout v2)
+        cursor.execute(
+            """
+            CREATE TABLE IF NOT EXISTS assessed_papers (
+                id TEXT PRIMARY KEY,
+                user_id TEXT NOT NULL,
+                arxiv_id TEXT NOT NULL,
+                query_categories TEXT NOT NULL,
+                assessment_date TEXT NOT NULL,
+                paper_title TEXT,
+                paper_authors TEXT,
+                paper_summary TEXT,
+                pdf_url TEXT,
+                relevance_score REAL,
+                relevance_factors TEXT,
+                code_url TEXT,
+                tldr TEXT,
+                affiliations TEXT,
+                emailed INTEGER DEFAULT 0,
+                assessed_at TEXT,
+                UNIQUE(user_id, arxiv_id, query_categories)
+            )
+        """
+        )
+
+        # Notification records (exactly-once email)
+        cursor.execute(
+            """
+            CREATE TABLE IF NOT EXISTS notification_records (
+                id TEXT PRIMARY KEY,
+                user_id TEXT NOT NULL,
+                query_categories TEXT NOT NULL,
+                notification_date TEXT NOT NULL,
+                paper_count INTEGER DEFAULT 0,
+                status TEXT NOT NULL DEFAULT 'pending',
+                retry_count INTEGER DEFAULT 0,
+                sent_at TEXT,
+                error_message TEXT,
+                created_at TEXT,
+                UNIQUE(user_id, query_categories, notification_date)
+            )
+        """
+        )
+
+        # Scholar profiles
+        cursor.execute(
+            """
+            CREATE TABLE IF NOT EXISTS scholar_profiles (
+                id TEXT PRIMARY KEY,
+                user_id TEXT NOT NULL UNIQUE,
+                scholar_user_id TEXT NOT NULL,
+                name TEXT,
+                affiliation TEXT,
+                interests TEXT,
+                h_index INTEGER,
+                i10_index INTEGER,
+                total_citations INTEGER DEFAULT 0,
+                last_synced TEXT
+            )
+        """
+        )
+
+        # Scholar publications
+        cursor.execute(
+            """
+            CREATE TABLE IF NOT EXISTS scholar_publications (
+                id TEXT PRIMARY KEY,
+                user_id TEXT NOT NULL,
+                scholar_article_id TEXT,
+                title TEXT NOT NULL,
+                authors TEXT,
+                year INTEGER,
+                citation_count INTEGER DEFAULT 0,
+                venue TEXT,
+                url TEXT,
+                last_synced TEXT,
+                UNIQUE(user_id, title, year)
+            )
+        """
+        )
+
+        # Sync log
+        cursor.execute(
+            """
+            CREATE TABLE IF NOT EXISTS sync_log (
+                id TEXT PRIMARY KEY,
+                user_id TEXT NOT NULL,
+                connector_name TEXT NOT NULL,
+                status TEXT NOT NULL,
+                items_synced INTEGER DEFAULT 0,
+                items_total INTEGER DEFAULT 0,
+                sync_version TEXT,
+                error_message TEXT,
+                started_at TEXT NOT NULL,
+                completed_at TEXT
+            )
+        """
+        )
+
+        # Background tasks (Dashboard)
+        cursor.execute(
+            """
+            CREATE TABLE IF NOT EXISTS background_tasks (
+                id TEXT PRIMARY KEY,
+                user_id TEXT NOT NULL,
+                task_type TEXT NOT NULL,
+                status TEXT NOT NULL DEFAULT 'queued',
+                progress REAL DEFAULT 0.0,
+                current_step TEXT DEFAULT '',
+                parameters TEXT,
+                result TEXT,
+                logs TEXT,
+                created_at TEXT,
+                started_at TEXT,
+                completed_at TEXT,
+                error_message TEXT
+            )
+        """
+        )
+
         # Create indexes for common queries
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_zotero_user ON zotero_papers(user_id, last_synced)")
         cursor.execute(
@@ -167,6 +287,26 @@ class SQLiteStorage(StorageBackend):
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_arxiv_emailed_user ON arxiv_papers_emailed(user_id, arxiv_id)")
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_parsed_papers_hash ON parsed_papers(file_hash)")
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_query_history_paper ON query_history(paper_id, queried_at)")
+        cursor.execute(
+            "CREATE INDEX IF NOT EXISTS idx_assessed_papers_lookup "
+            "ON assessed_papers(user_id, query_categories, assessment_date)"
+        )
+        cursor.execute(
+            "CREATE INDEX IF NOT EXISTS idx_notification_records_lookup "
+            "ON notification_records(user_id, query_categories, notification_date)"
+        )
+        cursor.execute(
+            "CREATE INDEX IF NOT EXISTS idx_sync_log_lookup "
+            "ON sync_log(user_id, connector_name, started_at)"
+        )
+        cursor.execute(
+            "CREATE INDEX IF NOT EXISTS idx_background_tasks_user "
+            "ON background_tasks(user_id, status, created_at)"
+        )
+        cursor.execute(
+            "CREATE INDEX IF NOT EXISTS idx_scholar_pub_user "
+            "ON scholar_publications(user_id, citation_count)"
+        )
 
         self.conn.commit()
 
@@ -594,4 +734,414 @@ class SQLiteStorage(StorageBackend):
 
         except Exception as e:
             logger.error(f"Failed to get query history: {e}")
+            return []
+
+    # ===========================
+    # Assessed papers
+    # ===========================
+
+    def save_assessed_papers(
+        self, user_id: str, query_categories: str, papers: List[Dict[str, Any]], assessment_date: date
+    ) -> None:
+        try:
+            cursor = self.conn.cursor()
+            now = datetime.utcnow().isoformat()
+            for paper in papers:
+                cursor.execute(
+                    """
+                    INSERT OR REPLACE INTO assessed_papers
+                    (id, user_id, arxiv_id, query_categories, assessment_date,
+                     paper_title, paper_authors, paper_summary, pdf_url,
+                     relevance_score, relevance_factors, code_url, tldr,
+                     affiliations, emailed, assessed_at)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                    (
+                        str(uuid.uuid4()),
+                        user_id,
+                        paper.get("arxiv_id", ""),
+                        query_categories,
+                        assessment_date.isoformat(),
+                        paper.get("title", ""),
+                        json.dumps(paper.get("authors", [])),
+                        paper.get("summary", ""),
+                        paper.get("pdf_url", ""),
+                        paper.get("relevance_score", 0.0),
+                        json.dumps(paper.get("relevance_factors", {})),
+                        paper.get("code_url"),
+                        paper.get("tldr"),
+                        json.dumps(paper.get("affiliations", [])),
+                        1 if paper.get("emailed") else 0,
+                        now,
+                    ),
+                )
+            self.conn.commit()
+            logger.info(f"Saved {len(papers)} assessed papers for user {user_id}")
+        except Exception as e:
+            logger.error(f"Failed to save assessed papers: {e}")
+            self.conn.rollback()
+            raise
+
+    def get_assessed_papers(
+        self, user_id: str, query_categories: str, from_date: date, to_date: date
+    ) -> List[Dict[str, Any]]:
+        try:
+            cursor = self.conn.cursor()
+            cursor.execute(
+                """
+                SELECT * FROM assessed_papers
+                WHERE user_id = ? AND query_categories = ?
+                  AND assessment_date >= ? AND assessment_date <= ?
+                ORDER BY assessment_date DESC, relevance_score DESC
+            """,
+                (user_id, query_categories, from_date.isoformat(), to_date.isoformat()),
+            )
+            rows = cursor.fetchall()
+            result = []
+            for row in rows:
+                d = dict(row)
+                d["paper_authors"] = json.loads(d["paper_authors"]) if d.get("paper_authors") else []
+                d["relevance_factors"] = json.loads(d["relevance_factors"]) if d.get("relevance_factors") else {}
+                d["affiliations"] = json.loads(d["affiliations"]) if d.get("affiliations") else []
+                d["emailed"] = bool(d.get("emailed"))
+                result.append(d)
+            return result
+        except Exception as e:
+            logger.error(f"Failed to get assessed papers: {e}")
+            return []
+
+    # ===========================
+    # Notification records
+    # ===========================
+
+    def save_notification_record(self, record: Dict[str, Any]) -> None:
+        try:
+            cursor = self.conn.cursor()
+            now = datetime.utcnow().isoformat()
+            cursor.execute(
+                """
+                INSERT OR REPLACE INTO notification_records
+                (id, user_id, query_categories, notification_date, paper_count,
+                 status, retry_count, sent_at, error_message, created_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+                (
+                    record.get("id", str(uuid.uuid4())),
+                    record["user_id"],
+                    record["query_categories"],
+                    record["notification_date"],
+                    record.get("paper_count", 0),
+                    record.get("status", "pending"),
+                    record.get("retry_count", 0),
+                    record.get("sent_at"),
+                    record.get("error_message"),
+                    record.get("created_at", now),
+                ),
+            )
+            self.conn.commit()
+        except Exception as e:
+            logger.error(f"Failed to save notification record: {e}")
+            self.conn.rollback()
+            raise
+
+    def get_notification_record(
+        self, user_id: str, query_categories: str, notification_date: date
+    ) -> Optional[Dict[str, Any]]:
+        try:
+            cursor = self.conn.cursor()
+            cursor.execute(
+                """
+                SELECT * FROM notification_records
+                WHERE user_id = ? AND query_categories = ? AND notification_date = ?
+                LIMIT 1
+            """,
+                (user_id, query_categories, notification_date.isoformat()),
+            )
+            row = cursor.fetchone()
+            return dict(row) if row else None
+        except Exception as e:
+            logger.error(f"Failed to get notification record: {e}")
+            return None
+
+    def get_missing_notification_dates(
+        self, user_id: str, query_categories: str, window_days: int = 7
+    ) -> List[date]:
+        try:
+            today = date.today()
+            expected = [today - timedelta(days=i) for i in range(1, window_days + 1)]
+            cursor = self.conn.cursor()
+            placeholders = ",".join("?" * len(expected))
+            cursor.execute(
+                f"""
+                SELECT notification_date FROM notification_records
+                WHERE user_id = ? AND query_categories = ?
+                  AND notification_date IN ({placeholders})
+                  AND status = 'sent'
+            """,
+                [user_id, query_categories] + [d.isoformat() for d in expected],
+            )
+            sent_dates = {row["notification_date"] for row in cursor.fetchall()}
+            return sorted([d for d in expected if d.isoformat() not in sent_dates])
+        except Exception as e:
+            logger.error(f"Failed to get missing notification dates: {e}")
+            return []
+
+    def get_notification_records_range(
+        self, user_id: str, query_categories: str, from_date: date, to_date: date
+    ) -> List[Dict[str, Any]]:
+        try:
+            cursor = self.conn.cursor()
+            cursor.execute(
+                """
+                SELECT * FROM notification_records
+                WHERE user_id = ? AND query_categories = ?
+                  AND notification_date >= ? AND notification_date <= ?
+                ORDER BY notification_date
+            """,
+                (user_id, query_categories, from_date.isoformat(), to_date.isoformat()),
+            )
+            return [dict(row) for row in cursor.fetchall()]
+        except Exception as e:
+            logger.error(f"Failed to get notification records range: {e}")
+            return []
+
+    # ===========================
+    # Google Scholar data
+    # ===========================
+
+    def save_scholar_profile(self, user_id: str, profile: Dict[str, Any]) -> None:
+        try:
+            cursor = self.conn.cursor()
+            now = datetime.utcnow().isoformat()
+            cursor.execute(
+                """
+                INSERT OR REPLACE INTO scholar_profiles
+                (id, user_id, scholar_user_id, name, affiliation, interests,
+                 h_index, i10_index, total_citations, last_synced)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+                (
+                    str(uuid.uuid4()),
+                    user_id,
+                    profile.get("scholar_user_id", ""),
+                    profile.get("name", ""),
+                    profile.get("affiliation"),
+                    json.dumps(profile.get("interests", [])),
+                    profile.get("h_index"),
+                    profile.get("i10_index"),
+                    profile.get("total_citations", 0),
+                    profile.get("last_synced", now),
+                ),
+            )
+            self.conn.commit()
+        except Exception as e:
+            logger.error(f"Failed to save scholar profile: {e}")
+            self.conn.rollback()
+            raise
+
+    def get_scholar_profile(self, user_id: str) -> Optional[Dict[str, Any]]:
+        try:
+            cursor = self.conn.cursor()
+            cursor.execute("SELECT * FROM scholar_profiles WHERE user_id = ? LIMIT 1", (user_id,))
+            row = cursor.fetchone()
+            if not row:
+                return None
+            d = dict(row)
+            d["interests"] = json.loads(d["interests"]) if d.get("interests") else []
+            return d
+        except Exception as e:
+            logger.error(f"Failed to get scholar profile: {e}")
+            return None
+
+    def save_scholar_publications(self, user_id: str, publications: List[Dict[str, Any]]) -> None:
+        try:
+            cursor = self.conn.cursor()
+            now = datetime.utcnow().isoformat()
+            for pub in publications:
+                cursor.execute(
+                    """
+                    INSERT OR REPLACE INTO scholar_publications
+                    (id, user_id, scholar_article_id, title, authors, year,
+                     citation_count, venue, url, last_synced)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                    (
+                        str(uuid.uuid4()),
+                        user_id,
+                        pub.get("scholar_article_id"),
+                        pub.get("title", ""),
+                        json.dumps(pub.get("authors", [])),
+                        pub.get("year"),
+                        pub.get("citation_count", 0),
+                        pub.get("venue"),
+                        pub.get("url"),
+                        now,
+                    ),
+                )
+            self.conn.commit()
+            logger.info(f"Saved {len(publications)} scholar publications for user {user_id}")
+        except Exception as e:
+            logger.error(f"Failed to save scholar publications: {e}")
+            self.conn.rollback()
+            raise
+
+    def get_scholar_publications(self, user_id: str, limit: int = 100) -> List[Dict[str, Any]]:
+        try:
+            cursor = self.conn.cursor()
+            cursor.execute(
+                """
+                SELECT * FROM scholar_publications
+                WHERE user_id = ?
+                ORDER BY citation_count DESC
+                LIMIT ?
+            """,
+                (user_id, limit),
+            )
+            rows = cursor.fetchall()
+            result = []
+            for row in rows:
+                d = dict(row)
+                d["authors"] = json.loads(d["authors"]) if d.get("authors") else []
+                result.append(d)
+            return result
+        except Exception as e:
+            logger.error(f"Failed to get scholar publications: {e}")
+            return []
+
+    # ===========================
+    # Sync log
+    # ===========================
+
+    def save_sync_log(self, entry: Dict[str, Any]) -> None:
+        try:
+            cursor = self.conn.cursor()
+            cursor.execute(
+                """
+                INSERT INTO sync_log
+                (id, user_id, connector_name, status, items_synced, items_total,
+                 sync_version, error_message, started_at, completed_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+                (
+                    entry.get("id", str(uuid.uuid4())),
+                    entry["user_id"],
+                    entry["connector_name"],
+                    entry["status"],
+                    entry.get("items_synced", 0),
+                    entry.get("items_total", 0),
+                    entry.get("sync_version"),
+                    entry.get("error_message"),
+                    entry["started_at"],
+                    entry.get("completed_at"),
+                ),
+            )
+            self.conn.commit()
+        except Exception as e:
+            logger.error(f"Failed to save sync log: {e}")
+            self.conn.rollback()
+            raise
+
+    def get_last_sync(self, user_id: str, connector_name: str) -> Optional[Dict[str, Any]]:
+        try:
+            cursor = self.conn.cursor()
+            cursor.execute(
+                """
+                SELECT * FROM sync_log
+                WHERE user_id = ? AND connector_name = ? AND status = 'success'
+                ORDER BY started_at DESC
+                LIMIT 1
+            """,
+                (user_id, connector_name),
+            )
+            row = cursor.fetchone()
+            return dict(row) if row else None
+        except Exception as e:
+            logger.error(f"Failed to get last sync: {e}")
+            return None
+
+    # ===========================
+    # Background tasks (Dashboard)
+    # ===========================
+
+    def save_task(self, task: Dict[str, Any]) -> None:
+        try:
+            cursor = self.conn.cursor()
+            cursor.execute(
+                """
+                INSERT OR REPLACE INTO background_tasks
+                (id, user_id, task_type, status, progress, current_step,
+                 parameters, result, logs, created_at, started_at,
+                 completed_at, error_message)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+                (
+                    task["id"],
+                    task["user_id"],
+                    task["task_type"],
+                    task.get("status", "queued"),
+                    task.get("progress", 0.0),
+                    task.get("current_step", ""),
+                    json.dumps(task.get("parameters", {})),
+                    json.dumps(task.get("result")) if task.get("result") else None,
+                    json.dumps(task.get("logs", [])),
+                    task.get("created_at", datetime.utcnow().isoformat()),
+                    task.get("started_at"),
+                    task.get("completed_at"),
+                    task.get("error_message"),
+                ),
+            )
+            self.conn.commit()
+        except Exception as e:
+            logger.error(f"Failed to save task: {e}")
+            self.conn.rollback()
+            raise
+
+    def get_task(self, task_id: str) -> Optional[Dict[str, Any]]:
+        try:
+            cursor = self.conn.cursor()
+            cursor.execute("SELECT * FROM background_tasks WHERE id = ?", (task_id,))
+            row = cursor.fetchone()
+            if not row:
+                return None
+            d = dict(row)
+            d["parameters"] = json.loads(d["parameters"]) if d.get("parameters") else {}
+            d["result"] = json.loads(d["result"]) if d.get("result") else None
+            d["logs"] = json.loads(d["logs"]) if d.get("logs") else []
+            return d
+        except Exception as e:
+            logger.error(f"Failed to get task: {e}")
+            return None
+
+    def get_tasks(self, user_id: str, status: Optional[str] = None, limit: int = 50) -> List[Dict[str, Any]]:
+        try:
+            cursor = self.conn.cursor()
+            if status:
+                cursor.execute(
+                    """
+                    SELECT * FROM background_tasks
+                    WHERE user_id = ? AND status = ?
+                    ORDER BY created_at DESC LIMIT ?
+                """,
+                    (user_id, status, limit),
+                )
+            else:
+                cursor.execute(
+                    """
+                    SELECT * FROM background_tasks
+                    WHERE user_id = ?
+                    ORDER BY created_at DESC LIMIT ?
+                """,
+                    (user_id, limit),
+                )
+            rows = cursor.fetchall()
+            result = []
+            for row in rows:
+                d = dict(row)
+                d["parameters"] = json.loads(d["parameters"]) if d.get("parameters") else {}
+                d["result"] = json.loads(d["result"]) if d.get("result") else None
+                d["logs"] = json.loads(d["logs"]) if d.get("logs") else []
+                result.append(d)
+            return result
+        except Exception as e:
+            logger.error(f"Failed to get tasks: {e}")
             return []

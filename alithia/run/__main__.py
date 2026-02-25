@@ -5,6 +5,7 @@ Main entry point for all Alithia agents.
 """
 
 import argparse
+import asyncio
 import sys
 from pathlib import Path
 from typing import List
@@ -43,6 +44,11 @@ Examples:
         "--to-date",
         type=str,
         help="End date for paper query (YYYY-MM-DD format). Defaults to from-date if not specified.",
+    )
+    parser.add_argument(
+        "--fill-gaps",
+        action="store_true",
+        help="Run Gap Scanner to fill missing notification dates",
     )
     return parser
 
@@ -127,15 +133,13 @@ def run_paperscout_agent(args):
     from alithia.paperscout.agent import PaperScoutAgent
     from alithia.paperscout.state import PaperScoutConfig
     from alithia.researcher.profile import ResearcherProfile
+    from alithia.storage.factory import get_storage_backend
 
-    # Build configuration
     config_dict = load_config(args.config)
 
-    # Create PaperScoutConfig - try new name first, fallback to old for compatibility
     try:
         paperscout_settings = config_dict.get("paperscout_agent", config_dict.get("arxrec", {}))
 
-        # CLI arguments override config file values
         from_date = getattr(args, "from_date", None) or paperscout_settings.get("from_date")
         to_date = getattr(args, "to_date", None) or paperscout_settings.get("to_date")
 
@@ -148,44 +152,67 @@ def run_paperscout_agent(args):
             ignore_patterns=paperscout_settings.get("ignore_patterns", []),
             from_date=from_date,
             to_date=to_date,
+            gap_scan_window_days=paperscout_settings.get("gap_scan_window_days", 7),
             debug=config_dict.get("debug", False),
         )
     except Exception as e:
         logger.error(f"Failed to create PaperScoutConfig: {e}")
         sys.exit(1)
 
-    # Create and run agent
-    agent = PaperScoutAgent()
+    # Initialize storage
+    try:
+        storage = get_storage_backend(config_dict)
+        storage.connect()
+    except Exception:
+        storage = None
+
+    user_id = config_dict.get("storage", {}).get("user_id", config.user_profile.email or "default")
+    agent = PaperScoutAgent(storage=storage, user_id=user_id)
 
     try:
+        # Gap fill mode
+        if getattr(args, "fill_gaps", False):
+            from alithia.paperscout.gap_scanner import GapScanner
+
+            if not storage:
+                logger.error("Storage required for gap scanning")
+                sys.exit(1)
+
+            scanner = GapScanner(storage, user_id)
+            results = asyncio.run(scanner.fill_gaps(config, agent))
+            for d, status in sorted(results.items()):
+                print(f"  {d.isoformat()}: {status}")
+            return
+
         logger.info("Starting Alithia research agent...")
         result = agent.run(config)
 
         if result["success"]:
-            logger.info("✅ Research agent completed successfully")
-            logger.info(f"📧 Email sent with {result['summary']['papers_scored']} papers")
+            logger.info("Research agent completed successfully")
+            logger.info(f"Email sent with {result['summary']['papers_scored']} papers")
 
             if result["errors"]:
-                logger.warning(f"⚠️  {len(result['errors'])} warnings occurred")
+                logger.warning(f"{len(result['errors'])} warnings occurred")
                 for error in result["errors"]:
                     logger.warning(f"   - {error}")
         else:
-            logger.error("❌ Research agent failed")
+            logger.error("Research agent failed")
             logger.error(f"Error: {result['error']}")
 
             if result["errors"]:
-                logger.error("Additional errors:")
                 for error in result["errors"]:
                     logger.error(f"   - {error}")
-
             sys.exit(1)
 
     except KeyboardInterrupt:
-        logger.info("🛑 Research agent interrupted by user")
+        logger.info("Research agent interrupted by user")
         sys.exit(0)
     except Exception as e:
-        logger.error(f"💥 Unexpected error: {str(e)}")
+        logger.error(f"Unexpected error: {str(e)}")
         sys.exit(1)
+    finally:
+        if storage:
+            storage.disconnect()
 
 
 def run_paperlens_agent(args):
@@ -262,6 +289,95 @@ def run_paperlens_agent(args):
     display_results(top_papers, research_topic)
 
 
+def create_sync_parser(subparsers):
+    """Create argument parser for sync service."""
+    parser = subparsers.add_parser(
+        "sync",
+        help="Sync connected services",
+        description="Sync data from connected services (Zotero, Google Scholar) to local storage.",
+    )
+    parser.add_argument("-c", "--config", type=str, help="Configuration file path (JSON)")
+    parser.add_argument(
+        "--connector",
+        choices=["zotero", "google_scholar"],
+        help="Sync specific connector only",
+    )
+    parser.add_argument("--full", action="store_true", help="Force full sync (ignore incremental state)")
+    parser.add_argument("--status", action="store_true", help="Show last sync status for all connectors")
+    return parser
+
+
+def create_dashboard_parser(subparsers):
+    """Create argument parser for dashboard."""
+    parser = subparsers.add_parser(
+        "dashboard",
+        help="Start Alithia Dashboard",
+        description="Start the Alithia Dashboard web server.",
+    )
+    parser.add_argument("-c", "--config", type=str, help="Configuration file path (JSON)")
+    parser.add_argument("--port", type=int, default=8080, help="Server port (default: 8080)")
+    parser.add_argument("--host", default="0.0.0.0", help="Server host (default: 0.0.0.0)")
+    parser.add_argument("--dev", action="store_true", help="Enable auto-reload for development")
+    return parser
+
+
+def run_sync(args):
+    """Run the sync service."""
+    from alithia.config_loader import load_config
+    from alithia.researcher.profile import ResearcherProfile
+    from alithia.storage.factory import get_storage_backend
+    from alithia.sync.orchestrator import SyncOrchestrator
+
+    config_dict = load_config(args.config)
+    storage = get_storage_backend(config_dict)
+    storage.connect()
+
+    try:
+        user_id = config_dict.get("storage", {}).get("user_id", "default")
+        profile = ResearcherProfile.from_config(config_dict)
+        orchestrator = SyncOrchestrator(storage, user_id, profile)
+
+        if args.status:
+            for status in orchestrator.get_status():
+                synced = status["last_synced"] or "never"
+                configured = "configured" if status["configured"] else "not configured"
+                print(f"{status['connector']}: {configured}, last synced {synced}")
+            return
+
+        if args.connector:
+            results = [asyncio.run(orchestrator.sync_one(args.connector, force_full=args.full))]
+        else:
+            results = asyncio.run(orchestrator.sync_all(force_full=args.full))
+
+        for r in results:
+            print(f"{r.connector_name}: {r.status.value} ({r.items_synced}/{r.items_total} items)")
+            if r.error_message:
+                print(f"  Error: {r.error_message}")
+    finally:
+        storage.disconnect()
+
+
+def run_dashboard(args):
+    """Start the Dashboard server."""
+    from alithia.config_loader import load_config
+    from alithia.storage.factory import get_storage_backend
+
+    config_dict = load_config(args.config)
+    storage = get_storage_backend(config_dict)
+    storage.connect()
+
+    try:
+        from alithia.dashboard.app import create_app
+
+        app = create_app(config_dict, storage)
+
+        import uvicorn
+
+        uvicorn.run(app, host=args.host, port=args.port, reload=args.dev)
+    finally:
+        storage.disconnect()
+
+
 def main():
     """Main entry point for Alithia."""
     parser = argparse.ArgumentParser(
@@ -269,25 +385,31 @@ def main():
         description="Alithia - AI-Powered Research Companion",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
-Available Agents:
+Available Commands:
   paperscout_agent  Personalized arXiv recommendation agent
   paperlens_agent   Deep paper interaction and discovery tool
+  sync              Sync connected services (Zotero, Google Scholar)
+  dashboard         Start Alithia Dashboard web server
 
 Examples:
   python -m alithia.run paperscout_agent --config config.json
   python -m alithia.run paperlens_agent -i topic.txt -d ./papers
+  python -m alithia.run sync --config config.json
+  python -m alithia.run dashboard --config config.json
 
-For more information on each agent, use:
-  python -m alithia.run <agent> --help
+For more information on each command, use:
+  python -m alithia.run <command> --help
         """,
     )
 
     # Create subparsers for different agents
-    subparsers = parser.add_subparsers(dest="agent", help="Agent to run", required=True)
+    subparsers = parser.add_subparsers(dest="agent", help="Command to run", required=True)
 
     # Add agent parsers
     create_paperscout_parser(subparsers)
     create_paperlens_parser(subparsers)
+    create_sync_parser(subparsers)
+    create_dashboard_parser(subparsers)
 
     # Parse arguments
     args = parser.parse_args()
@@ -297,6 +419,10 @@ For more information on each agent, use:
         run_paperscout_agent(args)
     elif args.agent == "paperlens_agent":
         run_paperlens_agent(args)
+    elif args.agent == "sync":
+        run_sync(args)
+    elif args.agent == "dashboard":
+        run_dashboard(args)
     else:
         parser.print_help()
         sys.exit(1)

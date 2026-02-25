@@ -3,17 +3,12 @@ Main research agent implementation using LangGraph.
 """
 
 import logging
-from typing import Any, Dict
+from typing import Any, Callable, Dict, Optional
 
 from langgraph.graph import StateGraph
 
-from .nodes import (
-    communication_node,
-    content_generation_node,
-    data_collection_node,
-    profile_analysis_node,
-    relevance_assessment_node,
-)
+from alithia.storage.base import StorageBackend
+
 from .state import AgentState, PaperScoutConfig
 
 logger = logging.getLogger(__name__)
@@ -25,32 +20,40 @@ class PaperScoutAgent:
     Delivers daily paper recommendations from ArXiv to your inbox.
     """
 
-    def __init__(self):
-        """Initialize the research agent."""
+    def __init__(self, storage: Optional[StorageBackend] = None, user_id: str = "default"):
+        """
+        Initialize the research agent.
+
+        Args:
+            storage: Injected storage backend (optional for backward compat)
+            user_id: User identifier
+        """
+        self._storage = storage
+        self._user_id = user_id
         self.workflow = self._create_workflow()
 
     def _create_workflow(self):
         """Create the LangGraph workflow."""
+        from .nodes import make_nodes
+
+        nodes = make_nodes(self._storage, self._user_id)
+
         workflow = StateGraph(AgentState)
 
-        # Add nodes
-        workflow.add_node("profile_analysis", profile_analysis_node)
-        workflow.add_node("data_collection", data_collection_node)
-        workflow.add_node("relevance_assessment", relevance_assessment_node)
-        workflow.add_node("content_generation", content_generation_node)
-        workflow.add_node("communication", communication_node)
+        workflow.add_node("profile_analysis", nodes["profile_analysis"])
+        workflow.add_node("data_collection", nodes["data_collection"])
+        workflow.add_node("relevance_assessment", nodes["relevance_assessment"])
+        workflow.add_node("content_generation", nodes["content_generation"])
+        workflow.add_node("communication", nodes["communication"])
 
-        # Define edges (linear workflow)
         workflow.add_edge("profile_analysis", "data_collection")
         workflow.add_edge("data_collection", "relevance_assessment")
         workflow.add_edge("relevance_assessment", "content_generation")
         workflow.add_edge("content_generation", "communication")
 
-        # Set entry and exit points
         workflow.set_entry_point("profile_analysis")
         workflow.set_finish_point("communication")
 
-        # Compile with state configuration to ensure proper state handling
         return workflow.compile()
 
     def run(self, config: PaperScoutConfig) -> Dict[str, Any]:
@@ -65,21 +68,16 @@ class PaperScoutAgent:
         """
         logger.info("Starting research agent workflow...")
 
-        # Create initial state
         initial_state = AgentState(config=config, debug_mode=getattr(config, "debug", False))
 
         try:
-            # Run workflow
             final_state = self.workflow.invoke(initial_state)
 
-            # Handle both AgentState and dict returns from LangGraph
             if hasattr(final_state, "get_summary"):
-                # It's an AgentState object
                 summary = final_state.get_summary()
                 papers_sent = len(final_state.scored_papers)
                 errors = final_state.error_log
             else:
-                # It's a dictionary (LangGraph sometimes returns dict)
                 summary = {
                     "current_step": final_state.get("current_step", "unknown"),
                     "papers_discovered": len(final_state.get("discovered_papers", [])),
@@ -104,12 +102,6 @@ class PaperScoutAgent:
             return {"success": False, "error": str(e), "errors": initial_state.error_log}
 
     def get_workflow_info(self) -> Dict[str, Any]:
-        """
-        Get information about the workflow structure.
-
-        Returns:
-            Dictionary with workflow information
-        """
         return {
             "name": "Alithia Research Agent",
             "description": "A personalized arXiv recommendation agent.",

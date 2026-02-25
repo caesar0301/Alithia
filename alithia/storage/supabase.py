@@ -3,7 +3,7 @@ Supabase storage backend implementation.
 """
 
 import uuid
-from datetime import datetime, timedelta
+from datetime import date, datetime, timedelta
 from typing import Any, Dict, List, Optional
 
 from cogents_core.utils import get_logger
@@ -408,4 +408,238 @@ class SupabaseStorage(StorageBackend):
 
         except Exception as e:
             logger.error(f"Failed to get query history: {e}")
+            return []
+
+    # ===========================
+    # Assessed papers
+    # ===========================
+
+    def save_assessed_papers(
+        self, user_id: str, query_categories: str, papers: List[Dict[str, Any]], assessment_date: date
+    ) -> None:
+        try:
+            now = datetime.utcnow().isoformat()
+            records = []
+            for paper in papers:
+                records.append(
+                    {
+                        "id": str(uuid.uuid4()),
+                        "user_id": user_id,
+                        "arxiv_id": paper.get("arxiv_id", ""),
+                        "query_categories": query_categories,
+                        "assessment_date": assessment_date.isoformat(),
+                        "paper_title": paper.get("title", ""),
+                        "paper_authors": paper.get("authors", []),
+                        "paper_summary": paper.get("summary", ""),
+                        "pdf_url": paper.get("pdf_url", ""),
+                        "relevance_score": paper.get("relevance_score", 0.0),
+                        "relevance_factors": paper.get("relevance_factors", {}),
+                        "code_url": paper.get("code_url"),
+                        "tldr": paper.get("tldr"),
+                        "affiliations": paper.get("affiliations", []),
+                        "emailed": paper.get("emailed", False),
+                        "assessed_at": now,
+                    }
+                )
+            self.manager.upsert_records(
+                "assessed_papers", records, conflict_columns=["user_id", "arxiv_id", "query_categories"]
+            )
+            logger.info(f"Saved {len(records)} assessed papers for user {user_id}")
+        except Exception as e:
+            logger.error(f"Failed to save assessed papers: {e}")
+            raise
+
+    def get_assessed_papers(
+        self, user_id: str, query_categories: str, from_date: date, to_date: date
+    ) -> List[Dict[str, Any]]:
+        try:
+            records = self.manager.query_records(
+                "assessed_papers",
+                filters={"user_id": user_id, "query_categories": query_categories},
+                order_by="-relevance_score",
+            )
+            return [
+                r
+                for r in records
+                if from_date.isoformat() <= r.get("assessment_date", "") <= to_date.isoformat()
+            ]
+        except Exception as e:
+            logger.error(f"Failed to get assessed papers: {e}")
+            return []
+
+    # ===========================
+    # Notification records
+    # ===========================
+
+    def save_notification_record(self, record: Dict[str, Any]) -> None:
+        try:
+            record.setdefault("id", str(uuid.uuid4()))
+            record.setdefault("created_at", datetime.utcnow().isoformat())
+            self.manager.upsert_record(
+                "notification_records",
+                record,
+                conflict_columns=["user_id", "query_categories", "notification_date"],
+            )
+        except Exception as e:
+            logger.error(f"Failed to save notification record: {e}")
+            raise
+
+    def get_notification_record(
+        self, user_id: str, query_categories: str, notification_date: date
+    ) -> Optional[Dict[str, Any]]:
+        try:
+            records = self.manager.query_records(
+                "notification_records",
+                filters={
+                    "user_id": user_id,
+                    "query_categories": query_categories,
+                    "notification_date": notification_date.isoformat(),
+                },
+                limit=1,
+            )
+            return records[0] if records else None
+        except Exception as e:
+            logger.error(f"Failed to get notification record: {e}")
+            return None
+
+    def get_missing_notification_dates(
+        self, user_id: str, query_categories: str, window_days: int = 7
+    ) -> List[date]:
+        try:
+            today = date.today()
+            expected = [today - timedelta(days=i) for i in range(1, window_days + 1)]
+            records = self.manager.query_records(
+                "notification_records",
+                filters={"user_id": user_id, "query_categories": query_categories, "status": "sent"},
+            )
+            sent_dates = {r.get("notification_date") for r in records}
+            return sorted([d for d in expected if d.isoformat() not in sent_dates])
+        except Exception as e:
+            logger.error(f"Failed to get missing notification dates: {e}")
+            return []
+
+    def get_notification_records_range(
+        self, user_id: str, query_categories: str, from_date: date, to_date: date
+    ) -> List[Dict[str, Any]]:
+        try:
+            records = self.manager.query_records(
+                "notification_records",
+                filters={"user_id": user_id, "query_categories": query_categories},
+                order_by="notification_date",
+            )
+            return [
+                r
+                for r in records
+                if from_date.isoformat() <= r.get("notification_date", "") <= to_date.isoformat()
+            ]
+        except Exception as e:
+            logger.error(f"Failed to get notification records range: {e}")
+            return []
+
+    # ===========================
+    # Google Scholar data
+    # ===========================
+
+    def save_scholar_profile(self, user_id: str, profile: Dict[str, Any]) -> None:
+        try:
+            profile["id"] = profile.get("id", str(uuid.uuid4()))
+            profile["user_id"] = user_id
+            profile.setdefault("last_synced", datetime.utcnow().isoformat())
+            self.manager.upsert_record("scholar_profiles", profile, conflict_columns=["user_id"])
+        except Exception as e:
+            logger.error(f"Failed to save scholar profile: {e}")
+            raise
+
+    def get_scholar_profile(self, user_id: str) -> Optional[Dict[str, Any]]:
+        try:
+            records = self.manager.query_records("scholar_profiles", filters={"user_id": user_id}, limit=1)
+            return records[0] if records else None
+        except Exception as e:
+            logger.error(f"Failed to get scholar profile: {e}")
+            return None
+
+    def save_scholar_publications(self, user_id: str, publications: List[Dict[str, Any]]) -> None:
+        try:
+            now = datetime.utcnow().isoformat()
+            records = []
+            for pub in publications:
+                pub["id"] = pub.get("id", str(uuid.uuid4()))
+                pub["user_id"] = user_id
+                pub["last_synced"] = now
+                records.append(pub)
+            self.manager.upsert_records(
+                "scholar_publications", records, conflict_columns=["user_id", "title", "year"]
+            )
+            logger.info(f"Saved {len(records)} scholar publications for user {user_id}")
+        except Exception as e:
+            logger.error(f"Failed to save scholar publications: {e}")
+            raise
+
+    def get_scholar_publications(self, user_id: str, limit: int = 100) -> List[Dict[str, Any]]:
+        try:
+            return self.manager.query_records(
+                "scholar_publications",
+                filters={"user_id": user_id},
+                order_by="-citation_count",
+                limit=limit,
+            )
+        except Exception as e:
+            logger.error(f"Failed to get scholar publications: {e}")
+            return []
+
+    # ===========================
+    # Sync log
+    # ===========================
+
+    def save_sync_log(self, entry: Dict[str, Any]) -> None:
+        try:
+            entry.setdefault("id", str(uuid.uuid4()))
+            self.manager.insert_record("sync_log", entry)
+        except Exception as e:
+            logger.error(f"Failed to save sync log: {e}")
+            raise
+
+    def get_last_sync(self, user_id: str, connector_name: str) -> Optional[Dict[str, Any]]:
+        try:
+            records = self.manager.query_records(
+                "sync_log",
+                filters={"user_id": user_id, "connector_name": connector_name, "status": "success"},
+                order_by="-started_at",
+                limit=1,
+            )
+            return records[0] if records else None
+        except Exception as e:
+            logger.error(f"Failed to get last sync: {e}")
+            return None
+
+    # ===========================
+    # Background tasks (Dashboard)
+    # ===========================
+
+    def save_task(self, task: Dict[str, Any]) -> None:
+        try:
+            task.setdefault("created_at", datetime.utcnow().isoformat())
+            self.manager.upsert_record("background_tasks", task, conflict_columns=["id"])
+        except Exception as e:
+            logger.error(f"Failed to save task: {e}")
+            raise
+
+    def get_task(self, task_id: str) -> Optional[Dict[str, Any]]:
+        try:
+            records = self.manager.query_records("background_tasks", filters={"id": task_id}, limit=1)
+            return records[0] if records else None
+        except Exception as e:
+            logger.error(f"Failed to get task: {e}")
+            return None
+
+    def get_tasks(self, user_id: str, status: Optional[str] = None, limit: int = 50) -> List[Dict[str, Any]]:
+        try:
+            filters = {"user_id": user_id}
+            if status:
+                filters["status"] = status
+            return self.manager.query_records(
+                "background_tasks", filters=filters, order_by="-created_at", limit=limit
+            )
+        except Exception as e:
+            logger.error(f"Failed to get tasks: {e}")
             return []

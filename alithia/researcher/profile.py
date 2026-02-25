@@ -69,14 +69,28 @@ class ResearcherProfile(BaseModel):
             zotero=ZoteroConnection(**profile_config.get("zotero", {})),
             email_notification=EmailConnection(**profile_config.get("email_notification", {})),
             github=GithubConnection(**profile_config.get("github", {})) if profile_config.get("github") else None,
-            google_scholar=(
-                GoogleScholarConnection(**profile_config.get("google_scholar", {}))
-                if profile_config.get("google_scholar")
-                else None
-            ),
+            google_scholar=_build_scholar_connection(profile_config.get("google_scholar")),
             x=XConnection(**profile_config.get("x", {})) if profile_config.get("x") else None,
             gems=profile_config.get("gems", {}),
         )
+
+
+def _build_scholar_connection(raw: Any) -> Optional[GoogleScholarConnection]:
+    """Build GoogleScholarConnection handling both old and new field names."""
+    if not raw:
+        return None
+    try:
+        data = dict(raw)
+        if "google_scholar_id" in data and "scholar_id" not in data:
+            data["scholar_id"] = data.pop("google_scholar_id")
+        if "google_scholar_token" in data and "serpapi_key" not in data:
+            data["serpapi_key"] = data.pop("google_scholar_token")
+        data.pop("google_scholar_token", None)
+        data.pop("google_scholar_id", None)
+        return GoogleScholarConnection(**data)
+    except Exception:
+        logger.warning("Failed to create GoogleScholarConnection, skipping")
+        return None
 
 
 def _validate(config: dict) -> bool:

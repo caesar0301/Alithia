@@ -5,6 +5,7 @@ Defines the interface that all storage backends must implement.
 """
 
 from abc import ABC, abstractmethod
+from datetime import date
 from typing import Any, Dict, List, Optional
 
 from alithia.constants import DEFAULT_QUERY_HISTORY_LIMIT
@@ -206,3 +207,93 @@ class StorageBackend(ABC):
         Returns:
             List of queries with results
         """
+
+    # ===========================
+    # Assessed papers (PaperScout v2)
+    # ===========================
+
+    @abstractmethod
+    def save_assessed_papers(
+        self, user_id: str, query_categories: str, papers: List[Dict[str, Any]], assessment_date: date
+    ) -> None:
+        """Persist all assessed papers with scores."""
+
+    @abstractmethod
+    def get_assessed_papers(
+        self, user_id: str, query_categories: str, from_date: date, to_date: date
+    ) -> List[Dict[str, Any]]:
+        """Retrieve assessed papers for a date range."""
+
+    # ===========================
+    # Notification records (exactly-once email)
+    # ===========================
+
+    @abstractmethod
+    def save_notification_record(self, record: Dict[str, Any]) -> None:
+        """Save a notification record. Enforces unique (user_id, query_categories, notification_date)."""
+
+    @abstractmethod
+    def get_notification_record(
+        self, user_id: str, query_categories: str, notification_date: date
+    ) -> Optional[Dict[str, Any]]:
+        """Check if a notification was already sent for this (user, query, date)."""
+
+    @abstractmethod
+    def get_missing_notification_dates(
+        self, user_id: str, query_categories: str, window_days: int = 7
+    ) -> List[date]:
+        """Return dates within window that have no successful notification."""
+
+    @abstractmethod
+    def get_notification_records_range(
+        self, user_id: str, query_categories: str, from_date: date, to_date: date
+    ) -> List[Dict[str, Any]]:
+        """Get notification records for a date range (calendar view)."""
+
+    # ===========================
+    # Google Scholar data
+    # ===========================
+
+    @abstractmethod
+    def save_scholar_profile(self, user_id: str, profile: Dict[str, Any]) -> None:
+        """Upsert Google Scholar profile for a user."""
+
+    @abstractmethod
+    def get_scholar_profile(self, user_id: str) -> Optional[Dict[str, Any]]:
+        """Get cached Scholar profile. Returns None if not synced."""
+
+    @abstractmethod
+    def save_scholar_publications(self, user_id: str, publications: List[Dict[str, Any]]) -> None:
+        """Upsert Scholar publications for a user."""
+
+    @abstractmethod
+    def get_scholar_publications(self, user_id: str, limit: int = 100) -> List[Dict[str, Any]]:
+        """Get cached Scholar publications."""
+
+    # ===========================
+    # Sync log
+    # ===========================
+
+    @abstractmethod
+    def save_sync_log(self, entry: Dict[str, Any]) -> None:
+        """Record a sync attempt."""
+
+    @abstractmethod
+    def get_last_sync(self, user_id: str, connector_name: str) -> Optional[Dict[str, Any]]:
+        """Get the most recent successful sync log entry for a connector."""
+
+    # ===========================
+    # Background tasks (Dashboard)
+    # ===========================
+
+    @abstractmethod
+    def save_task(self, task: Dict[str, Any]) -> None:
+        """Upsert a background task record."""
+
+    @abstractmethod
+    def get_task(self, task_id: str) -> Optional[Dict[str, Any]]:
+        """Get task by ID."""
+
+    @abstractmethod
+    def get_tasks(self, user_id: str, status: Optional[str] = None, limit: int = 50) -> List[Dict[str, Any]]:
+        """List tasks for a user, optionally filtered by status."""

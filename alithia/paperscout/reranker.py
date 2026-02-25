@@ -4,9 +4,11 @@ Paper recommendation and reranking utilities.
 
 import logging
 from datetime import datetime
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Union
 
 import numpy as np
+
+from alithia.models.zotero_paper import ZoteroPaper
 
 from .models import ArxivPaper, ScoredPaper
 
@@ -27,20 +29,24 @@ class PaperReranker:
     - Error handling and fallback scoring
     """
 
-    def __init__(self, papers: List[ArxivPaper], corpus: List[Dict[str, Any]], cache_dir: Optional[str] = None):
+    def __init__(
+        self,
+        papers: List[ArxivPaper],
+        corpus: Union[List[ZoteroPaper], List[Dict[str, Any]]],
+        cache_dir: Optional[str] = None,
+    ):
         """
         Initialize the reranker.
 
         Args:
             papers: List of papers to rank
-            corpus: User's research corpus for comparison
+            corpus: User's research corpus (ZoteroPaper list or legacy raw dicts)
             cache_dir: Directory for caching models
         """
         self.papers = papers
         self.corpus = corpus
         self.cache_dir = cache_dir or "/tmp/alithia_models"
 
-        # Validate inputs
         if not self.papers:
             logger.warning("No papers provided for reranking")
         if not self.corpus:
@@ -147,24 +153,30 @@ class PaperReranker:
             return [ScoredPaper(paper=paper, score=5.0, relevance_factors={"default": 5.0}) for paper in self.papers]
 
         try:
-            # Initialize sentence transformer with caching
             logger.info(f"Loading sentence transformer model: {model_name}")
             encoder = SentenceTransformer(model_name, cache_folder=self.cache_dir)
 
-            # Sort corpus by date (newest first) with better error handling
+            # Sort corpus by date (newest first), handling both ZoteroPaper and dicts
             sorted_corpus = []
             for item in self.corpus:
                 try:
-                    date_str = item.get("data", {}).get("dateAdded", "")
-                    if date_str:
-                        sorted_corpus.append(item)
+                    if isinstance(item, ZoteroPaper):
+                        if item.date_added:
+                            sorted_corpus.append(item)
+                    else:
+                        date_str = item.get("data", {}).get("dateAdded", "")
+                        if date_str:
+                            sorted_corpus.append(item)
                 except Exception as e:
                     logger.warning(f"Error processing corpus item: {e}")
                     continue
 
-            sorted_corpus.sort(
-                key=lambda x: datetime.strptime(x["data"]["dateAdded"], "%Y-%m-%dT%H:%M:%SZ"), reverse=True
-            )
+            def _get_date(item):
+                if isinstance(item, ZoteroPaper):
+                    return item.date_added or datetime.min
+                return datetime.strptime(item["data"]["dateAdded"], "%Y-%m-%dT%H:%M:%SZ")
+
+            sorted_corpus.sort(key=_get_date, reverse=True)
 
             if not sorted_corpus:
                 logger.warning("No valid corpus items after filtering")
@@ -172,15 +184,17 @@ class PaperReranker:
                     ScoredPaper(paper=paper, score=5.0, relevance_factors={"fallback": 5.0}) for paper in self.papers
                 ]
 
-            # Calculate time decay weights
             time_decay_weight = 1 / (1 + np.log10(np.arange(len(sorted_corpus)) + 1))
             time_decay_weight = time_decay_weight / time_decay_weight.sum()
 
-            # Extract and validate corpus texts
+            # Extract and validate corpus texts (ZoteroPaper or raw dict)
             corpus_texts = []
             valid_corpus_indices = []
             for idx, paper in enumerate(sorted_corpus):
-                abstract = paper.get("data", {}).get("abstractNote", "")
+                if isinstance(paper, ZoteroPaper):
+                    abstract = paper.abstract
+                else:
+                    abstract = paper.get("data", {}).get("abstractNote", "")
                 if abstract and len(abstract.strip()) > 0:
                     corpus_texts.append(abstract)
                     valid_corpus_indices.append(idx)

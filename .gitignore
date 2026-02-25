@@ -210,3 +210,5 @@ alithia_config.json
 
 # local sqlit
 data/alithia.db
+
+.DS_Store
