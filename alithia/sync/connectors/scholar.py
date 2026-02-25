@@ -30,9 +30,7 @@ class ScholarConnector(SyncConnector):
     def is_configured(self) -> bool:
         return bool(self._connection.scholar_id)
 
-    async def sync(
-        self, storage: StorageBackend, user_id: str, force_full: bool = False
-    ) -> SyncResult:
+    async def sync(self, storage: StorageBackend, user_id: str, force_full: bool = False) -> SyncResult:
         started_at = datetime.utcnow()
 
         try:
@@ -83,21 +81,21 @@ class ScholarConnector(SyncConnector):
                 )
                 pubs.append(pub)
 
-            storage.save_scholar_publications(
-                user_id, [p.to_storage_dict() for p in pubs]
-            )
+            storage.save_scholar_publications(user_id, [p.to_storage_dict() for p in pubs])
 
             completed_at = datetime.utcnow()
 
-            storage.save_sync_log({
-                "user_id": user_id,
-                "connector_name": self.name,
-                "status": SyncStatus.SUCCESS.value,
-                "items_synced": len(pubs),
-                "items_total": len(publications_data),
-                "started_at": started_at.isoformat(),
-                "completed_at": completed_at.isoformat(),
-            })
+            storage.save_sync_log(
+                {
+                    "user_id": user_id,
+                    "connector_name": self.name,
+                    "status": SyncStatus.SUCCESS.value,
+                    "items_synced": len(pubs),
+                    "items_total": len(publications_data),
+                    "started_at": started_at.isoformat(),
+                    "completed_at": completed_at.isoformat(),
+                }
+            )
 
             logger.info(f"Scholar sync complete: profile + {len(pubs)} publications")
 
@@ -116,14 +114,16 @@ class ScholarConnector(SyncConnector):
             logger.error(f"Scholar sync failed: {error_msg}")
 
             try:
-                storage.save_sync_log({
-                    "user_id": user_id,
-                    "connector_name": self.name,
-                    "status": SyncStatus.FAILED.value,
-                    "error_message": error_msg,
-                    "started_at": started_at.isoformat(),
-                    "completed_at": completed_at.isoformat(),
-                })
+                storage.save_sync_log(
+                    {
+                        "user_id": user_id,
+                        "connector_name": self.name,
+                        "status": SyncStatus.FAILED.value,
+                        "error_message": error_msg,
+                        "started_at": started_at.isoformat(),
+                        "completed_at": completed_at.isoformat(),
+                    }
+                )
             except Exception:
                 pass
 

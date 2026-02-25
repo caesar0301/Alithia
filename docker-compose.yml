@@ -1,24 +1,53 @@
-# This docker-compose.yml file is used to start services for testing.
-# It is not used in the production environment.
 version: '3.8'
 
 services:
+  # ---- PostgreSQL ----
   postgres:
     image: postgres:15-alpine
-    container_name: test-postgres
+    container_name: alithia-postgres
     environment:
-      POSTGRES_DB: test_db
-      POSTGRES_USER: test_user
-      POSTGRES_PASSWORD: test_password
+      POSTGRES_DB: ${POSTGRES_DB:-alithia}
+      POSTGRES_USER: ${POSTGRES_USER:-alithia}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-alithia}
     ports:
-      - "5432:5432"
+      - "${POSTGRES_PORT:-5432}:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U test_user -d test_db"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-alithia} -d ${POSTGRES_DB:-alithia}"]
       interval: 5s
       timeout: 5s
       retries: 5
 
+  # ---- Backend API ----
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile.backend
+    container_name: alithia-backend
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      ALITHIA_CONFIG_PATH: /app/alithia_config.json
+      ALITHIA_POSTGRES_DSN: "postgresql://${POSTGRES_USER:-alithia}:${POSTGRES_PASSWORD:-alithia}@postgres:5432/${POSTGRES_DB:-alithia}"
+    volumes:
+      - ./alithia_config.json:/app/alithia_config.json:ro
+      - backend_data:/app/data
+    ports:
+      - "${BACKEND_PORT:-8080}:8080"
+
+  # ---- Dashboard Frontend ----
+  dashboard:
+    build:
+      context: .
+      dockerfile: Dockerfile.dashboard
+    container_name: alithia-dashboard
+    depends_on:
+      - backend
+    ports:
+      - "${DASHBOARD_PORT:-3000}:80"
+
 volumes:
-  postgres_data: 
+  postgres_data:
+  backend_data:

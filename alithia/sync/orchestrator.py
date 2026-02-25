@@ -3,7 +3,7 @@ Sync orchestrator: runs all configured connectors concurrently.
 """
 
 import asyncio
-from typing import List, Optional
+from typing import List
 
 from noesium.core.utils import get_logger
 
@@ -62,9 +62,7 @@ class SyncOrchestrator:
                 results.append(r)
             else:
                 name = self._connectors[i].name if i < len(self._connectors) else "unknown"
-                results.append(
-                    SyncResult(connector_name=name, status=SyncStatus.FAILED, error_message=str(r))
-                )
+                results.append(SyncResult(connector_name=name, status=SyncStatus.FAILED, error_message=str(r)))
 
         return results
 
@@ -91,9 +89,11 @@ class SyncOrchestrator:
         statuses = []
         for connector in self._connectors:
             last = connector.last_synced_at(self._storage, self._user_id)
-            statuses.append({
-                "connector": connector.name,
-                "configured": connector.is_configured(),
-                "last_synced": last.isoformat() if last else None,
-            })
+            statuses.append(
+                {
+                    "connector": connector.name,
+                    "configured": connector.is_configured(),
+                    "last_synced": last.isoformat() if last else None,
+                }
+            )
         return statuses

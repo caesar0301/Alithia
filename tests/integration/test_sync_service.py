@@ -50,6 +50,7 @@ def _has_scholar_creds():
 # SyncOrchestrator tests
 # =============================================================================
 
+
 @pytest.mark.integration
 class TestSyncOrchestrator:
     def test_build_connectors_from_profile(self, storage, config, user_id):
@@ -83,6 +84,7 @@ class TestSyncOrchestrator:
 # ZoteroConnector live test
 # =============================================================================
 
+
 @pytest.mark.integration
 class TestZoteroConnectorLive:
     @pytest.mark.skipif(not _has_zotero_creds(), reason="Zotero creds not in .env")
@@ -96,9 +98,7 @@ class TestZoteroConnectorLive:
 
         assert connector.is_configured()
 
-        result = asyncio.get_event_loop().run_until_complete(
-            connector.sync(storage, user_id, force_full=True)
-        )
+        result = asyncio.get_event_loop().run_until_complete(connector.sync(storage, user_id, force_full=True))
 
         assert result.status.value in ("success", "partial")
         assert result.items_synced > 0
@@ -118,14 +118,16 @@ class TestZoteroConnectorLive:
 # Scholar client unit test (no live API call)
 # =============================================================================
 
+
 @pytest.mark.integration
 class TestScholarClientFallback:
     def test_scholarly_import_error_message(self):
         """If scholarly is not installed, a clear error should be raised."""
         from alithia.utils.scholar_client import _fetch_via_scholarly
-        import importlib
+
         try:
             import scholarly  # noqa: F401
+
             pytest.skip("scholarly is installed; can't test import error path")
         except ImportError:
             with pytest.raises(ImportError, match="scholarly is not installed"):
@@ -134,8 +136,10 @@ class TestScholarClientFallback:
     def test_serpapi_import_error_message(self):
         """If google-search-results is not installed, a clear error should be raised."""
         from alithia.utils.scholar_client import _fetch_via_serpapi
+
         try:
             import serpapi  # noqa: F401
+
             pytest.skip("serpapi is installed; can't test import error path")
         except ImportError:
             with pytest.raises(ImportError, match="google-search-results is not installed"):
@@ -146,28 +150,33 @@ class TestScholarClientFallback:
 # SyncLog integration (no network)
 # =============================================================================
 
+
 @pytest.mark.integration
 class TestSyncLogIntegration:
     def test_multiple_connectors_logged(self, storage, user_id):
         """Multiple connector sync logs should be independent."""
         now = datetime.utcnow()
 
-        storage.save_sync_log({
-            "user_id": user_id,
-            "connector_name": "zotero",
-            "status": "success",
-            "items_synced": 10,
-            "started_at": now.isoformat(),
-            "completed_at": now.isoformat(),
-        })
-        storage.save_sync_log({
-            "user_id": user_id,
-            "connector_name": "google_scholar",
-            "status": "success",
-            "items_synced": 5,
-            "started_at": now.isoformat(),
-            "completed_at": now.isoformat(),
-        })
+        storage.save_sync_log(
+            {
+                "user_id": user_id,
+                "connector_name": "zotero",
+                "status": "success",
+                "items_synced": 10,
+                "started_at": now.isoformat(),
+                "completed_at": now.isoformat(),
+            }
+        )
+        storage.save_sync_log(
+            {
+                "user_id": user_id,
+                "connector_name": "google_scholar",
+                "status": "success",
+                "items_synced": 5,
+                "started_at": now.isoformat(),
+                "completed_at": now.isoformat(),
+            }
+        )
 
         z = storage.get_last_sync(user_id, "zotero")
         g = storage.get_last_sync(user_id, "google_scholar")

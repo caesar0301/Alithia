@@ -55,7 +55,11 @@ def _check_scholar(rp: dict, storage, user_id: str) -> ServiceConnectionInfo:
     parts.append(f"{citations:,} citations")
     parts.append(f"{count} pubs")
     return ServiceConnectionInfo(
-        **base, connected=True, summary=" · ".join(parts), last_synced=last_synced, item_count=count,
+        **base,
+        connected=True,
+        summary=" · ".join(parts),
+        last_synced=last_synced,
+        item_count=count,
     )
 
 
@@ -121,6 +125,16 @@ def _build_services(config: dict, storage, user_id: str) -> List[ServiceConnecti
     ]
 
 
+def _storage_backend_name(storage) -> str:
+    cls = type(storage).__name__
+    mapping = {
+        "PostgresStorage": "postgres",
+        "SQLiteStorage": "sqlite",
+        "SupabaseStorage": "supabase",
+    }
+    return mapping.get(cls, cls)
+
+
 @router.get("/profile", response_model=ProfileResponse)
 async def get_profile(request: Request):
     storage = request.app.state.storage
@@ -134,14 +148,25 @@ async def get_profile(request: Request):
     scholar_profile = storage.get_scholar_profile(user_id)
     scholar_pubs = storage.get_scholar_publications(user_id, limit=10)
 
+    ps_settings = config.get("paperscout_agent", config.get("arxrec", {}))
+
     return ProfileResponse(
         email=rp.get("email", ""),
+        name=rp.get("name", ""),
+        affiliation=rp.get("affiliation", ""),
+        language=rp.get("language", "en"),
         research_interests=rp.get("research_interests", []),
         expertise_level=rp.get("expertise_level", "intermediate"),
+        arxiv_categories=ps_settings.get("query", ""),
+        storage_backend=_storage_backend_name(storage),
         services=services,
         zotero_connected=svc_map.get("zotero", ServiceConnectionInfo()).connected,
         scholar_connected=svc_map.get("google_scholar", ServiceConnectionInfo()).connected,
+        scholar_name=scholar_profile.get("name", "") if scholar_profile else "",
+        scholar_affiliation=scholar_profile.get("affiliation", "") if scholar_profile else "",
         scholar_h_index=scholar_profile.get("h_index") if scholar_profile else None,
+        scholar_i10_index=scholar_profile.get("i10_index") if scholar_profile else None,
         scholar_total_citations=scholar_profile.get("total_citations", 0) if scholar_profile else 0,
+        scholar_interests=scholar_profile.get("interests", []) if scholar_profile else [],
         top_publications=scholar_pubs,
     )

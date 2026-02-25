@@ -73,12 +73,17 @@ class AgentDispatcher:
             )
 
             agent = PaperScoutAgent(
-                storage=self._storage, user_id=self._user_id, on_step=on_step,
+                storage=self._storage,
+                user_id=self._user_id,
+                on_step=on_step,
             )
             return await asyncio.to_thread(agent.run, config)
 
         return await self._task_manager.submit(
-            "paperscout", _run(), parameters=params, task_id=task_id,
+            "paperscout",
+            _run(),
+            parameters=params,
+            task_id=task_id,
         )
 
     async def _dispatch_sync(self, params: Dict[str, Any]):
@@ -105,10 +110,12 @@ class AgentDispatcher:
                 tm.add_milestone(task_id, "Starting full sync")
                 results = await orchestrator.sync_all(force_full=force_full)
                 return [
-                    {"connector": r.connector_name, "status": r.status.value, "items": r.items_synced}
-                    for r in results
+                    {"connector": r.connector_name, "status": r.status.value, "items": r.items_synced} for r in results
                 ]
 
         return await self._task_manager.submit(
-            "sync", _run(), parameters=params, task_id=task_id,
+            "sync",
+            _run(),
+            parameters=params,
+            task_id=task_id,
         )

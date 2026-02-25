@@ -239,9 +239,7 @@ class StorageBackend(ABC):
         """Check if a notification was already sent for this (user, query, date)."""
 
     @abstractmethod
-    def get_missing_notification_dates(
-        self, user_id: str, query_categories: str, window_days: int = 7
-    ) -> List[date]:
+    def get_missing_notification_dates(self, user_id: str, query_categories: str, window_days: int = 7) -> List[date]:
         """Return dates within window that have no successful notification."""
 
     @abstractmethod

@@ -244,8 +244,7 @@ def main():
         print("=" * 80)
         print("Diagnostic Summary")
         print("=" * 80)
-        print(
-            """
+        print("""
 Interpretation:
 1. If Test 5 (category query) returns papers → Categories are valid
 2. If Test 2 (RSS feed) shows recent papers → ArXiv has papers available
@@ -257,8 +256,7 @@ Common issues:
 - ArXiv API indexing delay: Papers may take hours/days to appear in API
 - No submissions: Some days (especially weekends/holidays) have fewer papers
 - Date format: Verify YYYYMMDDHHMM format matches ArXiv API expectations
-        """
-        )
+        """)
 
     except Exception as e:
         print(f"\n❌ Error during diagnostics: {e}")

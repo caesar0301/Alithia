@@ -14,11 +14,10 @@ from alithia.constants import (
     DEFAULT_ARXIV_QUERY,
     DEFAULT_SEND_EMPTY,
 )
+from alithia.models.zotero_paper import ZoteroPaper
 from alithia.researcher import ResearcherProfile
 
 from .models import ArxivPaper, EmailContent, ScoredPaper
-
-from alithia.models.zotero_paper import ZoteroPaper
 
 
 class PaperScoutConfig(BaseModel):

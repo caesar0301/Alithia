@@ -2,7 +2,7 @@
 Gap Scanner: detects and fills missing recommendation slots (RFC-0002 PS-002).
 """
 
-from datetime import date, timedelta
+from datetime import date
 from typing import TYPE_CHECKING, Dict, List
 
 from noesium.core.utils import get_logger
@@ -25,9 +25,7 @@ class GapScanner:
 
     def scan(self, query_categories: str, window_days: int = 7) -> List[date]:
         """Return dates with missing notifications within the window."""
-        return self._storage.get_missing_notification_dates(
-            self._user_id, query_categories, window_days
-        )
+        return self._storage.get_missing_notification_dates(self._user_id, query_categories, window_days)
 
     async def fill_gaps(
         self,
@@ -51,10 +49,12 @@ class GapScanner:
         for gap_date in sorted(missing):
             logger.info(f"Filling gap for {gap_date.isoformat()}...")
 
-            gap_config = config.model_copy(update={
-                "from_date": gap_date.isoformat(),
-                "to_date": gap_date.isoformat(),
-            })
+            gap_config = config.model_copy(
+                update={
+                    "from_date": gap_date.isoformat(),
+                    "to_date": gap_date.isoformat(),
+                }
+            )
 
             try:
                 result = agent.run(gap_config)

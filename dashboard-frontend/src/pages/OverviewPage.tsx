@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { FileText, Mail, Bell, BookOpen, GraduationCap, CheckCircle, XCircle, Clock } from 'lucide-react';
 import { api, type Overview } from '../api';
 import CalendarHeatmap from '../components/CalendarHeatmap';
@@ -29,10 +29,14 @@ export default function OverviewPage() {
   const [data, setData] = useState<Overview | null>(null);
   const [calendar, setCalendar] = useState<CalendarMonth[]>([]);
 
-  useEffect(() => {
-    api.getOverview().then(setData).catch(console.error);
+  const loadCalendar = useCallback(() => {
     api.getCalendar(3).then(setCalendar).catch(console.error);
   }, []);
+
+  useEffect(() => {
+    api.getOverview().then(setData).catch(console.error);
+    loadCalendar();
+  }, [loadCalendar]);
 
   if (!data) return <div className="text-gray-400 text-sm">Loading...</div>;
 
@@ -68,7 +72,7 @@ export default function OverviewPage() {
 
         <div className="bg-white rounded-xl border border-gray-200 p-5">
           <h3 className="text-sm font-semibold text-gray-700 mb-4">Notification Calendar</h3>
-          <CalendarHeatmap data={calendar} />
+          <CalendarHeatmap data={calendar} onDiscoverTriggered={loadCalendar} />
         </div>
       </div>
     </div>

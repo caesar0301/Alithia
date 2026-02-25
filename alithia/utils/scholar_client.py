@@ -11,9 +11,7 @@ from noesium.core.utils import get_logger
 logger = get_logger(__name__)
 
 
-def get_scholar_data(
-    scholar_id: str, serpapi_key: Optional[str] = None
-) -> Tuple[Dict[str, Any], List[Dict[str, Any]]]:
+def get_scholar_data(scholar_id: str, serpapi_key: Optional[str] = None) -> Tuple[Dict[str, Any], List[Dict[str, Any]]]:
     """
     Fetch Scholar profile and publications.
 
@@ -25,17 +23,12 @@ def get_scholar_data(
     return _fetch_via_scholarly(scholar_id)
 
 
-def _fetch_via_serpapi(
-    scholar_id: str, api_key: str
-) -> Tuple[Dict[str, Any], List[Dict[str, Any]]]:
+def _fetch_via_serpapi(scholar_id: str, api_key: str) -> Tuple[Dict[str, Any], List[Dict[str, Any]]]:
     """Fetch using SerpAPI (reliable, paid)."""
     try:
         from serpapi import GoogleSearch
     except ImportError:
-        raise ImportError(
-            "google-search-results is not installed. "
-            "Install with: pip install google-search-results"
-        )
+        raise ImportError("google-search-results is not installed. " "Install with: pip install google-search-results")
 
     params = {
         "engine": "google_scholar_author",
@@ -72,15 +65,17 @@ def _fetch_via_serpapi(
 
     publications = []
     for article in results.get("articles", []):
-        publications.append({
-            "title": article.get("title", ""),
-            "authors": article.get("authors", "").split(", ") if article.get("authors") else [],
-            "year": _parse_year(article.get("year")),
-            "citation_count": article.get("cited_by", {}).get("value", 0),
-            "venue": article.get("publication", ""),
-            "url": article.get("link"),
-            "scholar_id": article.get("citation_id"),
-        })
+        publications.append(
+            {
+                "title": article.get("title", ""),
+                "authors": article.get("authors", "").split(", ") if article.get("authors") else [],
+                "year": _parse_year(article.get("year")),
+                "citation_count": article.get("cited_by", {}).get("value", 0),
+                "venue": article.get("publication", ""),
+                "url": article.get("link"),
+                "scholar_id": article.get("citation_id"),
+            }
+        )
 
     return profile, publications
 
@@ -92,9 +87,7 @@ def _fetch_via_scholarly(
     try:
         from scholarly import scholarly
     except ImportError:
-        raise ImportError(
-            "scholarly is not installed. Install with: pip install scholarly"
-        )
+        raise ImportError("scholarly is not installed. Install with: pip install scholarly")
 
     author = scholarly.search_author_id(scholar_id)
     author = scholarly.fill(author, sections=["basics", "indices", "publications"])
@@ -111,15 +104,17 @@ def _fetch_via_scholarly(
     publications = []
     for pub in author.get("publications", []):
         bib = pub.get("bib", {})
-        publications.append({
-            "title": bib.get("title", ""),
-            "authors": bib.get("author", "").split(" and ") if bib.get("author") else [],
-            "year": _parse_year(bib.get("pub_year")),
-            "citation_count": pub.get("num_citations", 0),
-            "venue": bib.get("venue", bib.get("journal", "")),
-            "url": pub.get("pub_url"),
-            "scholar_id": pub.get("author_pub_id"),
-        })
+        publications.append(
+            {
+                "title": bib.get("title", ""),
+                "authors": bib.get("author", "").split(" and ") if bib.get("author") else [],
+                "year": _parse_year(bib.get("pub_year")),
+                "citation_count": pub.get("num_citations", 0),
+                "venue": bib.get("venue", bib.get("journal", "")),
+                "url": pub.get("pub_url"),
+                "scholar_id": pub.get("author_pub_id"),
+            }
+        )
 
     return profile, publications
 

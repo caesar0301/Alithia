@@ -206,7 +206,7 @@ def construct_email_content(papers: List[ScoredPaper]) -> EmailContent:
         content = "<br>".join(paper_blocks)
 
         return EmailContent(
-            subject=f"Alithia Digest {digest_date} - {len(papers)} Papers",
+            subject=f"Alithia Digest {digest_date}",
             html_content=EMAIL_TEMPLATE.format(content=content),
             papers=papers,
         )

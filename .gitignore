@@ -208,3 +208,4 @@ alithia_config.json
 data/alithia.db
 
 .DS_Store
+.python-version

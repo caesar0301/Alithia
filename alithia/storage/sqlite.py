@@ -67,8 +67,7 @@ class SQLiteStorage(StorageBackend):
         cursor = self.conn.cursor()
 
         # Zotero papers cache
-        cursor.execute(
-            """
+        cursor.execute("""
             CREATE TABLE IF NOT EXISTS zotero_papers (
                 id TEXT PRIMARY KEY,
                 user_id TEXT NOT NULL,
@@ -81,12 +80,10 @@ class SQLiteStorage(StorageBackend):
                 date_added TEXT,
                 last_synced TEXT
             )
-        """
-        )
+        """)
 
         # ArXiv processed ranges
-        cursor.execute(
-            """
+        cursor.execute("""
             CREATE TABLE IF NOT EXISTS arxiv_processed_ranges (
                 id TEXT PRIMARY KEY,
                 user_id TEXT NOT NULL,
@@ -97,12 +94,10 @@ class SQLiteStorage(StorageBackend):
                 processed_at TEXT,
                 UNIQUE(user_id, from_date, to_date, query_categories)
             )
-        """
-        )
+        """)
 
         # ArXiv papers emailed
-        cursor.execute(
-            """
+        cursor.execute("""
             CREATE TABLE IF NOT EXISTS arxiv_papers_emailed (
                 id TEXT PRIMARY KEY,
                 user_id TEXT NOT NULL,
@@ -118,12 +113,10 @@ class SQLiteStorage(StorageBackend):
                 emailed_at TEXT,
                 UNIQUE(user_id, arxiv_id)
             )
-        """
-        )
+        """)
 
         # Parsed papers cache
-        cursor.execute(
-            """
+        cursor.execute("""
             CREATE TABLE IF NOT EXISTS parsed_papers (
                 id TEXT PRIMARY KEY,
                 user_id TEXT NOT NULL,
@@ -140,12 +133,10 @@ class SQLiteStorage(StorageBackend):
                 parsed_at TEXT,
                 last_accessed TEXT
             )
-        """
-        )
+        """)
 
         # Query history
-        cursor.execute(
-            """
+        cursor.execute("""
             CREATE TABLE IF NOT EXISTS query_history (
                 id TEXT PRIMARY KEY,
                 user_id TEXT NOT NULL,
@@ -156,12 +147,10 @@ class SQLiteStorage(StorageBackend):
                 queried_at TEXT,
                 FOREIGN KEY (paper_id) REFERENCES parsed_papers(id)
             )
-        """
-        )
+        """)
 
         # Assessed papers (PaperScout v2)
-        cursor.execute(
-            """
+        cursor.execute("""
             CREATE TABLE IF NOT EXISTS assessed_papers (
                 id TEXT PRIMARY KEY,
                 user_id TEXT NOT NULL,
@@ -181,12 +170,10 @@ class SQLiteStorage(StorageBackend):
                 assessed_at TEXT,
                 UNIQUE(user_id, arxiv_id, query_categories)
             )
-        """
-        )
+        """)
 
         # Notification records (exactly-once email)
-        cursor.execute(
-            """
+        cursor.execute("""
             CREATE TABLE IF NOT EXISTS notification_records (
                 id TEXT PRIMARY KEY,
                 user_id TEXT NOT NULL,
@@ -200,12 +187,10 @@ class SQLiteStorage(StorageBackend):
                 created_at TEXT,
                 UNIQUE(user_id, query_categories, notification_date)
             )
-        """
-        )
+        """)
 
         # Scholar profiles
-        cursor.execute(
-            """
+        cursor.execute("""
             CREATE TABLE IF NOT EXISTS scholar_profiles (
                 id TEXT PRIMARY KEY,
                 user_id TEXT NOT NULL UNIQUE,
@@ -218,12 +203,10 @@ class SQLiteStorage(StorageBackend):
                 total_citations INTEGER DEFAULT 0,
                 last_synced TEXT
             )
-        """
-        )
+        """)
 
         # Scholar publications
-        cursor.execute(
-            """
+        cursor.execute("""
             CREATE TABLE IF NOT EXISTS scholar_publications (
                 id TEXT PRIMARY KEY,
                 user_id TEXT NOT NULL,
@@ -237,12 +220,10 @@ class SQLiteStorage(StorageBackend):
                 last_synced TEXT,
                 UNIQUE(user_id, title, year)
             )
-        """
-        )
+        """)
 
         # Sync log
-        cursor.execute(
-            """
+        cursor.execute("""
             CREATE TABLE IF NOT EXISTS sync_log (
                 id TEXT PRIMARY KEY,
                 user_id TEXT NOT NULL,
@@ -255,12 +236,10 @@ class SQLiteStorage(StorageBackend):
                 started_at TEXT NOT NULL,
                 completed_at TEXT
             )
-        """
-        )
+        """)
 
         # Background tasks (Dashboard)
-        cursor.execute(
-            """
+        cursor.execute("""
             CREATE TABLE IF NOT EXISTS background_tasks (
                 id TEXT PRIMARY KEY,
                 user_id TEXT NOT NULL,
@@ -276,8 +255,7 @@ class SQLiteStorage(StorageBackend):
                 completed_at TEXT,
                 error_message TEXT
             )
-        """
-        )
+        """)
 
         # Create indexes for common queries
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_zotero_user ON zotero_papers(user_id, last_synced)")
@@ -296,16 +274,13 @@ class SQLiteStorage(StorageBackend):
             "ON notification_records(user_id, query_categories, notification_date)"
         )
         cursor.execute(
-            "CREATE INDEX IF NOT EXISTS idx_sync_log_lookup "
-            "ON sync_log(user_id, connector_name, started_at)"
+            "CREATE INDEX IF NOT EXISTS idx_sync_log_lookup " "ON sync_log(user_id, connector_name, started_at)"
         )
         cursor.execute(
-            "CREATE INDEX IF NOT EXISTS idx_background_tasks_user "
-            "ON background_tasks(user_id, status, created_at)"
+            "CREATE INDEX IF NOT EXISTS idx_background_tasks_user " "ON background_tasks(user_id, status, created_at)"
         )
         cursor.execute(
-            "CREATE INDEX IF NOT EXISTS idx_scholar_pub_user "
-            "ON scholar_publications(user_id, citation_count)"
+            "CREATE INDEX IF NOT EXISTS idx_scholar_pub_user " "ON scholar_publications(user_id, citation_count)"
         )
 
         self.conn.commit()
@@ -863,9 +838,7 @@ class SQLiteStorage(StorageBackend):
             logger.error(f"Failed to get notification record: {e}")
             return None
 
-    def get_missing_notification_dates(
-        self, user_id: str, query_categories: str, window_days: int = 7
-    ) -> List[date]:
+    def get_missing_notification_dates(self, user_id: str, query_categories: str, window_days: int = 7) -> List[date]:
         try:
             today = date.today()
             expected = [today - timedelta(days=i) for i in range(1, window_days + 1)]

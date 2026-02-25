@@ -92,14 +92,16 @@ class TestNotificationRecords:
         today = date.today()
         query = "cs.AI"
 
-        storage.save_notification_record({
-            "user_id": user_id,
-            "query_categories": query,
-            "notification_date": today.isoformat(),
-            "paper_count": 10,
-            "status": "sent",
-            "sent_at": datetime.utcnow().isoformat(),
-        })
+        storage.save_notification_record(
+            {
+                "user_id": user_id,
+                "query_categories": query,
+                "notification_date": today.isoformat(),
+                "paper_count": 10,
+                "status": "sent",
+                "sent_at": datetime.utcnow().isoformat(),
+            }
+        )
 
         rec = storage.get_notification_record(user_id, query, today)
         assert rec is not None
@@ -110,13 +112,15 @@ class TestNotificationRecords:
         query = "cs.AI"
         today = date.today()
 
-        storage.save_notification_record({
-            "user_id": user_id,
-            "query_categories": query,
-            "notification_date": (today - timedelta(days=1)).isoformat(),
-            "paper_count": 5,
-            "status": "sent",
-        })
+        storage.save_notification_record(
+            {
+                "user_id": user_id,
+                "query_categories": query,
+                "notification_date": (today - timedelta(days=1)).isoformat(),
+                "paper_count": 5,
+                "status": "sent",
+            }
+        )
 
         missing = storage.get_missing_notification_dates(user_id, query, window_days=3)
         # day-1 is sent, so day-2 and day-3 should be missing
@@ -128,16 +132,16 @@ class TestNotificationRecords:
         today = date.today()
         for i in range(3):
             d = today - timedelta(days=i)
-            storage.save_notification_record({
-                "user_id": user_id,
-                "query_categories": query,
-                "notification_date": d.isoformat(),
-                "status": "sent",
-            })
+            storage.save_notification_record(
+                {
+                    "user_id": user_id,
+                    "query_categories": query,
+                    "notification_date": d.isoformat(),
+                    "status": "sent",
+                }
+            )
 
-        recs = storage.get_notification_records_range(
-            user_id, query, today - timedelta(days=2), today
-        )
+        recs = storage.get_notification_records_range(user_id, query, today - timedelta(days=2), today)
         assert len(recs) == 3
 
     def test_exactly_once(self, storage, user_id):
@@ -145,19 +149,23 @@ class TestNotificationRecords:
         today = date.today()
         query = "cs.AI"
 
-        storage.save_notification_record({
-            "user_id": user_id,
-            "query_categories": query,
-            "notification_date": today.isoformat(),
-            "status": "pending",
-        })
-        storage.save_notification_record({
-            "user_id": user_id,
-            "query_categories": query,
-            "notification_date": today.isoformat(),
-            "status": "sent",
-            "sent_at": datetime.utcnow().isoformat(),
-        })
+        storage.save_notification_record(
+            {
+                "user_id": user_id,
+                "query_categories": query,
+                "notification_date": today.isoformat(),
+                "status": "pending",
+            }
+        )
+        storage.save_notification_record(
+            {
+                "user_id": user_id,
+                "query_categories": query,
+                "notification_date": today.isoformat(),
+                "status": "sent",
+                "sent_at": datetime.utcnow().isoformat(),
+            }
+        )
 
         rec = storage.get_notification_record(user_id, query, today)
         assert rec["status"] == "sent"
@@ -208,15 +216,17 @@ class TestSyncLog:
     def test_save_and_get_last(self, storage, user_id):
         now = datetime.utcnow()
 
-        storage.save_sync_log({
-            "user_id": user_id,
-            "connector_name": "zotero",
-            "status": "success",
-            "items_synced": 42,
-            "items_total": 42,
-            "started_at": (now - timedelta(seconds=10)).isoformat(),
-            "completed_at": now.isoformat(),
-        })
+        storage.save_sync_log(
+            {
+                "user_id": user_id,
+                "connector_name": "zotero",
+                "status": "success",
+                "items_synced": 42,
+                "items_total": 42,
+                "started_at": (now - timedelta(seconds=10)).isoformat(),
+                "completed_at": now.isoformat(),
+            }
+        )
 
         last = storage.get_last_sync(user_id, "zotero")
         assert last is not None
@@ -226,14 +236,16 @@ class TestSyncLog:
     def test_failed_not_returned(self, storage, user_id):
         now = datetime.utcnow()
 
-        storage.save_sync_log({
-            "user_id": user_id,
-            "connector_name": "google_scholar",
-            "status": "failed",
-            "error_message": "rate limited",
-            "started_at": now.isoformat(),
-            "completed_at": now.isoformat(),
-        })
+        storage.save_sync_log(
+            {
+                "user_id": user_id,
+                "connector_name": "google_scholar",
+                "status": "failed",
+                "error_message": "rate limited",
+                "started_at": now.isoformat(),
+                "completed_at": now.isoformat(),
+            }
+        )
 
         last = storage.get_last_sync(user_id, "google_scholar")
         assert last is None  # get_last_sync only returns status='success'
@@ -242,14 +254,16 @@ class TestSyncLog:
 class TestBackgroundTasks:
     def test_save_and_get(self, storage, user_id):
         task_id = str(uuid.uuid4())
-        storage.save_task({
-            "id": task_id,
-            "user_id": user_id,
-            "task_type": "paperscout",
-            "status": "queued",
-            "parameters": {"query": "cs.AI"},
-            "created_at": datetime.utcnow().isoformat(),
-        })
+        storage.save_task(
+            {
+                "id": task_id,
+                "user_id": user_id,
+                "task_type": "paperscout",
+                "status": "queued",
+                "parameters": {"query": "cs.AI"},
+                "created_at": datetime.utcnow().isoformat(),
+            }
+        )
 
         task = storage.get_task(task_id)
         assert task is not None
@@ -258,14 +272,16 @@ class TestBackgroundTasks:
 
     def test_update_progress(self, storage, user_id):
         task_id = str(uuid.uuid4())
-        storage.save_task({
-            "id": task_id,
-            "user_id": user_id,
-            "task_type": "sync",
-            "status": "running",
-            "progress": 0.5,
-            "current_step": "fetching",
-        })
+        storage.save_task(
+            {
+                "id": task_id,
+                "user_id": user_id,
+                "task_type": "sync",
+                "status": "running",
+                "progress": 0.5,
+                "current_step": "fetching",
+            }
+        )
 
         task = storage.get_task(task_id)
         assert task["progress"] == 0.5
@@ -273,12 +289,14 @@ class TestBackgroundTasks:
 
     def test_list_tasks(self, storage, user_id):
         for i in range(3):
-            storage.save_task({
-                "id": str(uuid.uuid4()),
-                "user_id": user_id,
-                "task_type": "test",
-                "status": "completed" if i < 2 else "failed",
-            })
+            storage.save_task(
+                {
+                    "id": str(uuid.uuid4()),
+                    "user_id": user_id,
+                    "task_type": "test",
+                    "status": "completed" if i < 2 else "failed",
+                }
+            )
 
         all_tasks = storage.get_tasks(user_id)
         assert len(all_tasks) == 3

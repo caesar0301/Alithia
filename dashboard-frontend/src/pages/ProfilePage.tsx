@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import {
-  User, BookOpen, GraduationCap, Hash, Quote,
+  User, BookOpen, GraduationCap, Hash, Quote, Award, Globe, Database, Search,
   CheckCircle, AlertCircle, Github, Twitter, Mail, Bot,
 } from 'lucide-react';
 import { api, type Profile, type ServiceConnectionInfo } from '../api';
@@ -46,7 +46,23 @@ function ServiceCard({ svc }: { svc: ServiceConnectionInfo }) {
           {!connected && svc.error && (
             <p className="text-xs text-amber-600 mt-0.5 leading-relaxed">{svc.error}</p>
           )}
+          {svc.last_synced && (
+            <p className="text-xs text-gray-400 mt-0.5">Last synced: {svc.last_synced.slice(0, 10)}</p>
+          )}
         </div>
+      </div>
+    </div>
+  );
+}
+
+function InfoRow({ icon: Icon, label, value }: { icon: typeof User; label: string; value: string }) {
+  if (!value) return null;
+  return (
+    <div className="flex items-center gap-3 py-2">
+      <Icon size={16} className="text-gray-400 shrink-0" />
+      <div>
+        <p className="text-xs text-gray-400">{label}</p>
+        <p className="text-sm text-gray-900">{value}</p>
       </div>
     </div>
   );
@@ -61,46 +77,87 @@ export default function ProfilePage() {
 
   if (!profile) return <div className="text-gray-400 text-sm">Loading...</div>;
 
+  const displayName = profile.name || profile.scholar_name || profile.email;
+
   return (
     <div className="space-y-8 max-w-3xl">
       <h2 className="text-2xl font-bold text-gray-900">Researcher Profile</h2>
 
+      {/* Identity card */}
       <div className="bg-white rounded-xl border border-gray-200 p-6 space-y-5">
         <div className="flex items-center gap-4">
           <div className="w-14 h-14 bg-indigo-100 rounded-full flex items-center justify-center">
             <User size={28} className="text-indigo-600" />
           </div>
           <div>
-            <p className="font-semibold text-gray-900">{profile.email}</p>
-            <p className="text-sm text-gray-500 capitalize">{profile.expertise_level}</p>
-          </div>
-        </div>
-
-        <div>
-          <h4 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Research Interests</h4>
-          <div className="flex flex-wrap gap-2">
-            {profile.research_interests.map((i) => (
-              <span key={i} className="text-xs bg-indigo-50 text-indigo-700 px-3 py-1.5 rounded-full font-medium">
-                {i}
-              </span>
-            ))}
-            {profile.research_interests.length === 0 && (
-              <span className="text-xs text-gray-400">Not configured</span>
+            <p className="font-semibold text-gray-900 text-lg">{displayName}</p>
+            {profile.affiliation && (
+              <p className="text-sm text-gray-500">{profile.affiliation}</p>
             )}
+            {!profile.affiliation && profile.scholar_affiliation && (
+              <p className="text-sm text-gray-500">{profile.scholar_affiliation}</p>
+            )}
+            <p className="text-xs text-gray-400 capitalize mt-0.5">{profile.expertise_level}</p>
           </div>
         </div>
 
-        <div>
-          <h4 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">Connected Services</h4>
-          <div className="grid grid-cols-2 gap-3">
-            {profile.services.map((svc) => (
-              <ServiceCard key={svc.name} svc={svc} />
-            ))}
-          </div>
+        <div className="grid grid-cols-2 gap-x-6 gap-y-1 border-t border-gray-100 pt-4">
+          <InfoRow icon={Mail} label="Email" value={profile.email} />
+          <InfoRow icon={Globe} label="Language" value={profile.language} />
+          <InfoRow icon={Database} label="Storage" value={profile.storage_backend} />
+          <InfoRow icon={Search} label="ArXiv Categories" value={profile.arxiv_categories} />
+        </div>
+      </div>
+
+      {/* Research interests */}
+      <div className="bg-white rounded-xl border border-gray-200 p-6">
+        <h4 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">Research Interests</h4>
+        <div className="flex flex-wrap gap-2">
+          {profile.research_interests.map((i) => (
+            <span key={i} className="text-xs bg-indigo-50 text-indigo-700 px-3 py-1.5 rounded-full font-medium">
+              {i}
+            </span>
+          ))}
+          {profile.research_interests.length === 0 && (
+            <span className="text-xs text-gray-400">Not configured</span>
+          )}
         </div>
 
-        {profile.scholar_connected && (
-          <div className="grid grid-cols-2 gap-4">
+        {profile.scholar_interests.length > 0 && (
+          <div className="mt-4">
+            <h4 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Scholar Interests</h4>
+            <div className="flex flex-wrap gap-2">
+              {profile.scholar_interests.map((i) => (
+                <span key={i} className="text-xs bg-purple-50 text-purple-700 px-3 py-1.5 rounded-full font-medium">
+                  {i}
+                </span>
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Connected services */}
+      <div className="bg-white rounded-xl border border-gray-200 p-6">
+        <h4 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">Connected Services</h4>
+        <div className="grid grid-cols-2 gap-3">
+          {profile.services.map((svc) => (
+            <ServiceCard key={svc.name} svc={svc} />
+          ))}
+        </div>
+      </div>
+
+      {/* Scholar metrics */}
+      {profile.scholar_connected && (
+        <div className="bg-white rounded-xl border border-gray-200 p-6">
+          <h4 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-4">Scholar Metrics</h4>
+          {profile.scholar_name && (
+            <p className="text-sm text-gray-700 mb-1">{profile.scholar_name}</p>
+          )}
+          {profile.scholar_affiliation && (
+            <p className="text-xs text-gray-500 mb-4">{profile.scholar_affiliation}</p>
+          )}
+          <div className="grid grid-cols-3 gap-4">
             <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg">
               <Hash size={18} className="text-amber-500" />
               <div>
@@ -109,16 +166,24 @@ export default function ProfilePage() {
               </div>
             </div>
             <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg">
+              <Award size={18} className="text-blue-500" />
+              <div>
+                <p className="text-sm font-medium">{profile.scholar_i10_index ?? '—'}</p>
+                <p className="text-xs text-gray-400">i10-index</p>
+              </div>
+            </div>
+            <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg">
               <Quote size={18} className="text-emerald-500" />
               <div>
                 <p className="text-sm font-medium">{profile.scholar_total_citations.toLocaleString()}</p>
-                <p className="text-xs text-gray-400">Total Citations</p>
+                <p className="text-xs text-gray-400">Citations</p>
               </div>
             </div>
           </div>
-        )}
-      </div>
+        </div>
+      )}
 
+      {/* Top publications */}
       {profile.top_publications.length > 0 && (
         <div className="bg-white rounded-xl border border-gray-200 p-6">
           <h3 className="text-sm font-semibold text-gray-700 mb-4">Top Publications</h3>
@@ -126,11 +191,13 @@ export default function ProfilePage() {
             {profile.top_publications.map((pub, i) => (
               <div key={i} className="flex items-start gap-3 py-2 border-b border-gray-100 last:border-0">
                 <span className="text-xs text-gray-400 mt-1 w-5">{i + 1}.</span>
-                <div>
+                <div className="flex-1 min-w-0">
                   <p className="text-sm font-medium text-gray-900">{String(pub.title || '')}</p>
-                  <p className="text-xs text-gray-500">
-                    {pub.year ? String(pub.year) : ''} &middot; {Number(pub.citation_count || 0)} citations
-                  </p>
+                  <div className="flex items-center gap-2 mt-0.5">
+                    {pub.year && <span className="text-xs text-gray-500">{String(pub.year)}</span>}
+                    {pub.venue && <span className="text-xs text-gray-400">{String(pub.venue)}</span>}
+                    <span className="text-xs text-gray-500">{Number(pub.citation_count || 0)} citations</span>
+                  </div>
                 </div>
               </div>
             ))}

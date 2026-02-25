@@ -34,18 +34,20 @@ async def get_papers(
 
     results = []
     for row in rows[:limit]:
-        results.append(PaperResponse(
-            arxiv_id=row.get("arxiv_id", ""),
-            title=row.get("paper_title", ""),
-            authors=row.get("paper_authors", []),
-            summary=row.get("paper_summary", ""),
-            pdf_url=row.get("pdf_url", ""),
-            code_url=row.get("code_url"),
-            tldr=row.get("tldr"),
-            relevance_score=row.get("relevance_score", 0.0),
-            affiliations=row.get("affiliations", []),
-            assessment_date=row.get("assessment_date"),
-            emailed=row.get("emailed", False),
-        ))
+        results.append(
+            PaperResponse(
+                arxiv_id=row.get("arxiv_id", ""),
+                title=row.get("paper_title", ""),
+                authors=row.get("paper_authors", []),
+                summary=row.get("paper_summary", ""),
+                pdf_url=row.get("pdf_url", ""),
+                code_url=row.get("code_url"),
+                tldr=row.get("tldr"),
+                relevance_score=row.get("relevance_score", 0.0),
+                affiliations=row.get("affiliations", []),
+                assessment_date=row.get("assessment_date"),
+                emailed=row.get("emailed", False),
+            )
+        )
 
     return results

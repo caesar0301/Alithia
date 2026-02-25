@@ -42,12 +42,14 @@ def app(config, storage, user_id):
     """Create FastAPI test app with injected storage."""
     config.setdefault("storage", {})["user_id"] = user_id
     from alithia.dashboard.app import create_app
+
     return create_app(config, storage)
 
 
 @pytest.fixture
 def client(app):
     from fastapi.testclient import TestClient
+
     return TestClient(app)
 
 
@@ -57,7 +59,8 @@ def _seed_data(storage, user_id, query="cs.AI+cs.CV+cs.LG+cs.CL"):
     yesterday = today - timedelta(days=1)
 
     storage.save_assessed_papers(
-        user_id, query,
+        user_id,
+        query,
         [
             {"arxiv_id": "2401.00001", "title": "Paper A", "authors": ["Alice"], "relevance_score": 8.0},
             {"arxiv_id": "2401.00002", "title": "Paper B", "authors": ["Bob"], "relevance_score": 6.5},
@@ -66,28 +69,33 @@ def _seed_data(storage, user_id, query="cs.AI+cs.CV+cs.LG+cs.CL"):
     )
 
     for d in [yesterday, today]:
-        storage.save_notification_record({
-            "user_id": user_id,
-            "query_categories": query,
-            "notification_date": d.isoformat(),
-            "paper_count": 2,
-            "status": "sent",
-            "sent_at": datetime.utcnow().isoformat(),
-        })
+        storage.save_notification_record(
+            {
+                "user_id": user_id,
+                "query_categories": query,
+                "notification_date": d.isoformat(),
+                "paper_count": 2,
+                "status": "sent",
+                "sent_at": datetime.utcnow().isoformat(),
+            }
+        )
 
-    storage.save_task({
-        "id": str(uuid.uuid4()),
-        "user_id": user_id,
-        "task_type": "paperscout",
-        "status": "completed",
-        "progress": 1.0,
-        "created_at": datetime.utcnow().isoformat(),
-    })
+    storage.save_task(
+        {
+            "id": str(uuid.uuid4()),
+            "user_id": user_id,
+            "task_type": "paperscout",
+            "status": "completed",
+            "progress": 1.0,
+            "created_at": datetime.utcnow().isoformat(),
+        }
+    )
 
 
 # =============================================================================
 # GET /api/overview
 # =============================================================================
+
 
 @pytest.mark.integration
 class TestOverviewEndpoint:
@@ -111,6 +119,7 @@ class TestOverviewEndpoint:
 # GET /api/profile
 # =============================================================================
 
+
 @pytest.mark.integration
 class TestProfileEndpoint:
     def test_profile_returns_config_data(self, client, config):
@@ -124,6 +133,7 @@ class TestProfileEndpoint:
 # =============================================================================
 # GET /api/papers
 # =============================================================================
+
 
 @pytest.mark.integration
 class TestPapersEndpoint:
@@ -151,6 +161,7 @@ class TestPapersEndpoint:
 # GET /api/calendar
 # =============================================================================
 
+
 @pytest.mark.integration
 class TestCalendarEndpoint:
     def test_calendar_empty(self, client):
@@ -176,6 +187,7 @@ class TestCalendarEndpoint:
 # GET /api/agents/tasks
 # =============================================================================
 
+
 @pytest.mark.integration
 class TestAgentEndpoints:
     def test_list_tasks_empty(self, client):
@@ -199,6 +211,7 @@ class TestAgentEndpoints:
 # =============================================================================
 # WebSocket /ws
 # =============================================================================
+
 
 @pytest.mark.integration
 class TestWebSocket:

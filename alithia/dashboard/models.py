@@ -2,7 +2,6 @@
 Dashboard API models (request/response schemas).
 """
 
-from datetime import date, datetime
 from typing import Any, Dict, List, Literal, Optional
 
 from pydantic import BaseModel, Field
@@ -124,11 +123,20 @@ class ProfileResponse(BaseModel):
     """Researcher profile data."""
 
     email: str = ""
+    name: str = ""
+    affiliation: str = ""
+    language: str = "en"
     research_interests: List[str] = Field(default_factory=list)
     expertise_level: str = "intermediate"
+    arxiv_categories: str = ""
+    storage_backend: str = ""
     services: List[ServiceConnectionInfo] = Field(default_factory=list)
     zotero_connected: bool = False
     scholar_connected: bool = False
+    scholar_name: str = ""
+    scholar_affiliation: str = ""
     scholar_h_index: Optional[int] = None
+    scholar_i10_index: Optional[int] = None
     scholar_total_citations: int = 0
+    scholar_interests: List[str] = Field(default_factory=list)
     top_publications: List[Dict[str, Any]] = Field(default_factory=list)

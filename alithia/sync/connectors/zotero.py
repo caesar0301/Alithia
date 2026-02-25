@@ -31,9 +31,7 @@ class ZoteroConnector(SyncConnector):
     def is_configured(self) -> bool:
         return bool(self._connection.zotero_id and self._connection.zotero_key)
 
-    async def sync(
-        self, storage: StorageBackend, user_id: str, force_full: bool = False
-    ) -> SyncResult:
+    async def sync(self, storage: StorageBackend, user_id: str, force_full: bool = False) -> SyncResult:
         started_at = datetime.utcnow()
 
         try:
@@ -52,9 +50,7 @@ class ZoteroConnector(SyncConnector):
                         details={"reason": "cache_fresh"},
                     )
 
-            raw_items = get_zotero_corpus(
-                self._connection.zotero_id, self._connection.zotero_key
-            )
+            raw_items = get_zotero_corpus(self._connection.zotero_id, self._connection.zotero_key)
 
             papers = []
             for item in raw_items:
@@ -63,21 +59,21 @@ class ZoteroConnector(SyncConnector):
                 if zp:
                     papers.append(zp)
 
-            storage.cache_zotero_papers(
-                user_id, [p.to_storage_dict() for p in papers]
-            )
+            storage.cache_zotero_papers(user_id, [p.to_storage_dict() for p in papers])
 
             completed_at = datetime.utcnow()
 
-            storage.save_sync_log({
-                "user_id": user_id,
-                "connector_name": self.name,
-                "status": SyncStatus.SUCCESS.value,
-                "items_synced": len(papers),
-                "items_total": len(raw_items),
-                "started_at": started_at.isoformat(),
-                "completed_at": completed_at.isoformat(),
-            })
+            storage.save_sync_log(
+                {
+                    "user_id": user_id,
+                    "connector_name": self.name,
+                    "status": SyncStatus.SUCCESS.value,
+                    "items_synced": len(papers),
+                    "items_total": len(raw_items),
+                    "started_at": started_at.isoformat(),
+                    "completed_at": completed_at.isoformat(),
+                }
+            )
 
             logger.info(f"Zotero sync complete: {len(papers)}/{len(raw_items)} papers")
 
@@ -96,14 +92,16 @@ class ZoteroConnector(SyncConnector):
             logger.error(f"Zotero sync failed: {error_msg}")
 
             try:
-                storage.save_sync_log({
-                    "user_id": user_id,
-                    "connector_name": self.name,
-                    "status": SyncStatus.FAILED.value,
-                    "error_message": error_msg,
-                    "started_at": started_at.isoformat(),
-                    "completed_at": completed_at.isoformat(),
-                })
+                storage.save_sync_log(
+                    {
+                        "user_id": user_id,
+                        "connector_name": self.name,
+                        "status": SyncStatus.FAILED.value,
+                        "error_message": error_msg,
+                        "started_at": started_at.isoformat(),
+                        "completed_at": completed_at.isoformat(),
+                    }
+                )
             except Exception:
                 pass
 

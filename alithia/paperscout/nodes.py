@@ -6,7 +6,7 @@ node functions that capture the injected storage backend.
 """
 
 from datetime import date, datetime, timedelta
-from typing import Any, Callable, Dict, List, Optional
+from typing import Callable, Dict, List, Optional
 
 from noesium.core.utils import get_logger
 
@@ -59,9 +59,7 @@ def _validate_user_profile(user_profile: ResearcherProfile) -> List[str]:
     return errors
 
 
-def make_nodes(
-    storage: Optional[StorageBackend], user_id: str
-) -> Dict[str, Callable]:
+def make_nodes(storage: Optional[StorageBackend], user_id: str) -> Dict[str, Callable]:
     """
     Create node functions with injected storage and user_id.
 
@@ -126,9 +124,7 @@ def make_nodes(
             # Apply ignore patterns (filter on collection_paths)
             if state.config.ignore_patterns and corpus:
                 ignore_str = "\n".join(state.config.ignore_patterns)
-                raw_for_filter = [
-                    {"data": {"collections": p.collection_paths}} for p in corpus
-                ]
+                raw_for_filter = [{"data": {"collections": p.collection_paths}} for p in corpus]
                 filtered = filter_corpus(raw_for_filter, ignore_str)
                 filtered_keys = set(range(len(filtered)))
                 corpus = [c for i, c in enumerate(corpus) if i in filtered_keys]
@@ -138,11 +134,7 @@ def make_nodes(
             if state.config.from_date:
                 try:
                     from_dt = datetime.strptime(state.config.from_date, "%Y-%m-%d")
-                    to_dt = (
-                        datetime.strptime(state.config.to_date, "%Y-%m-%d")
-                        if state.config.to_date
-                        else from_dt
-                    )
+                    to_dt = datetime.strptime(state.config.to_date, "%Y-%m-%d") if state.config.to_date else from_dt
                 except ValueError:
                     from_dt = datetime.now() - timedelta(days=1)
                     to_dt = from_dt
@@ -216,8 +208,7 @@ def make_nodes(
 
         if not state.zotero_corpus:
             scored_papers = [
-                ScoredPaper(paper=p, score=5.0, relevance_factors={"basic": 5.0})
-                for p in state.discovered_papers
+                ScoredPaper(paper=p, score=5.0, relevance_factors={"basic": 5.0}) for p in state.discovered_papers
             ]
         else:
             try:
@@ -240,18 +231,20 @@ def make_nodes(
                 today = date.today()
                 paper_dicts = []
                 for sp in scored_papers:
-                    paper_dicts.append({
-                        "arxiv_id": sp.paper.arxiv_id,
-                        "title": sp.paper.title,
-                        "authors": sp.paper.authors,
-                        "summary": sp.paper.summary,
-                        "pdf_url": sp.paper.pdf_url,
-                        "relevance_score": sp.score,
-                        "relevance_factors": sp.relevance_factors,
-                        "code_url": sp.paper.code_url,
-                        "tldr": sp.paper.tldr,
-                        "affiliations": sp.paper.affiliations or [],
-                    })
+                    paper_dicts.append(
+                        {
+                            "arxiv_id": sp.paper.arxiv_id,
+                            "title": sp.paper.title,
+                            "authors": sp.paper.authors,
+                            "summary": sp.paper.summary,
+                            "pdf_url": sp.paper.pdf_url,
+                            "relevance_score": sp.score,
+                            "relevance_factors": sp.relevance_factors,
+                            "code_url": sp.paper.code_url,
+                            "tldr": sp.paper.tldr,
+                            "affiliations": sp.paper.affiliations or [],
+                        }
+                    )
                 _storage.save_assessed_papers(uid, state.config.query, paper_dicts, today)
                 logger.info(f"Persisted {len(paper_dicts)} assessed papers")
             except Exception as e:
@@ -321,13 +314,15 @@ def make_nodes(
         # Create pending notification record
         if _storage:
             try:
-                _storage.save_notification_record({
-                    "user_id": uid,
-                    "query_categories": query,
-                    "notification_date": today.isoformat(),
-                    "paper_count": len(state.scored_papers),
-                    "status": "pending",
-                })
+                _storage.save_notification_record(
+                    {
+                        "user_id": uid,
+                        "query_categories": query,
+                        "notification_date": today.isoformat(),
+                        "paper_count": len(state.scored_papers),
+                        "status": "pending",
+                    }
+                )
             except Exception as e:
                 logger.warning(f"Failed to save pending notification: {e}")
 
@@ -356,14 +351,16 @@ def make_nodes(
                 # Update notification record to sent
                 if _storage:
                     try:
-                        _storage.save_notification_record({
-                            "user_id": uid,
-                            "query_categories": query,
-                            "notification_date": today.isoformat(),
-                            "paper_count": len(state.scored_papers),
-                            "status": "sent",
-                            "sent_at": datetime.utcnow().isoformat(),
-                        })
+                        _storage.save_notification_record(
+                            {
+                                "user_id": uid,
+                                "query_categories": query,
+                                "notification_date": today.isoformat(),
+                                "paper_count": len(state.scored_papers),
+                                "status": "sent",
+                                "sent_at": datetime.utcnow().isoformat(),
+                            }
+                        )
                     except Exception as e:
                         logger.warning(f"Failed to update notification to sent: {e}")
 
@@ -372,19 +369,21 @@ def make_nodes(
                     try:
                         papers_data = []
                         for sp in state.scored_papers:
-                            papers_data.append({
-                                "arxiv_id": sp.paper.arxiv_id,
-                                "title": sp.paper.title,
-                                "authors": sp.paper.authors,
-                                "summary": sp.paper.summary,
-                                "pdf_url": sp.paper.pdf_url,
-                                "code_url": sp.paper.code_url,
-                                "tldr": sp.paper.tldr,
-                                "relevance_score": sp.score,
-                                "published_date": (
-                                    sp.paper.published_date.isoformat() if sp.paper.published_date else None
-                                ),
-                            })
+                            papers_data.append(
+                                {
+                                    "arxiv_id": sp.paper.arxiv_id,
+                                    "title": sp.paper.title,
+                                    "authors": sp.paper.authors,
+                                    "summary": sp.paper.summary,
+                                    "pdf_url": sp.paper.pdf_url,
+                                    "code_url": sp.paper.code_url,
+                                    "tldr": sp.paper.tldr,
+                                    "relevance_score": sp.score,
+                                    "published_date": (
+                                        sp.paper.published_date.isoformat() if sp.paper.published_date else None
+                                    ),
+                                }
+                            )
                         _storage.save_emailed_papers(uid, papers_data)
                     except Exception as e:
                         logger.warning(f"Failed to track emailed papers: {e}")
@@ -394,14 +393,16 @@ def make_nodes(
                 # Mark notification as failed
                 if _storage:
                     try:
-                        _storage.save_notification_record({
-                            "user_id": uid,
-                            "query_categories": query,
-                            "notification_date": today.isoformat(),
-                            "paper_count": len(state.scored_papers),
-                            "status": "failed",
-                            "error_message": "send_email returned False",
-                        })
+                        _storage.save_notification_record(
+                            {
+                                "user_id": uid,
+                                "query_categories": query,
+                                "notification_date": today.isoformat(),
+                                "paper_count": len(state.scored_papers),
+                                "status": "failed",
+                                "error_message": "send_email returned False",
+                            }
+                        )
                     except Exception:
                         pass
 
@@ -411,13 +412,15 @@ def make_nodes(
         except Exception as e:
             if _storage:
                 try:
-                    _storage.save_notification_record({
-                        "user_id": uid,
-                        "query_categories": query,
-                        "notification_date": today.isoformat(),
-                        "status": "failed",
-                        "error_message": str(e),
-                    })
+                    _storage.save_notification_record(
+                        {
+                            "user_id": uid,
+                            "query_categories": query,
+                            "notification_date": today.isoformat(),
+                            "status": "failed",
+                            "error_message": str(e),
+                        }
+                    )
                 except Exception:
                     pass
 

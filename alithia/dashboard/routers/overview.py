@@ -10,6 +10,14 @@ from alithia.dashboard.models import OverviewResponse, ServiceStatus
 
 router = APIRouter(prefix="/api", tags=["overview"])
 
+_ALL_SERVICES = [
+    ("zotero", lambda rp: bool(rp.get("zotero"))),
+    ("google_scholar", lambda rp: bool(rp.get("google_scholar") or rp.get("googlescholarconnection"))),
+    ("github", lambda rp: bool(rp.get("github", {}).get("github_username"))),
+    ("email", lambda rp: bool(rp.get("email_notification", {}).get("smtp_server"))),
+    ("llm", lambda rp: bool(rp.get("llm", {}).get("openai_api_key"))),
+]
+
 
 @router.get("/overview", response_model=OverviewResponse)
 async def get_overview(request: Request):
@@ -34,24 +42,26 @@ async def get_overview(request: Request):
 
     scholar_pubs = storage.get_scholar_publications(user_id, limit=9999)
 
-    # Build service statuses
+    rp = config.get("researcher_profile", {})
     services = []
-    for name in ["zotero", "google_scholar"]:
-        last = storage.get_last_sync(user_id, name)
-        configured = False
-        if name == "zotero":
-            configured = bool(config.get("researcher_profile", {}).get("zotero"))
-        elif name == "google_scholar":
-            configured = bool(config.get("researcher_profile", {}).get("googlescholarconnection"))
-        status = "not_configured"
+    for name, is_configured in _ALL_SERVICES:
+        configured = is_configured(rp)
+        last = storage.get_last_sync(user_id, name) if name in ("zotero", "google_scholar") else None
         if configured:
-            status = "ok" if last and last.get("status") == "success" else "pending"
-        services.append(ServiceStatus(
-            name=name,
-            configured=configured,
-            last_synced=last.get("completed_at") if last else None,
-            status=status,
-        ))
+            if last:
+                status = "ok" if last.get("status") == "success" else "pending"
+            else:
+                status = "ok"
+        else:
+            status = "not_configured"
+        services.append(
+            ServiceStatus(
+                name=name,
+                configured=configured,
+                last_synced=last.get("completed_at") if last else None,
+                status=status,
+            )
+        )
 
     recent_tasks = task_manager.get_tasks(limit=5)
 

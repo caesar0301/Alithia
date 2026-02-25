@@ -76,7 +76,7 @@ def send_email(
         logger.info(f"Logging in as {sender}...")
         server.login(sender, password)
         logger.info("Login successful")
-        
+
         logger.info(f"Sending email to {receiver} with subject: {subject}")
         server.sendmail(sender, [receiver], msg.as_string())
         logger.info("Email sent successfully")

@@ -46,9 +46,7 @@ class SyncConnector(ABC):
         """Return True if credentials and config are present."""
 
     @abstractmethod
-    async def sync(
-        self, storage: "StorageBackend", user_id: str, force_full: bool = False
-    ) -> SyncResult:
+    async def sync(self, storage: "StorageBackend", user_id: str, force_full: bool = False) -> SyncResult:
         """
         Run sync. Writes data to storage.
 

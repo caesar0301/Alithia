@@ -458,11 +458,7 @@ class SupabaseStorage(StorageBackend):
                 filters={"user_id": user_id, "query_categories": query_categories},
                 order_by="-relevance_score",
             )
-            return [
-                r
-                for r in records
-                if from_date.isoformat() <= r.get("assessment_date", "") <= to_date.isoformat()
-            ]
+            return [r for r in records if from_date.isoformat() <= r.get("assessment_date", "") <= to_date.isoformat()]
         except Exception as e:
             logger.error(f"Failed to get assessed papers: {e}")
             return []
@@ -502,9 +498,7 @@ class SupabaseStorage(StorageBackend):
             logger.error(f"Failed to get notification record: {e}")
             return None
 
-    def get_missing_notification_dates(
-        self, user_id: str, query_categories: str, window_days: int = 7
-    ) -> List[date]:
+    def get_missing_notification_dates(self, user_id: str, query_categories: str, window_days: int = 7) -> List[date]:
         try:
             today = date.today()
             expected = [today - timedelta(days=i) for i in range(1, window_days + 1)]
@@ -528,9 +522,7 @@ class SupabaseStorage(StorageBackend):
                 order_by="notification_date",
             )
             return [
-                r
-                for r in records
-                if from_date.isoformat() <= r.get("notification_date", "") <= to_date.isoformat()
+                r for r in records if from_date.isoformat() <= r.get("notification_date", "") <= to_date.isoformat()
             ]
         except Exception as e:
             logger.error(f"Failed to get notification records range: {e}")
@@ -567,9 +559,7 @@ class SupabaseStorage(StorageBackend):
                 pub["user_id"] = user_id
                 pub["last_synced"] = now
                 records.append(pub)
-            self.manager.upsert_records(
-                "scholar_publications", records, conflict_columns=["user_id", "title", "year"]
-            )
+            self.manager.upsert_records("scholar_publications", records, conflict_columns=["user_id", "title", "year"])
             logger.info(f"Saved {len(records)} scholar publications for user {user_id}")
         except Exception as e:
             logger.error(f"Failed to save scholar publications: {e}")
@@ -637,9 +627,7 @@ class SupabaseStorage(StorageBackend):
             filters = {"user_id": user_id}
             if status:
                 filters["status"] = status
-            return self.manager.query_records(
-                "background_tasks", filters=filters, order_by="-created_at", limit=limit
-            )
+            return self.manager.query_records("background_tasks", filters=filters, order_by="-created_at", limit=limit)
         except Exception as e:
             logger.error(f"Failed to get tasks: {e}")
             return []

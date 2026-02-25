@@ -43,7 +43,9 @@ scholar = ["scholarly>=1.7", "google-search-results>=2.4"]
 
 dashboard = ["fastapi>=0.115", "uvicorn>=0.34", "websockets>=14.0"]
 
-all = ["alithia[default,docling,scholar,dashboard]"]
+postgres = ["psycopg[binary]>=3.1"]
+
+all = ["alithia[default,docling,scholar,dashboard,postgres]"]
 
 dev = [
     "pytest>=8.2,<9",

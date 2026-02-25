@@ -48,16 +48,32 @@ export interface ServiceConnectionInfo {
   item_count: number;
 }
 
+export interface Publication {
+  title: string | null;
+  year: number | null;
+  venue: string | null;
+  citation_count: number | null;
+}
+
 export interface Profile {
   email: string;
+  name: string;
+  affiliation: string;
+  language: string;
   research_interests: string[];
   expertise_level: string;
+  arxiv_categories: string;
+  storage_backend: string;
   services: ServiceConnectionInfo[];
   zotero_connected: boolean;
   scholar_connected: boolean;
+  scholar_name: string;
+  scholar_affiliation: string;
   scholar_h_index: number | null;
+  scholar_i10_index: number | null;
   scholar_total_citations: number;
-  top_publications: Record<string, unknown>[];
+  scholar_interests: string[];
+  top_publications: Publication[];
 }
 
 export interface Paper {

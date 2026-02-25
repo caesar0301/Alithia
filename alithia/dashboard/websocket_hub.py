@@ -7,8 +7,8 @@ import json
 from datetime import datetime
 from typing import Any, Dict, Optional, Set
 
-from noesium.core.utils import get_logger
 from fastapi import WebSocket
+from noesium.core.utils import get_logger
 
 logger = get_logger(__name__)
 
@@ -39,11 +39,13 @@ class WebSocketHub:
         if not self._connections:
             return
 
-        data = json.dumps({
-            "type": message_type,
-            "payload": payload,
-            "timestamp": datetime.utcnow().isoformat(),
-        })
+        data = json.dumps(
+            {
+                "type": message_type,
+                "payload": payload,
+                "timestamp": datetime.utcnow().isoformat(),
+            }
+        )
 
         stale: Set[WebSocket] = set()
         async with self._lock:
