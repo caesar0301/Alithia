@@ -3,6 +3,7 @@ import { FileText, Mail, Bell, BookOpen, GraduationCap, CheckCircle, XCircle, Cl
 import { api, type Overview } from '../api';
 import CalendarHeatmap from '../components/CalendarHeatmap';
 import type { CalendarMonth } from '../api';
+import { useTurnstile } from '../hooks/useTurnstile';
 
 function StatCard({ icon: Icon, label, value, color }: { icon: typeof FileText; label: string; value: number; color: string }) {
   return (
@@ -28,6 +29,7 @@ const STATUS_ICON = {
 export default function OverviewPage() {
   const [data, setData] = useState<Overview | null>(null);
   const [calendar, setCalendar] = useState<CalendarMonth[]>([]);
+  const { getToken } = useTurnstile();
 
   const loadCalendar = useCallback(() => {
     api.getCalendar(3).then(setCalendar).catch(console.error);
@@ -72,7 +74,7 @@ export default function OverviewPage() {
 
         <div className="bg-white rounded-xl border border-gray-200 p-5">
           <h3 className="text-sm font-semibold text-gray-700 mb-4">Notification Calendar</h3>
-          <CalendarHeatmap data={calendar} onDiscoverTriggered={loadCalendar} />
+          <CalendarHeatmap data={calendar} onDiscoverTriggered={loadCalendar} getTurnstileToken={getToken} />
         </div>
       </div>
     </div>

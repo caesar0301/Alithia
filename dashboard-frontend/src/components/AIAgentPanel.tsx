@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { Search, RefreshCw, Loader2, CheckCircle2, Circle, XCircle, Clock, Sparkles, Database, AlertTriangle, Calendar } from 'lucide-react';
 import { api, type BackgroundTask } from '../api';
 import { useWebSocket } from '../hooks/useWebSocket';
+import { useTurnstile } from '../hooks/useTurnstile';
 
 /* ------------------------------------------------------------------ */
 /*  Agent registry — add new agents here to extend the page           */
@@ -15,7 +16,7 @@ interface AgentDef {
   icon: typeof Search;
   accent: string;
   accentHover: string;
-  run: () => Promise<BackgroundTask>;
+  run: (token?: string) => Promise<BackgroundTask>;
 }
 
 const AGENTS: AgentDef[] = [
@@ -27,7 +28,7 @@ const AGENTS: AgentDef[] = [
     icon: Search,
     accent: 'bg-indigo-600',
     accentHover: 'hover:bg-indigo-700',
-    run: () => api.runAgent('paperscout'),
+    run: (token) => api.runAgent('paperscout', {}, token),
   },
   {
     id: 'sync',
@@ -37,7 +38,7 @@ const AGENTS: AgentDef[] = [
     icon: Database,
     accent: 'bg-emerald-600',
     accentHover: 'hover:bg-emerald-700',
-    run: () => api.triggerSync(),
+    run: (token) => api.triggerSync(undefined, false, token),
   },
 ];
 
@@ -271,6 +272,7 @@ export default function AIAgentPanel() {
   const [submitting, setSubmitting] = useState('');
   const { lastMessage } = useWebSocket();
   const prevMessageRef = useRef(lastMessage);
+  const { getToken } = useTurnstile();
 
   const refresh = useCallback(async () => {
     const t = await api.getTasks(20);
@@ -293,7 +295,8 @@ export default function AIAgentPanel() {
   const handleRun = async (agent: AgentDef) => {
     setSubmitting(agent.id);
     try {
-      await agent.run();
+      const token = await getToken();
+      await agent.run(token ?? undefined);
       await refresh();
     } finally {
       setSubmitting('');

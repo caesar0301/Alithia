@@ -52,6 +52,10 @@ def load_config(config_path: Optional[str] = None) -> Dict[str, Any]:
     else:
         config_dict = env_config
 
+    # Migrate legacy top-level "supabase" into "storage.supabase"
+    if "supabase" in config_dict and "supabase" not in config_dict.get("storage", {}):
+        config_dict.setdefault("storage", {})["supabase"] = config_dict.pop("supabase")
+
     # Enable debug logging if specified
     if config_dict.get("debug", False):
         logging.getLogger().setLevel(logging.DEBUG)
@@ -108,21 +112,25 @@ def _build_config_from_envs() -> Dict[str, Any]:
         "researcher_profile.email_notification.smtp_port": "ALITHIA_SMTP_PORT",
         "researcher_profile.email_notification.sender": "ALITHIA_SENDER",
         "researcher_profile.email_notification.sender_password": "ALITHIA_SENDER_PASSWORD",
-        # Supabase settings
-        "supabase.url": "ALITHIA_SUPABASE_URL",
-        "supabase.anon_key": "ALITHIA_SUPABASE_ANON_KEY",
-        "supabase.service_role_key": "ALITHIA_SUPABASE_SERVICE_ROLE_KEY",
-        # Storage settings
+        # Storage settings (supabase is nested under storage)
         "storage.backend": "ALITHIA_STORAGE_BACKEND",
         "storage.fallback_to_sqlite": "ALITHIA_STORAGE_FALLBACK_TO_SQLITE",
         "storage.sqlite_path": "ALITHIA_STORAGE_SQLITE_PATH",
         "storage.user_id": "ALITHIA_STORAGE_USER_ID",
+        "storage.supabase.url": "ALITHIA_SUPABASE_URL",
+        "storage.supabase.anon_key": "ALITHIA_SUPABASE_ANON_KEY",
+        "storage.supabase.service_role_key": "ALITHIA_SUPABASE_SERVICE_ROLE_KEY",
         # PaperScout agent settings
         "paperscout_agent.query": "ALITHIA_ARXIV_QUERY",
         "paperscout_agent.max_papers": "ALITHIA_MAX_PAPERS",
         "paperscout_agent.max_papers_queried": "ALITHIA_MAX_PAPERS_QUERIED",
+        "paperscout_agent.send_email": "ALITHIA_SEND_EMAIL",
         "paperscout_agent.send_empty": "ALITHIA_SEND_EMPTY",
         "paperscout_agent.ignore_patterns": "ALITHIA_ZOTERO_IGNORE",
+        # Turnstile settings
+        "turnstile.enabled": "ALITHIA_TURNSTILE_ENABLED",
+        "turnstile.site_key": "ALITHIA_TURNSTILE_SITE_KEY",
+        "turnstile.secret_key": "ALITHIA_TURNSTILE_SECRET_KEY",
         # General settings
         "debug": "ALITHIA_DEBUG",
     }
@@ -140,7 +148,13 @@ def _build_config_from_envs() -> Dict[str, Any]:
                     value = int(value)
                 except ValueError:
                     continue
-            elif config_key in ["paperscout_agent.send_empty", "storage.fallback_to_sqlite", "debug"]:
+            elif config_key in [
+                "paperscout_agent.send_email",
+                "paperscout_agent.send_empty",
+                "storage.fallback_to_sqlite",
+                "turnstile.enabled",
+                "debug",
+            ]:
                 value = str(value).lower() in ["true", "1", "yes"]
             elif config_key == "paperscout_agent.ignore_patterns" and value:
                 value = [pattern.strip() for pattern in value.split(",") if pattern.strip()]

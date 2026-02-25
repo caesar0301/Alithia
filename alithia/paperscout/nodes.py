@@ -42,18 +42,19 @@ def _get_or_create_storage(existing: Optional[StorageBackend]) -> Optional[Stora
         return None
 
 
-def _validate_user_profile(user_profile: ResearcherProfile) -> List[str]:
+def _validate_user_profile(user_profile: ResearcherProfile, *, send_email: bool = True) -> List[str]:
     errors = []
     if not user_profile.zotero.zotero_id:
         errors.append("Zotero ID is required")
     if not user_profile.zotero.zotero_key:
         errors.append("Zotero API key is required")
-    if not user_profile.email_notification.smtp_server:
-        errors.append("SMTP server is required")
-    if not user_profile.email_notification.sender:
-        errors.append("Sender email is required")
-    if not user_profile.email:
-        errors.append("Researcher email is required for notifications")
+    if send_email:
+        if not user_profile.email_notification.smtp_server:
+            errors.append("SMTP server is required")
+        if not user_profile.email_notification.sender:
+            errors.append("Sender email is required")
+        if not user_profile.email:
+            errors.append("Researcher email is required for notifications")
     if not user_profile.llm.openai_api_key:
         errors.append("OpenAI API key is required when using LLM API")
     return errors
@@ -75,7 +76,7 @@ def make_nodes(storage: Optional[StorageBackend], user_id: str) -> Dict[str, Cal
             state.add_error("No profile provided")
             return {"current_step": "profile_analysis_error", "error_log": state.error_log}
 
-        errors = _validate_user_profile(state.config.user_profile)
+        errors = _validate_user_profile(state.config.user_profile, send_email=state.config.send_email)
         if errors:
             for error in errors:
                 state.add_error(error)
@@ -291,18 +292,16 @@ def make_nodes(storage: Optional[StorageBackend], user_id: str) -> Dict[str, Cal
             logger.info("Debug mode: skipping email delivery")
             return {"current_step": "workflow_complete"}
 
-        logger.info("Preparing email delivery...")
+        logger.info("Preparing communication step...")
 
         if not state.config.user_profile:
-            state.add_error("No profile available for email delivery")
+            state.add_error("No profile available for communication step")
             return {"current_step": "communication_error", "error_log": state.error_log}
 
         uid = user_id or state.config.user_profile.email or "default_user"
         query = state.config.query
 
         # Derive notification_date from the paper query date, not the running date.
-        # This allows multiple runs on the same day for different paper dates,
-        # while enforcing exactly-once per paper query date.
         if state.config.from_date:
             try:
                 notification_date = date.fromisoformat(state.config.from_date)
@@ -311,11 +310,16 @@ def make_nodes(storage: Optional[StorageBackend], user_id: str) -> Dict[str, Cal
         else:
             notification_date = date.today() - timedelta(days=1)
 
-        # Exactly-once check keyed by paper query date (PS-001)
+        # Exactly-once: skip if already sent or queried for this date
         if _storage:
             existing = _storage.get_notification_record(uid, query, notification_date)
-            if existing and existing.get("status") == "sent":
+            existing_status = existing.get("status") if existing else None
+            if existing_status == "sent":
                 msg = f"Notification already sent for {notification_date.isoformat()}, skipped (exactly-once)"
+                logger.info(msg)
+                return {"current_step": "workflow_complete", "info_messages": [msg]}
+            if existing_status == "queried" and not state.config.send_email:
+                msg = f"Papers already queried for {notification_date.isoformat()}, skipped (exactly-once)"
                 logger.info(msg)
                 return {"current_step": "workflow_complete", "info_messages": [msg]}
 
@@ -323,6 +327,24 @@ def make_nodes(storage: Optional[StorageBackend], user_id: str) -> Dict[str, Cal
             if not state.config.send_empty:
                 logger.info("No papers found and send_empty=False, skipping")
                 return {"current_step": "workflow_complete"}
+
+        # When send_email is disabled, record as "queried" and return early
+        if not state.config.send_email:
+            logger.info("Email disabled (send_email=false), recording as queried")
+            if _storage:
+                try:
+                    _storage.save_notification_record(
+                        {
+                            "user_id": uid,
+                            "query_categories": query,
+                            "notification_date": notification_date.isoformat(),
+                            "paper_count": len(state.scored_papers),
+                            "status": "queried",
+                        }
+                    )
+                except Exception as e:
+                    logger.warning(f"Failed to save queried notification: {e}")
+            return {"current_step": "workflow_complete"}
 
         # Create pending notification record
         if _storage:
@@ -361,7 +383,6 @@ def make_nodes(storage: Optional[StorageBackend], user_id: str) -> Dict[str, Cal
             if success:
                 logger.info("Email sent successfully")
 
-                # Update notification record to sent
                 if _storage:
                     try:
                         _storage.save_notification_record(
@@ -377,7 +398,6 @@ def make_nodes(storage: Optional[StorageBackend], user_id: str) -> Dict[str, Cal
                     except Exception as e:
                         logger.warning(f"Failed to update notification to sent: {e}")
 
-                # Track emailed papers (backward compat + new assessed_papers update)
                 if state.scored_papers and _storage:
                     try:
                         papers_data = []
@@ -403,7 +423,6 @@ def make_nodes(storage: Optional[StorageBackend], user_id: str) -> Dict[str, Cal
 
                 return {"current_step": "workflow_complete"}
             else:
-                # Mark notification as failed
                 if _storage:
                     try:
                         _storage.save_notification_record(

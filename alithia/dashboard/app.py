@@ -14,7 +14,7 @@ from fastapi.staticfiles import StaticFiles
 from alithia.storage.base import StorageBackend
 
 from .agent_dispatcher import AgentDispatcher
-from .routers import agents, calendar, overview, papers, profile
+from .routers import agents, calendar, config_public, overview, papers, profile
 from .scheduler import PaperScoutScheduler
 from .task_manager import TaskManager
 from .websocket_hub import WebSocketHub
@@ -87,6 +87,7 @@ def create_app(config: Dict[str, Any] | None = None, storage: StorageBackend | N
     app.include_router(papers.router)
     app.include_router(calendar.router)
     app.include_router(agents.router)
+    app.include_router(config_public.router)
 
     # WebSocket endpoint
     @app.websocket("/ws")

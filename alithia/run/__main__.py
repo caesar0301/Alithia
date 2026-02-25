@@ -128,6 +128,7 @@ def run_paperscout_agent(args):
         ALITHIA_MAX_PAPERS,
         ALITHIA_MAX_PAPERS_QUERIED,
         DEFAULT_ARXIV_QUERY,
+        DEFAULT_SEND_EMAIL,
         DEFAULT_SEND_EMPTY,
     )
     from alithia.paperscout.agent import PaperScoutAgent
@@ -148,6 +149,7 @@ def run_paperscout_agent(args):
             query=paperscout_settings.get("query", DEFAULT_ARXIV_QUERY),
             max_papers=paperscout_settings.get("max_papers", ALITHIA_MAX_PAPERS),
             max_papers_queried=paperscout_settings.get("max_papers_queried", ALITHIA_MAX_PAPERS_QUERIED),
+            send_email=paperscout_settings.get("send_email", DEFAULT_SEND_EMAIL),
             send_empty=paperscout_settings.get("send_empty", DEFAULT_SEND_EMPTY),
             ignore_patterns=paperscout_settings.get("ignore_patterns", []),
             from_date=from_date,

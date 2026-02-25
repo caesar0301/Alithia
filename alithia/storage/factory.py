@@ -61,8 +61,8 @@ def get_storage_backend(config: Dict[str, Any]) -> StorageBackend:
             - storage.sqlite_path: path for SQLite DB
             - storage.postgres_dsn: PostgreSQL DSN (alternative to postgres section)
             - postgres.dsn / postgres.host / postgres.user / ...: PostgreSQL config
-            - supabase.url: Supabase project URL
-            - supabase.anon_key or supabase.service_role_key: API key
+            - storage.supabase.url: Supabase project URL
+            - storage.supabase.anon_key or storage.supabase.service_role_key: API key
 
     Returns:
         Connected storage backend instance
@@ -86,7 +86,7 @@ def get_storage_backend(config: Dict[str, Any]) -> StorageBackend:
 
     # Try Supabase if configured
     if backend_type in ("supabase", "postgres"):
-        supabase_config = config.get("supabase", {})
+        supabase_config = storage_config.get("supabase", {}) or config.get("supabase", {})
         url = supabase_config.get("url")
         key = supabase_config.get("service_role_key") or supabase_config.get("anon_key")
 

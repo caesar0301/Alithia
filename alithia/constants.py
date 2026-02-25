@@ -17,6 +17,9 @@ ALITHIA_MAX_PAPERS_QUERIED = 500
 # Default ArXiv query categories
 DEFAULT_ARXIV_QUERY = "cs.AI+cs.CV+cs.LG+cs.CL"
 
+# Whether to send email notification after discovering papers
+DEFAULT_SEND_EMAIL = True
+
 # Whether to send email when no papers are found
 DEFAULT_SEND_EMPTY = False
 

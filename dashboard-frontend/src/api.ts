@@ -9,6 +9,12 @@ async function fetchJson<T>(url: string, opts?: RequestInit): Promise<T> {
   return res.json();
 }
 
+function withTurnstile(opts: RequestInit | undefined, token?: string): RequestInit | undefined {
+  if (!token) return opts;
+  const headers = { 'Content-Type': 'application/json', 'cf-turnstile-response': token };
+  return { ...opts, headers: { ...opts?.headers, ...headers } };
+}
+
 export interface ServiceStatus {
   name: string;
   configured: boolean;
@@ -94,7 +100,7 @@ export interface Paper {
 export interface CalendarDay {
   date: string;
   paper_count: number;
-  status: 'sent' | 'pending' | 'failed' | 'missing';
+  status: 'sent' | 'queried' | 'pending' | 'failed' | 'missing' | 'unavailable';
 }
 
 export interface CalendarMonth {
@@ -103,7 +109,13 @@ export interface CalendarMonth {
   days: CalendarDay[];
 }
 
+export interface PublicConfig {
+  turnstile_enabled: boolean;
+  turnstile_site_key: string;
+}
+
 export const api = {
+  getPublicConfig: () => fetchJson<PublicConfig>('/config/public'),
   getOverview: () => fetchJson<Overview>('/overview'),
   getProfile: () => fetchJson<Profile>('/profile'),
   getPapers: (from?: string, to?: string) => {
@@ -113,15 +125,15 @@ export const api = {
     return fetchJson<Paper[]>(`/papers?${params}`);
   },
   getCalendar: (months = 3) => fetchJson<CalendarMonth[]>(`/calendar?months=${months}`),
-  runAgent: (agent_type: string, parameters: Record<string, unknown> = {}) =>
-    fetchJson<BackgroundTask>('/agents/run', {
+  runAgent: (agent_type: string, parameters: Record<string, unknown> = {}, turnstileToken?: string) =>
+    fetchJson<BackgroundTask>('/agents/run', withTurnstile({
       method: 'POST',
       body: JSON.stringify({ agent_type, parameters }),
-    }),
-  triggerSync: (connector?: string, force_full = false) =>
-    fetchJson<BackgroundTask>('/agents/sync', {
+    }, turnstileToken)),
+  triggerSync: (connector?: string, force_full = false, turnstileToken?: string) =>
+    fetchJson<BackgroundTask>('/agents/sync', withTurnstile({
       method: 'POST',
       body: JSON.stringify({ connector, force_full }),
-    }),
+    }, turnstileToken)),
   getTasks: (limit = 20) => fetchJson<BackgroundTask[]>(`/agents/tasks?limit=${limit}`),
 };

@@ -6,8 +6,6 @@ services:
       POSTGRES_DB: ${POSTGRES_DB:-alithia}
       POSTGRES_USER: ${POSTGRES_USER:-alithia}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-alithia}
-    ports:
-      - "${POSTGRES_PORT:-5432}:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
@@ -15,6 +13,8 @@ services:
       interval: 5s
       timeout: 5s
       retries: 5
+    networks:
+      - internal
 
   alithia:
     image: registry.cn-hangzhou.aliyuncs.com/lacogito/alithia:latest
@@ -30,8 +30,16 @@ services:
       - app_data:/app/data
     ports:
       - "${APP_PORT:-8080}:8080"
+    networks:
+      - internal
+      - default
     restart: unless-stopped
 
 volumes:
   postgres_data:
   app_data:
+
+networks:
+  internal:
+    driver: bridge
+    internal: true

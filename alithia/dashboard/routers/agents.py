@@ -4,21 +4,22 @@ POST /api/agents/run, GET /api/agents/tasks — Agent execution endpoints.
 
 from typing import Optional
 
-from fastapi import APIRouter, Query, Request
+from fastapi import APIRouter, Depends, Query, Request
 
 from alithia.dashboard.models import BackgroundTask, RunAgentRequest, SyncRequest
+from alithia.dashboard.turnstile import verify_turnstile
 
 router = APIRouter(prefix="/api/agents", tags=["agents"])
 
 
-@router.post("/run", response_model=BackgroundTask)
+@router.post("/run", response_model=BackgroundTask, dependencies=[Depends(verify_turnstile)])
 async def run_agent(request: Request, body: RunAgentRequest):
     dispatcher = request.app.state.agent_dispatcher
     task = await dispatcher.dispatch(body)
     return task
 
 
-@router.post("/sync", response_model=BackgroundTask)
+@router.post("/sync", response_model=BackgroundTask, dependencies=[Depends(verify_turnstile)])
 async def trigger_sync(request: Request, body: SyncRequest):
     dispatcher = request.app.state.agent_dispatcher
     req = RunAgentRequest(

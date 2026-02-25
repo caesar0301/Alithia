@@ -5,12 +5,15 @@ import { api } from '../api';
 
 const STATUS_COLORS: Record<string, string> = {
   sent: 'bg-emerald-400',
+  queried: 'bg-sky-400',
   pending: 'bg-amber-300',
   failed: 'bg-red-400',
   missing: 'bg-gray-200',
+  unavailable: 'bg-gray-100',
 };
 
 function Tooltip({ day, loading }: { day: CalendarDay; loading: boolean }) {
+  if (day.status === 'unavailable') return null;
   const clickable = day.status === 'missing' || day.status === 'failed';
   return (
     <span className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1.5 whitespace-nowrap rounded bg-gray-800 px-2 py-1 text-xs text-white opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-10">
@@ -24,9 +27,10 @@ function Tooltip({ day, loading }: { day: CalendarDay; loading: boolean }) {
 interface Props {
   data: CalendarMonth[];
   onDiscoverTriggered?: () => void;
+  getTurnstileToken?: () => Promise<string | null>;
 }
 
-export default function CalendarHeatmap({ data, onDiscoverTriggered }: Props) {
+export default function CalendarHeatmap({ data, onDiscoverTriggered, getTurnstileToken }: Props) {
   const [runningDates, setRunningDates] = useState<Set<string>>(new Set());
 
   const handleDayClick = async (day: CalendarDay) => {
@@ -35,7 +39,8 @@ export default function CalendarHeatmap({ data, onDiscoverTriggered }: Props) {
 
     setRunningDates((prev) => new Set(prev).add(day.date));
     try {
-      await api.runAgent('paperscout', { from_date: day.date, to_date: day.date });
+      const token = getTurnstileToken ? await getTurnstileToken() : null;
+      await api.runAgent('paperscout', { from_date: day.date, to_date: day.date }, token ?? undefined);
       onDiscoverTriggered?.();
     } finally {
       setRunningDates((prev) => {
@@ -77,11 +82,12 @@ export default function CalendarHeatmap({ data, onDiscoverTriggered }: Props) {
         </div>
       ))}
 
-      <div className="flex items-center gap-3 text-xs text-gray-400 pt-1">
+      <div className="flex items-center gap-3 text-xs text-gray-400 pt-1 flex-wrap">
         <span className="flex items-center gap-1"><span className="w-3 h-3 rounded-sm bg-emerald-400 inline-block" /> Sent</span>
+        <span className="flex items-center gap-1"><span className="w-3 h-3 rounded-sm bg-sky-400 inline-block" /> Queried</span>
         <span className="flex items-center gap-1"><span className="w-3 h-3 rounded-sm bg-amber-300 inline-block" /> Pending</span>
         <span className="flex items-center gap-1"><span className="w-3 h-3 rounded-sm bg-red-400 inline-block" /> Failed</span>
-        <span className="flex items-center gap-1"><span className="w-3 h-3 rounded-sm bg-gray-200 inline-block" /> Missing (click to discover)</span>
+        <span className="flex items-center gap-1"><span className="w-3 h-3 rounded-sm bg-gray-200 inline-block" /> Missing</span>
       </div>
     </div>
   );

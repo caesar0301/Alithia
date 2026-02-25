@@ -181,8 +181,8 @@ class TestCalendarEndpoint:
         sent_days = [d for d in all_days if d["status"] == "sent"]
         assert len(sent_days) >= 1
 
-    def test_calendar_big_bang_clamps_start(self, config, storage, user_id):
-        """Calendar should not show dates before big_bang."""
+    def test_calendar_big_bang_marks_unavailable(self, config, storage, user_id):
+        """Dates before big_bang should have 'unavailable' status."""
         today = date.today()
         big_bang = (today - timedelta(days=3)).isoformat()
         config.setdefault("paperscout_agent", {})["big_bang"] = big_bang
@@ -199,9 +199,11 @@ class TestCalendarEndpoint:
         assert resp.status_code == 200
         data = resp.json()
         all_days = [d for m in data for d in m["days"]]
-        all_dates = [d["date"] for d in all_days]
-        for d in all_dates:
-            assert d >= big_bang
+        for d in all_days:
+            if d["date"] < big_bang:
+                assert d["status"] == "unavailable"
+            else:
+                assert d["status"] != "unavailable"
 
     def test_calendar_no_big_bang_shows_full_range(self, config, storage, user_id):
         """Without big_bang, calendar shows the full month range."""

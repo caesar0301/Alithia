@@ -558,7 +558,7 @@ def test_load_config_empty_list_handling():
 
 @pytest.mark.unit
 def test_build_config_from_envs_supabase_settings():
-    """Test that Supabase settings are loaded from environment variables."""
+    """Test that Supabase settings are loaded under storage.supabase."""
     env_vars = {
         "ALITHIA_SUPABASE_URL": "https://test-project.supabase.co",
         "ALITHIA_SUPABASE_ANON_KEY": "test_anon_key_12345",
@@ -568,10 +568,11 @@ def test_build_config_from_envs_supabase_settings():
     with mock.patch.dict(os.environ, env_vars, clear=False):
         config = _build_config_from_envs()
 
-        assert "supabase" in config
-        assert config["supabase"]["url"] == "https://test-project.supabase.co"
-        assert config["supabase"]["anon_key"] == "test_anon_key_12345"
-        assert config["supabase"]["service_role_key"] == "test_service_role_key_67890"
+        assert "storage" in config
+        assert "supabase" in config["storage"]
+        assert config["storage"]["supabase"]["url"] == "https://test-project.supabase.co"
+        assert config["storage"]["supabase"]["anon_key"] == "test_anon_key_12345"
+        assert config["storage"]["supabase"]["service_role_key"] == "test_service_role_key_67890"
 
 
 @pytest.mark.unit
@@ -629,13 +630,13 @@ def test_build_config_from_envs_storage_boolean_conversion():
 def test_load_config_storage_env_overrides_file():
     """Test that storage env variables override file configuration."""
     file_content = {
-        "supabase": {
-            "url": "https://file-project.supabase.co",
-            "anon_key": "file_anon_key",
-        },
         "storage": {
             "backend": "sqlite",
             "sqlite_path": "data/file.db",
+            "supabase": {
+                "url": "https://file-project.supabase.co",
+                "anon_key": "file_anon_key",
+            },
         },
     }
 
@@ -653,11 +654,11 @@ def test_load_config_storage_env_overrides_file():
             config = load_config(config_file)
 
             # Env should override file
-            assert config["supabase"]["url"] == "https://env-project.supabase.co"
+            assert config["storage"]["supabase"]["url"] == "https://env-project.supabase.co"
             assert config["storage"]["backend"] == "supabase"
 
             # File values should remain for non-overridden keys
-            assert config["supabase"]["anon_key"] == "file_anon_key"
+            assert config["storage"]["supabase"]["anon_key"] == "file_anon_key"
             assert config["storage"]["sqlite_path"] == "data/file.db"
 
 
@@ -677,13 +678,42 @@ def test_load_config_all_storage_settings():
     with mock.patch.dict(os.environ, env_vars, clear=False):
         config = _build_config_from_envs()
 
-        # Check all Supabase settings
-        assert config["supabase"]["url"] == "https://complete-test.supabase.co"
-        assert config["supabase"]["anon_key"] == "complete_anon_key"
-        assert config["supabase"]["service_role_key"] == "complete_service_key"
+        # Supabase is now nested under storage.supabase
+        assert config["storage"]["supabase"]["url"] == "https://complete-test.supabase.co"
+        assert config["storage"]["supabase"]["anon_key"] == "complete_anon_key"
+        assert config["storage"]["supabase"]["service_role_key"] == "complete_service_key"
 
         # Check all storage settings
         assert config["storage"]["backend"] == "supabase"
         assert config["storage"]["fallback_to_sqlite"] is True
         assert config["storage"]["sqlite_path"] == "data/alithia.db"
         assert config["storage"]["user_id"] == "test_user_id"
+
+
+@pytest.mark.unit
+def test_load_config_legacy_supabase_migration():
+    """Test that legacy top-level supabase config is migrated into storage.supabase."""
+    file_content = {
+        "supabase": {
+            "url": "https://legacy-project.supabase.co",
+            "anon_key": "legacy_anon_key",
+        },
+        "storage": {
+            "backend": "supabase",
+        },
+    }
+
+    with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as f:
+        json.dump(file_content, f)
+        temp_path = f.name
+
+    try:
+        with mock.patch.dict(os.environ, {}, clear=True):
+            config = load_config(temp_path)
+
+            # Legacy supabase should be moved under storage.supabase
+            assert "supabase" not in config
+            assert config["storage"]["supabase"]["url"] == "https://legacy-project.supabase.co"
+            assert config["storage"]["supabase"]["anon_key"] == "legacy_anon_key"
+    finally:
+        os.unlink(temp_path)

@@ -12,6 +12,7 @@ from alithia.constants import (
     ALITHIA_MAX_PAPERS,
     ALITHIA_MAX_PAPERS_QUERIED,
     DEFAULT_ARXIV_QUERY,
+    DEFAULT_SEND_EMAIL,
     DEFAULT_SEND_EMPTY,
 )
 from alithia.models.zotero_paper import ZoteroPaper
@@ -30,6 +31,7 @@ class PaperScoutConfig(BaseModel):
     query: str = DEFAULT_ARXIV_QUERY
     max_papers: int = ALITHIA_MAX_PAPERS
     max_papers_queried: int = ALITHIA_MAX_PAPERS_QUERIED
+    send_email: bool = DEFAULT_SEND_EMAIL
     send_empty: bool = DEFAULT_SEND_EMPTY
     ignore_patterns: List[str] = Field(default_factory=list)
 

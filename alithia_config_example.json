@@ -35,22 +35,23 @@
             "Hunt topic": "your interests topics"
         }
     },
-    "supabase": {
-        "url": "https://your-project.supabase.co",
-        "anon_key": "your_supabase_anon_key",
-        "service_role_key": "your_supabase_service_role_key"
-    },
     "storage": {
-        "backend": "supabase",
-        "fallback_to_sqlite": true,
+        "backend": "postgres",
+        "fallback_to_sqlite": false,
         "sqlite_path": "data/alithia.db",
-        "user_id": "default_user"
+        "user_id": "default_user",
+        "supabase": {
+            "url": "https://your-project.supabase.co",
+            "anon_key": "your_supabase_anon_key",
+            "service_role_key": "your_supabase_service_role_key"
+        }
     },
     "paperscout_agent": {
         "query": "cs.AI+cs.CV+cs.LG+cs.CL",
         "max_papers": 25,
         "max_papers_queried": 500,
-        "send_empty": true,
+        "send_email": true,
+        "send_empty": false,
         "ignore_patterns": [],
         "big_bang": "2025-02-25"
     },
@@ -58,6 +59,11 @@
         "sbert_model": "all-MiniLM-L6-v2",
         "force_gpu": false,
         "top_n": 10
+    },
+    "turnstile": {
+        "enabled": false,
+        "site_key": "",
+        "secret_key": ""
     },
     "debug": false
 }

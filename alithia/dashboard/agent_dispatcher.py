@@ -53,6 +53,7 @@ class AgentDispatcher:
                 ALITHIA_MAX_PAPERS,
                 ALITHIA_MAX_PAPERS_QUERIED,
                 DEFAULT_ARXIV_QUERY,
+                DEFAULT_SEND_EMAIL,
                 DEFAULT_SEND_EMPTY,
             )
             from alithia.paperscout.agent import PaperScoutAgent
@@ -65,6 +66,7 @@ class AgentDispatcher:
                 query=params.get("query", ps_settings.get("query", DEFAULT_ARXIV_QUERY)),
                 max_papers=params.get("max_papers", ps_settings.get("max_papers", ALITHIA_MAX_PAPERS)),
                 max_papers_queried=ps_settings.get("max_papers_queried", ALITHIA_MAX_PAPERS_QUERIED),
+                send_email=ps_settings.get("send_email", DEFAULT_SEND_EMAIL),
                 send_empty=ps_settings.get("send_empty", DEFAULT_SEND_EMPTY),
                 ignore_patterns=ps_settings.get("ignore_patterns", []),
                 from_date=params.get("from_date"),

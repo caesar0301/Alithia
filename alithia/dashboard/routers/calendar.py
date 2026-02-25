@@ -23,7 +23,6 @@ async def get_calendar(
     ps_settings = config.get("paperscout_agent", config.get("arxrec", {}))
     query = ps_settings.get("query", "")
 
-    # big_bang: the earliest date paperscout tracks; dates before it are not "missing"
     bb_str = ps_settings.get("big_bang")
     big_bang = date.fromisoformat(bb_str) if bb_str else None
 
@@ -31,18 +30,17 @@ async def get_calendar(
     start = today.replace(day=1) - timedelta(days=30 * (months - 1))
     start = start.replace(day=1)
 
-    if big_bang and start < big_bang:
-        start = big_bang
-
-    records = storage.get_notification_records_range(user_id, query, start, today)
+    # Fetch notification records only from big_bang onwards
+    query_start = max(start, big_bang) if big_bang else start
+    records = storage.get_notification_records_range(user_id, query, query_start, today)
     record_map = {}
     for r in records:
         nd = r.get("notification_date", "")
         record_map[nd] = r
 
-    result = []
+    result: list[CalendarMonth] = []
     current = start
-    month_days = []
+    month_days: list[CalendarDay] = []
     cur_year, cur_month = current.year, current.month
 
     while current <= today:
@@ -53,15 +51,19 @@ async def get_calendar(
             cur_year, cur_month = current.year, current.month
 
         key = current.isoformat()
-        rec = record_map.get(key)
-        if rec:
-            day = CalendarDay(
-                date=key,
-                paper_count=rec.get("paper_count", 0),
-                status=rec.get("status", "missing"),
-            )
+
+        if big_bang and current < big_bang:
+            day = CalendarDay(date=key, paper_count=0, status="unavailable")
         else:
-            day = CalendarDay(date=key, paper_count=0, status="missing")
+            rec = record_map.get(key)
+            if rec:
+                day = CalendarDay(
+                    date=key,
+                    paper_count=rec.get("paper_count", 0),
+                    status=rec.get("status", "missing"),
+                )
+            else:
+                day = CalendarDay(date=key, paper_count=0, status="missing")
 
         month_days.append(day)
         current += timedelta(days=1)

@@ -39,7 +39,7 @@ class CalendarDay(BaseModel):
 
     date: str
     paper_count: int = 0
-    status: Literal["sent", "pending", "failed", "missing"] = "missing"
+    status: Literal["sent", "queried", "pending", "failed", "missing", "unavailable"] = "missing"
 
 
 class CalendarMonth(BaseModel):

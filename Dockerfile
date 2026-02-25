@@ -17,14 +17,24 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     gcc libpq-dev curl && \
     rm -rf /var/lib/apt/lists/*
 
-# Install Python package
-COPY pyproject.toml README.md ./
-COPY alithia/ alithia/
-RUN pip install --no-cache-dir -e ".[all]"
+# Set model cache and offline mode for huggingface
+ENV SENTENCE_TRANSFORMERS_HOME=/app/models
+ENV HF_HUB_OFFLINE=1
 
-# Pre-download the sentence-transformer model used by PaperScout reranker
-# so it's available offline at runtime (HuggingFace may be unreachable)
-RUN python -c "from sentence_transformers import SentenceTransformer; SentenceTransformer('avsolatorio/GIST-small-Embedding-v0', cache_folder='/tmp/alithia_models')"
+# Copy pyproject.toml first for dependency caching
+COPY pyproject.toml README.md ./
+
+# Install dependencies and download model (cached layer if pyproject.toml unchanged).
+# Create minimal package structure so pip can resolve the local package, then remove it.
+RUN mkdir -p alithia && touch alithia/__init__.py && \
+    pip install --no-cache-dir ".[all]" && \
+    python -c "from sentence_transformers import SentenceTransformer; SentenceTransformer('avsolatorio/GIST-small-Embedding-v0')" && \
+    rm -rf alithia
+
+# Copy source and install the package without re-resolving deps (already satisfied above).
+# --no-deps skips the dependency resolver, making this layer near-instant on source changes.
+COPY alithia/ alithia/
+RUN pip install --no-cache-dir --no-deps .
 
 # Copy built frontend into the location the backend expects
 COPY --from=frontend-build /app/dashboard-frontend/dist ./dashboard-frontend/dist
