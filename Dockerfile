@@ -20,19 +20,22 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     gcc libpq-dev curl && \
     rm -rf /var/lib/apt/lists/*
 
-# Set model cache and offline mode for huggingface
+# Set model cache dir so the downloaded model lands in a known location
 ENV SENTENCE_TRANSFORMERS_HOME=/app/models
-ENV HF_HUB_OFFLINE=1
 
 # Copy pyproject.toml first for dependency caching
 COPY pyproject.toml README.md ./
 
 # Install dependencies and download model (cached layer if pyproject.toml unchanged).
 # Create minimal package structure so pip can resolve the local package, then remove it.
+# HF_HUB_OFFLINE must NOT be set here — the model is downloaded at build time.
 RUN mkdir -p alithia && touch alithia/__init__.py && \
     pip install --no-cache-dir ".[all]" && \
     python -c "from sentence_transformers import SentenceTransformer; SentenceTransformer('avsolatorio/GIST-small-Embedding-v0')" && \
     rm -rf alithia
+
+# Disable HuggingFace network access at runtime — model is already baked into the image
+ENV HF_HUB_OFFLINE=1
 
 # Copy source and install the package without re-resolving deps (already satisfied above).
 # --no-deps skips the dependency resolver, making this layer near-instant on source changes.
