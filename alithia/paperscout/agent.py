@@ -25,6 +25,7 @@ NODE_PROGRESS: Dict[str, float] = {
 def _describe_result(name: str, result: dict) -> str:
     """Generate a human-readable milestone from a node's return value."""
     step = result.get("current_step", "")
+    info = result.get("info_messages", [])
 
     if name == "profile_analysis":
         if "error" in step:
@@ -32,6 +33,8 @@ def _describe_result(name: str, result: dict) -> str:
         return "Profile validated"
 
     if name == "data_collection":
+        if info:
+            return info[-1]
         papers = result.get("discovered_papers", [])
         if papers:
             return f"Collected {len(papers)} papers from ArXiv"
@@ -51,6 +54,8 @@ def _describe_result(name: str, result: dict) -> str:
         return "No content to generate"
 
     if name == "communication":
+        if info:
+            return info[-1]
         if "error" in step:
             return "Email delivery failed"
         return "Workflow complete"

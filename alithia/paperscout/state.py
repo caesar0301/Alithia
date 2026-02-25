@@ -68,6 +68,7 @@ class AgentState(BaseModel):
     current_step: str = "initializing"
     # Use Annotated with operator.add to accumulate error_log entries across nodes
     error_log: Annotated[List[str], add] = Field(default_factory=list)
+    info_messages: Annotated[List[str], add] = Field(default_factory=list)
     # Use custom merge function to accumulate performance_metrics across nodes
     performance_metrics: Annotated[Dict[str, float], merge_dicts] = Field(default_factory=dict)
 

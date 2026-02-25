@@ -3,6 +3,7 @@ Dashboard FastAPI application factory.
 """
 
 import os
+from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import Any, Dict
 
@@ -14,6 +15,7 @@ from alithia.storage.base import StorageBackend
 
 from .agent_dispatcher import AgentDispatcher
 from .routers import agents, calendar, overview, papers, profile
+from .scheduler import PaperScoutScheduler
 from .task_manager import TaskManager
 from .websocket_hub import WebSocketHub
 
@@ -39,11 +41,26 @@ def create_app(config: Dict[str, Any] | None = None, storage: StorageBackend | N
         storage = get_storage_backend(config)
         storage.connect()
 
+    user_id = config.get("storage", {}).get("user_id", "default")
+    ws_hub = WebSocketHub()
+    task_manager = TaskManager(storage, user_id)
+    task_manager.set_update_callback(ws_hub.on_task_update)
+    agent_dispatcher = AgentDispatcher(task_manager, storage, config, user_id)
+    scheduler = PaperScoutScheduler(storage, config, user_id)
+    scheduler.set_dispatcher(agent_dispatcher)
+
+    @asynccontextmanager
+    async def lifespan(_app: FastAPI):
+        await scheduler.start()
+        yield
+        scheduler.stop()
+
     app = FastAPI(
         title="Alithia Dashboard",
         version="0.1.0",
         docs_url="/api/docs",
         openapi_url="/api/openapi.json",
+        lifespan=lifespan,
     )
 
     app.add_middleware(
@@ -54,13 +71,6 @@ def create_app(config: Dict[str, Any] | None = None, storage: StorageBackend | N
         allow_headers=["*"],
     )
 
-    user_id = config.get("storage", {}).get("user_id", "default")
-
-    ws_hub = WebSocketHub()
-    task_manager = TaskManager(storage, user_id)
-    task_manager.set_update_callback(ws_hub.on_task_update)
-    agent_dispatcher = AgentDispatcher(task_manager, storage, config, user_id)
-
     # Attach to app state
     app.state.storage = storage
     app.state.config = config
@@ -68,6 +78,7 @@ def create_app(config: Dict[str, Any] | None = None, storage: StorageBackend | N
     app.state.task_manager = task_manager
     app.state.agent_dispatcher = agent_dispatcher
     app.state.ws_hub = ws_hub
+    app.state.scheduler = scheduler
 
     # Register API routers
     app.include_router(overview.router)

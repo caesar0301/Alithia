@@ -11,7 +11,6 @@
 
 set -e
 
-# Display help message
 show_help() {
     cat << EOF
 Usage: $(basename "$0") [OPTIONS]
@@ -23,6 +22,7 @@ Options:
     --from-date DATE    Start date for paper search (format: YYYY-MM-DD)
     --to-date DATE      End date for paper search (format: YYYY-MM-DD)
     --config FILE       Path to configuration file (optional)
+    --fill-gaps         Run Gap Scanner to fill missing notification dates
 
 Configuration:
     If --config is provided, the agent uses the specified configuration file.
@@ -42,14 +42,15 @@ Examples:
     # Run with config file and date range
     ./scripts/run_paperscout.sh --config my_config.json --from-date 2024-01-01
 
+    # Fill gaps (retry missed dates)
+    ./scripts/run_paperscout.sh --config my_config.json --fill-gaps
+
 EOF
     exit 0
 }
 
-CONFIG_FILE=""
 ARGS=()
 
-# Parse command line arguments
 while [[ $# -gt 0 ]]; do
     case $1 in
         -h|--help)
@@ -64,8 +65,12 @@ while [[ $# -gt 0 ]]; do
             shift 2
             ;;
         --config)
-            CONFIG_FILE="$2"
+            ARGS+=("--config" "$2")
             shift 2
+            ;;
+        --fill-gaps)
+            ARGS+=("--fill-gaps")
+            shift
             ;;
         *)
             echo "Unknown option: $1"
@@ -75,23 +80,6 @@ while [[ $# -gt 0 ]]; do
     esac
 done
 
-# Handle configuration
-if [ -n "$CONFIG_FILE" ]; then
-    if [ ! -f "$CONFIG_FILE" ]; then
-        echo "❌ Error: Configuration file not found: $CONFIG_FILE"
-        exit 1
-    fi
-    echo "📄 Using configuration file: $CONFIG_FILE"
-    CONFIG_ARG="--config $CONFIG_FILE"
-else
-    # No config file - agent will use environment variables
-    echo "📌 No config file provided - agent will use environment variables"
-    CONFIG_ARG=""
-fi
-
-# Run PaperScout agent
-echo "🚀 Running PaperScout agent..."
-python -m alithia.run paperscout_agent $CONFIG_ARG "${ARGS[@]}"
-
-echo "✅ PaperScout agent completed successfully"
-
+echo "Running PaperScout agent..."
+python -m alithia.run paperscout_agent "${ARGS[@]}"
+echo "PaperScout agent completed successfully"

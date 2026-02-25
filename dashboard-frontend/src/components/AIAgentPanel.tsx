@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { Search, RefreshCw, Loader2, CheckCircle2, Circle, XCircle, Clock, Sparkles, Database } from 'lucide-react';
+import { Search, RefreshCw, Loader2, CheckCircle2, Circle, XCircle, Clock, Sparkles, Database, AlertTriangle, Calendar } from 'lucide-react';
 import { api, type BackgroundTask } from '../api';
 import { useWebSocket } from '../hooks/useWebSocket';
 
@@ -59,6 +59,18 @@ function latestTaskFor(tasks: BackgroundTask[], taskType: string): BackgroundTas
   return tasks.find((t) => t.task_type === taskType);
 }
 
+function formatQueriedDate(task: BackgroundTask): string | null {
+  const from = task.parameters?.from_date as string | undefined;
+  const to = task.parameters?.to_date as string | undefined;
+  if (!from) return null;
+  if (!to || from === to) return from;
+  return `${from} ~ ${to}`;
+}
+
+function isSkipMessage(log: string): boolean {
+  return log.includes('skipped') || log.includes('already processed') || log.includes('exactly-once');
+}
+
 /* ------------------------------------------------------------------ */
 /*  Sub-components                                                    */
 /* ------------------------------------------------------------------ */
@@ -86,13 +98,16 @@ function MilestoneTimeline({ logs, status }: { logs: string[]; status: string })
       {logs.map((log, i) => {
         const isLast = i === logs.length - 1;
         const isDone = !isLast || status === 'completed' || status === 'failed';
+        const isSkip = isSkipMessage(log);
         return (
           <div key={i} className="flex items-start gap-2.5 relative">
             {!isLast && (
               <div className="absolute left-[7px] top-[18px] w-px h-[calc(100%)] bg-gray-200" />
             )}
             <div className="shrink-0 mt-0.5">
-              {isDone ? (
+              {isSkip ? (
+                <AlertTriangle size={15} className="text-amber-500" />
+              ) : isDone ? (
                 <CheckCircle2 size={15} className="text-emerald-500" />
               ) : status === 'running' ? (
                 <Loader2 size={15} className="text-indigo-500 animate-spin" />
@@ -100,7 +115,7 @@ function MilestoneTimeline({ logs, status }: { logs: string[]; status: string })
                 <Circle size={15} className="text-gray-300" />
               )}
             </div>
-            <span className={`text-xs pb-3 ${isDone ? 'text-gray-500' : 'text-gray-900 font-medium'}`}>
+            <span className={`text-xs pb-3 ${isSkip ? 'text-amber-600 font-medium' : isDone ? 'text-gray-500' : 'text-gray-900 font-medium'}`}>
               {log}
             </span>
           </div>
@@ -141,6 +156,14 @@ function AgentCard({
           <p className="text-xs text-gray-500 mt-0.5 leading-relaxed">{agent.description}</p>
         </div>
       </div>
+
+      {/* Queried date for paperscout tasks */}
+      {lastTask && (lastTask.status === 'running' || lastTask.status === 'queued') && formatQueriedDate(lastTask) && (
+        <div className="flex items-center gap-1.5 text-xs text-gray-500">
+          <Calendar size={12} className="text-gray-400" />
+          <span>Papers for {formatQueriedDate(lastTask)}</span>
+        </div>
+      )}
 
       {/* Progress bar for running task */}
       {lastTask && lastTask.status === 'running' && (
@@ -198,11 +221,19 @@ function TaskCard({ task }: { task: BackgroundTask }) {
   const showTimeline = task.logs && task.logs.length > 0;
   const isActive = task.status === 'running' || task.status === 'queued';
   const label = TASK_LABELS[task.task_type] || task.task_type;
+  const queriedDate = formatQueriedDate(task);
 
   return (
     <div className={`bg-white rounded-lg border p-4 ${isActive ? 'border-indigo-200 shadow-sm' : 'border-gray-200'}`}>
       <div className="flex items-center gap-4">
-        <span className="text-sm font-medium text-gray-700 w-32 truncate">{label}</span>
+        <div className="w-32 shrink-0">
+          <span className="text-sm font-medium text-gray-700 truncate block">{label}</span>
+          {queriedDate && (
+            <span className="text-xs text-gray-400 flex items-center gap-1 mt-0.5">
+              <Calendar size={10} /> {queriedDate}
+            </span>
+          )}
+        </div>
         <StatusBadge status={task.status} />
         {task.status === 'running' && (
           <div className="flex-1 bg-gray-100 rounded-full h-1.5">

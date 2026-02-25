@@ -22,6 +22,7 @@ export interface BackgroundTask {
   status: string;
   progress: number;
   current_step: string;
+  parameters: Record<string, unknown>;
   logs: string[];
   created_at: string | null;
   completed_at: string | null;

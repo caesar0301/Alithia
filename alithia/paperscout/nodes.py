@@ -149,15 +149,17 @@ def make_nodes(storage: Optional[StorageBackend], user_id: str) -> Dict[str, Cal
 
             logger.info(f"Date range: {from_date} to {to_date}, query: {state.config.query}")
 
-            # Check processed ranges
+            # Check processed ranges (exactly-once keyed by paper query date)
             if _storage:
                 processed = _storage.get_processed_ranges(uid, state.config.query, days_back=7)
                 if any(r.get("from_date") == from_date and r.get("to_date") == to_date for r in processed):
-                    logger.info(f"Date range {from_date}-{to_date} already processed, skipping")
+                    msg = f"Date range {from_date}-{to_date} already processed, skipped"
+                    logger.info(msg)
                     return {
                         "discovered_papers": [],
                         "zotero_corpus": corpus,
                         "current_step": "data_collection_complete",
+                        "info_messages": [msg],
                     }
 
             # Fetch ArXiv papers
@@ -296,15 +298,26 @@ def make_nodes(storage: Optional[StorageBackend], user_id: str) -> Dict[str, Cal
             return {"current_step": "communication_error", "error_log": state.error_log}
 
         uid = user_id or state.config.user_profile.email or "default_user"
-        today = date.today()
         query = state.config.query
 
-        # Exactly-once check (PS-001)
+        # Derive notification_date from the paper query date, not the running date.
+        # This allows multiple runs on the same day for different paper dates,
+        # while enforcing exactly-once per paper query date.
+        if state.config.from_date:
+            try:
+                notification_date = date.fromisoformat(state.config.from_date)
+            except ValueError:
+                notification_date = date.today() - timedelta(days=1)
+        else:
+            notification_date = date.today() - timedelta(days=1)
+
+        # Exactly-once check keyed by paper query date (PS-001)
         if _storage:
-            existing = _storage.get_notification_record(uid, query, today)
+            existing = _storage.get_notification_record(uid, query, notification_date)
             if existing and existing.get("status") == "sent":
-                logger.info("Notification already sent for today, skipping (exactly-once)")
-                return {"current_step": "workflow_complete"}
+                msg = f"Notification already sent for {notification_date.isoformat()}, skipped (exactly-once)"
+                logger.info(msg)
+                return {"current_step": "workflow_complete", "info_messages": [msg]}
 
         if not state.email_content or (hasattr(state.email_content, "is_empty") and state.email_content.is_empty()):
             if not state.config.send_empty:
@@ -318,7 +331,7 @@ def make_nodes(storage: Optional[StorageBackend], user_id: str) -> Dict[str, Cal
                     {
                         "user_id": uid,
                         "query_categories": query,
-                        "notification_date": today.isoformat(),
+                        "notification_date": notification_date.isoformat(),
                         "paper_count": len(state.scored_papers),
                         "status": "pending",
                     }
@@ -355,7 +368,7 @@ def make_nodes(storage: Optional[StorageBackend], user_id: str) -> Dict[str, Cal
                             {
                                 "user_id": uid,
                                 "query_categories": query,
-                                "notification_date": today.isoformat(),
+                                "notification_date": notification_date.isoformat(),
                                 "paper_count": len(state.scored_papers),
                                 "status": "sent",
                                 "sent_at": datetime.utcnow().isoformat(),
@@ -397,7 +410,7 @@ def make_nodes(storage: Optional[StorageBackend], user_id: str) -> Dict[str, Cal
                             {
                                 "user_id": uid,
                                 "query_categories": query,
-                                "notification_date": today.isoformat(),
+                                "notification_date": notification_date.isoformat(),
                                 "paper_count": len(state.scored_papers),
                                 "status": "failed",
                                 "error_message": "send_email returned False",
@@ -416,7 +429,7 @@ def make_nodes(storage: Optional[StorageBackend], user_id: str) -> Dict[str, Cal
                         {
                             "user_id": uid,
                             "query_categories": query,
-                            "notification_date": today.isoformat(),
+                            "notification_date": notification_date.isoformat(),
                             "status": "failed",
                             "error_message": str(e),
                         }
