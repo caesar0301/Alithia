@@ -27,13 +27,13 @@ def test_get_llm_sets_env_and_model():
             sender_password="test_pass",
         ),
         github=GithubConnection(github_username="test_user", github_token="test_token"),
-        google_scholar=GoogleScholarConnection(google_scholar_id="test_id", google_scholar_token="test_token"),
+        google_scholar=GoogleScholarConnection(scholar_id="test_id", serpapi_key="test_token"),
         x=XConnection(x_username="test_user", x_token="test_token"),
     )
 
     fake_client = MagicMock()
     fake_client.chat_model = "gpt-x"
-    with patch("cogents_core.llm.get_llm_client", return_value=fake_client) as mock_get:
+    with patch("noesium.core.llm.get_llm_client", return_value=fake_client) as mock_get:
         result = get_llm_client(profile.llm)
 
     assert result.chat_model == "gpt-x"
