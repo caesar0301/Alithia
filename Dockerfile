@@ -1,10 +1,10 @@
 # ---- Stage 1: Build the frontend ----
 FROM registry.cn-hangzhou.aliyuncs.com/lacogito/node:24-alpine3.21 AS frontend-build
 
-WORKDIR /app/dashboard-frontend
-COPY dashboard-frontend/package.json dashboard-frontend/package-lock.json* ./
+WORKDIR /app/frontend
+COPY frontend/package.json frontend/package-lock.json* ./
 RUN npm ci
-COPY dashboard-frontend/ ./
+COPY frontend/ ./
 RUN npm run build
 
 # ---- Stage 2: Python backend ----
@@ -39,7 +39,7 @@ ENV HF_HUB_OFFLINE=1
 # Use local model cost map — githubusercontent.com may be unreachable in production
 ENV LITELLM_LOCAL_MODEL_COST_MAP=true
 # Explicit frontend path so it doesn't depend on Python import resolution
-ENV ALITHIA_FRONTEND_DIR=/app/dashboard-frontend/dist
+ENV ALITHIA_FRONTEND_DIR=/app/frontend/dist
 
 # Copy source and install the package without re-resolving deps (already satisfied above).
 # --no-deps skips the dependency resolver, making this layer near-instant on source changes.
@@ -47,7 +47,7 @@ COPY alithia/ alithia/
 RUN pip install --no-cache-dir --no-deps .
 
 # Copy built frontend into the location the backend expects
-COPY --from=frontend-build /app/dashboard-frontend/dist ./dashboard-frontend/dist
+COPY --from=frontend-build /app/frontend/dist ./frontend/dist
 
 # Default config path — mount or set at runtime
 ENV ALITHIA_CONFIG_PATH=/app/alithia_config.json

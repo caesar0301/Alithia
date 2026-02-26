@@ -42,7 +42,7 @@ class SPAStaticFiles(StaticFiles):
 FRONTEND_DIR = (
     Path(os.environ.get("ALITHIA_FRONTEND_DIR", ""))
     if os.environ.get("ALITHIA_FRONTEND_DIR")
-    else (Path(__file__).parent.parent.parent / "dashboard-frontend" / "dist")
+    else (Path(__file__).parent.parent.parent / "frontend" / "dist")
 )
 
 

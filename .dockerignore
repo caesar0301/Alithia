@@ -10,8 +10,8 @@ build/
 htmlcov/
 .coverage
 node_modules/
-dashboard-frontend/node_modules/
-dashboard-frontend/dist/
+frontend/node_modules/
+frontend/dist/
 data/
 *.db
 .env

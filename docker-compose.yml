@@ -31,6 +31,7 @@ services:
       - app_data:/app/data
     networks:
       - internal
+      - default
     restart: unless-stopped
 
   nginx:

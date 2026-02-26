@@ -1,10 +1,14 @@
-# Alithia
+<div align="center">
+  <img src="docs/logos/alithia-logo.jpg" alt="Alithia Logo" width="200" />
+</div>
+
+# Alithia Research Companion
 
 [![PyPI version](https://img.shields.io/pypi/v/alithia.svg)](https://pypi.org/project/alithia/)
 
 ![Alithia Overview](docs/screenshots/ss-overview.jpg)
 
-Time is one of the most valuable resources for a human researcher, best spent
+**Time**, is one of the most valuable resources for a human researcher, best spent
 on thinking, exploring, and creating in the world of ideas. With Alithia, we
 aim to open a new frontier in research assistance. Alithia aspires to be your
 powerful research companion: from reading papers to pursuing interest-driven

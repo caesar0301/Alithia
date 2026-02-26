@@ -81,7 +81,7 @@ The frontend is a React application built with Vite.
 **Setup:**
 
 ```bash
-cd dashboard-frontend
+cd frontend
 npm install
 ```
 
@@ -122,7 +122,7 @@ alithia/
 │   ├── paperlens/          # PaperLens agent (PDF analysis)
 │   ├── storage/            # Storage backend (Supabase/SQLite)
 │   └── run.py              # CLI entry point
-├── dashboard-frontend/     # React frontend
+├── frontend/     # React frontend
 │   ├── src/
 │   │   ├── components/     # React components
 │   │   ├── pages/          # Page components
@@ -235,7 +235,7 @@ pip install -e ".[default,dev]"
 
 **Module not found**: Ensure you've installed dependencies:
 ```bash
-cd dashboard-frontend
+cd frontend
 npm install
 ```
 

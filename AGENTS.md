@@ -101,7 +101,7 @@ alithia/
 - **Email**: SMTP for notifications
 - **Data Sources**: ArXiv, Zotero, Google Scholar
 - **Storage**: SQLite, Supabase, PostgreSQL with automatic fallback
-- **Frontend**: React with Vite (dashboard-frontend/)
+- **Frontend**: React with Vite (frontend/)
 
 ## Storage Backend
 
