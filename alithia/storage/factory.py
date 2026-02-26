@@ -47,12 +47,48 @@ def _try_postgres(config: Dict[str, Any]) -> Optional[StorageBackend]:
     return None
 
 
+def _try_supabase(config: Dict[str, Any]) -> Optional[StorageBackend]:
+    """Attempt to create a Supabase backend from config."""
+    storage_config = config.get("storage", {})
+    supabase_config = storage_config.get("supabase", {}) or config.get("supabase", {})
+    url = supabase_config.get("url")
+    key = supabase_config.get("service_role_key") or supabase_config.get("anon_key")
+
+    if not url or not key:
+        logger.warning("Supabase credentials not provided in config")
+        return None
+
+    try:
+        logger.info("Attempting to initialize Supabase storage backend...")
+        backend = SupabaseStorage(url, key)
+        backend.connect()
+        if backend.test_connection():
+            logger.info("Successfully connected to Supabase")
+            return backend
+        else:
+            logger.warning("Supabase connection test failed")
+    except Exception as e:
+        logger.warning(f"Failed to initialize Supabase storage: {e}")
+    return None
+
+
+def _init_sqlite(sqlite_path: str) -> StorageBackend:
+    """Initialize SQLite backend, raising on failure."""
+    logger.info(f"Initializing SQLite storage backend at {sqlite_path}...")
+    backend = SQLiteStorage(sqlite_path)
+    backend.connect()
+    if backend.test_connection():
+        logger.info("Successfully connected to SQLite")
+        return backend
+    raise RuntimeError("SQLite connection test failed")
+
+
 def get_storage_backend(config: Dict[str, Any]) -> StorageBackend:
     """
-    Get appropriate storage backend based on configuration.
+    Get the storage backend specified by ``storage.backend``.
 
-    Priority order: postgres > supabase > sqlite.
-    Falls back to SQLite when ``fallback_to_sqlite`` is ``True`` (default).
+    Only the configured backend is attempted.  If it fails and
+    ``fallback_to_sqlite`` is ``True`` (default), SQLite is used instead.
 
     Args:
         config: Configuration dictionary containing:
@@ -71,67 +107,41 @@ def get_storage_backend(config: Dict[str, Any]) -> StorageBackend:
         RuntimeError: If no storage backend can be initialized
     """
     storage_config = config.get("storage", {})
-    backend_type = storage_config.get("backend", "postgres")
+    backend_type = storage_config.get("backend", "sqlite")
     fallback_to_sqlite = storage_config.get("fallback_to_sqlite", True)
     sqlite_path = storage_config.get("sqlite_path", "data/alithia.db")
 
-    # Try PostgreSQL first if configured
+    if backend_type == "sqlite":
+        try:
+            return _init_sqlite(sqlite_path)
+        except Exception as e:
+            raise RuntimeError(f"SQLite initialization failed: {e}") from e
+
     if backend_type == "postgres":
         backend = _try_postgres(config)
         if backend:
             return backend
         if not fallback_to_sqlite:
             raise RuntimeError("PostgreSQL not available and fallback is disabled")
-        logger.warning("PostgreSQL not available, trying next backend...")
-
-    # Try Supabase if configured
-    if backend_type in ("supabase", "postgres"):
-        supabase_config = storage_config.get("supabase", {}) or config.get("supabase", {})
-        url = supabase_config.get("url")
-        key = supabase_config.get("service_role_key") or supabase_config.get("anon_key")
-
-        if url and key:
-            try:
-                logger.info("Attempting to initialize Supabase storage backend...")
-                backend = SupabaseStorage(url, key)
-                backend.connect()
-
-                if backend.test_connection():
-                    logger.info("Successfully connected to Supabase")
-                    return backend
-                else:
-                    logger.warning("Supabase connection test failed")
-                    if not fallback_to_sqlite and backend_type == "supabase":
-                        raise RuntimeError("Supabase connection failed and fallback is disabled")
-
-            except Exception as e:
-                logger.warning(f"Failed to initialize Supabase storage: {e}")
-                if not fallback_to_sqlite and backend_type == "supabase":
-                    raise RuntimeError(f"Supabase initialization failed: {e}")
-        else:
-            if backend_type == "supabase":
-                logger.warning("Supabase credentials not provided in config")
-                if not fallback_to_sqlite:
-                    raise RuntimeError("Supabase not configured and fallback is disabled")
-
-    # Fallback to SQLite
-    if backend_type == "sqlite" or fallback_to_sqlite:
+        logger.warning("PostgreSQL not available, falling back to SQLite...")
         try:
-            logger.info(f"Initializing SQLite storage backend at {sqlite_path}...")
-            backend = SQLiteStorage(sqlite_path)
-            backend.connect()
-
-            if backend.test_connection():
-                logger.info("Successfully connected to SQLite")
-                return backend
-            else:
-                raise RuntimeError("SQLite connection test failed")
-
+            return _init_sqlite(sqlite_path)
         except Exception as e:
-            logger.error(f"Failed to initialize SQLite storage: {e}")
-            raise RuntimeError(f"SQLite initialization failed: {e}")
+            raise RuntimeError(f"SQLite fallback failed: {e}") from e
 
-    raise RuntimeError("No storage backend could be initialized")
+    if backend_type == "supabase":
+        backend = _try_supabase(config)
+        if backend:
+            return backend
+        if not fallback_to_sqlite:
+            raise RuntimeError("Supabase not available and fallback is disabled")
+        logger.warning("Supabase not available, falling back to SQLite...")
+        try:
+            return _init_sqlite(sqlite_path)
+        except Exception as e:
+            raise RuntimeError(f"SQLite fallback failed: {e}") from e
+
+    raise RuntimeError(f"Unknown storage backend: {backend_type!r}. Use 'postgres', 'supabase', or 'sqlite'.")
 
 
 def create_storage_with_fallback(

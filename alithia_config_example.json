@@ -1,6 +1,10 @@
 {
     "researcher_profile": {
-        "research_interests": ["AI", "Machine Learning", "Computer Vision"],
+        "research_interests": [
+            "AI",
+            "Machine Learning",
+            "Computer Vision"
+        ],
         "expertise_level": "intermediate",
         "language": "English",
         "email": "your.email@example.com",
@@ -36,8 +40,8 @@
         }
     },
     "storage": {
-        "backend": "postgres",
-        "fallback_to_sqlite": false,
+        "backend": "sqlite",
+        "fallback_to_sqlite": true,
         "sqlite_path": "data/alithia.db",
         "user_id": "default_user",
         "supabase": {
@@ -59,6 +63,13 @@
         "sbert_model": "all-MiniLM-L6-v2",
         "force_gpu": false,
         "top_n": 10
+    },
+    "scheduler": {
+        "enabled": false,
+        "hour": 23,
+        "minute": 0,
+        "timezone": "UTC",
+        "retry_window_days": 3
     },
     "turnstile": {
         "enabled": false,
