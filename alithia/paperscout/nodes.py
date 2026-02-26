@@ -231,7 +231,13 @@ def make_nodes(storage: Optional[StorageBackend], user_id: str) -> Dict[str, Cal
         uid = user_id or (state.config.user_profile.email if state.config.user_profile else "default_user")
         if _storage and scored_papers:
             try:
-                today = date.today()
+                if state.config.from_date:
+                    try:
+                        assessment_date = date.fromisoformat(state.config.from_date)
+                    except ValueError:
+                        assessment_date = date.today() - timedelta(days=1)
+                else:
+                    assessment_date = date.today() - timedelta(days=1)
                 paper_dicts = []
                 for sp in scored_papers:
                     paper_dicts.append(
@@ -248,7 +254,7 @@ def make_nodes(storage: Optional[StorageBackend], user_id: str) -> Dict[str, Cal
                             "affiliations": sp.paper.affiliations or [],
                         }
                     )
-                _storage.save_assessed_papers(uid, state.config.query, paper_dicts, today)
+                _storage.save_assessed_papers(uid, state.config.query, paper_dicts, assessment_date)
                 logger.info(f"Persisted {len(paper_dicts)} assessed papers")
             except Exception as e:
                 logger.warning(f"Failed to persist assessed papers: {e}")
