@@ -114,8 +114,18 @@ export interface PublicConfig {
   turnstile_site_key: string;
 }
 
+export interface VerifyResponse {
+  success: boolean;
+  message: string;
+}
+
 export const api = {
   getPublicConfig: () => fetchJson<PublicConfig>('/config/public'),
+  verifyTurnstile: (token: string) =>
+    fetchJson<VerifyResponse>('/config/verify', {
+      method: 'POST',
+      body: JSON.stringify({ token }),
+    }),
   getOverview: () => fetchJson<Overview>('/overview'),
   getProfile: () => fetchJson<Profile>('/profile'),
   getPapers: (from?: string, to?: string) => {
