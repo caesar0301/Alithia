@@ -29,8 +29,19 @@ services:
     volumes:
       - ./alithia_config.json:/app/alithia_config.json:ro
       - app_data:/app/data
+    networks:
+      - internal
+    restart: unless-stopped
+
+  nginx:
+    image: registry.cn-hangzhou.aliyuncs.com/lacogito/nginx:1.27-alpine3.21
+    container_name: alithia-nginx
+    depends_on:
+      - alithia
+    volumes:
+      - ./deploy/nginx.conf:/etc/nginx/nginx.conf:ro
     ports:
-      - "${APP_PORT:-8080}:8080"
+      - "${APP_PORT:-8080}:80"
     networks:
       - internal
       - default

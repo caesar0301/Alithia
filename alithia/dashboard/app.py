@@ -14,6 +14,7 @@ from fastapi.staticfiles import StaticFiles
 from alithia.storage.base import StorageBackend
 
 from .agent_dispatcher import AgentDispatcher
+from .middleware import SecurityMiddleware
 from .routers import agents, calendar, config_public, overview, papers, profile
 from .scheduler import PaperScoutScheduler
 from .task_manager import TaskManager
@@ -68,13 +69,15 @@ def create_app(config: Dict[str, Any] | None = None, storage: StorageBackend | N
         lifespan=lifespan,
     )
 
+    cors_origins = config.get("dashboard", {}).get("cors_origins", ["*"])
     app.add_middleware(
         CORSMiddleware,
-        allow_origins=["*"],
+        allow_origins=cors_origins,
         allow_credentials=True,
         allow_methods=["*"],
         allow_headers=["*"],
     )
+    app.add_middleware(SecurityMiddleware)
 
     # Attach to app state
     app.state.storage = storage
