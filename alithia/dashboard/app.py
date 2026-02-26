@@ -9,7 +9,8 @@ from typing import Any, Dict
 
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.staticfiles import StaticFiles
+from starlette.exceptions import HTTPException as StarletteHTTPException
+from starlette.staticfiles import StaticFiles
 
 from alithia.storage.base import StorageBackend
 
@@ -19,6 +20,24 @@ from .routers import agents, calendar, config_public, overview, papers, profile
 from .scheduler import PaperScoutScheduler
 from .task_manager import TaskManager
 from .websocket_hub import WebSocketHub
+
+
+class SPAStaticFiles(StaticFiles):
+    """Serve static files with SPA fallback.
+
+    When a path doesn't match any static file, serve ``index.html`` so the
+    client-side router (React Router) can handle the route.  Without this,
+    refreshing on ``/agents`` or ``/papers`` returns a 404.
+    """
+
+    async def get_response(self, path: str, scope):
+        try:
+            return await super().get_response(path, scope)
+        except StarletteHTTPException as exc:
+            if exc.status_code == 404:
+                return await super().get_response("index.html", scope)
+            raise
+
 
 FRONTEND_DIR = (
     Path(os.environ.get("ALITHIA_FRONTEND_DIR", ""))
@@ -106,8 +125,8 @@ def create_app(config: Dict[str, Any] | None = None, storage: StorageBackend | N
         except WebSocketDisconnect:
             await ws_hub.disconnect(ws)
 
-    # Serve frontend static files if built
+    # Serve frontend static files with SPA fallback for client-side routing
     if FRONTEND_DIR.exists():
-        app.mount("/", StaticFiles(directory=str(FRONTEND_DIR), html=True), name="static")
+        app.mount("/", SPAStaticFiles(directory=str(FRONTEND_DIR), html=True), name="static")
 
     return app

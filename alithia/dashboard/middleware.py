@@ -81,6 +81,7 @@ def _is_scanner_path(path: str) -> bool:
 # Simple in-memory IP rate limiter (sliding-window counter)
 # ---------------------------------------------------------------------------
 
+
 class _RateLimiter:
     """Per-IP sliding-window rate limiter.
 
@@ -112,6 +113,7 @@ _rate_limiter = _RateLimiter(max_requests=100, window=60)
 # ---------------------------------------------------------------------------
 # Middleware
 # ---------------------------------------------------------------------------
+
 
 class SecurityMiddleware(BaseHTTPMiddleware):
     """Combined scanner-blocker, rate-limiter, and security-header middleware."""
