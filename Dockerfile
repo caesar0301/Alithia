@@ -36,6 +36,8 @@ RUN mkdir -p alithia && touch alithia/__init__.py && \
 
 # Disable HuggingFace network access at runtime — model is already baked into the image
 ENV HF_HUB_OFFLINE=1
+# Use local model cost map — githubusercontent.com may be unreachable in production
+ENV LITELLM_LOCAL_MODEL_COST_MAP=true
 
 # Copy source and install the package without re-resolving deps (already satisfied above).
 # --no-deps skips the dependency resolver, making this layer near-instant on source changes.

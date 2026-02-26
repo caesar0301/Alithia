@@ -54,7 +54,7 @@
         "query": "cs.AI+cs.CV+cs.LG+cs.CL",
         "max_papers": 25,
         "max_papers_queried": 500,
-        "send_email": true,
+        "send_email": false,
         "send_empty": false,
         "ignore_patterns": [],
         "big_bang": "2025-02-25"

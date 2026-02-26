@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
 import { api } from '../api';
 
+const TOKEN_TIMEOUT_MS = 8000;
+
 declare global {
   interface Window {
     turnstile?: {
@@ -16,6 +18,8 @@ declare global {
  * Manages a hidden Cloudflare Turnstile widget.
  * Returns `getToken` to obtain a fresh token before each protected request.
  * When Turnstile is disabled on the server, `getToken` returns null.
+ * When the widget errors or times out, `getToken` returns null so callers
+ * proceed without a token (the backend will decide whether to reject).
  */
 export function useTurnstile() {
   const [enabled, setEnabled] = useState(false);
@@ -23,7 +27,7 @@ export function useTurnstile() {
   const widgetIdRef = useRef<string | null>(null);
   const containerRef = useRef<HTMLDivElement | null>(null);
   const tokenRef = useRef<string | null>(null);
-  const resolveRef = useRef<((token: string) => void) | null>(null);
+  const resolveRef = useRef<((token: string | null) => void) | null>(null);
 
   useEffect(() => {
     api.getPublicConfig().then((cfg) => {
@@ -57,10 +61,17 @@ export function useTurnstile() {
           resolveRef.current?.(token);
           resolveRef.current = null;
         },
+        'error-callback': () => {
+          resolveRef.current?.(null);
+          resolveRef.current = null;
+        },
+        'timeout-callback': () => {
+          resolveRef.current?.(null);
+          resolveRef.current = null;
+        },
       });
     };
 
-    // The script may load after this effect runs
     if (window.turnstile) {
       mount();
     } else {
@@ -77,7 +88,6 @@ export function useTurnstile() {
   const getToken = useCallback(async (): Promise<string | null> => {
     if (!enabled) return null;
 
-    // If we already have a token ready, return it and refresh for next use
     if (tokenRef.current) {
       const t = tokenRef.current;
       tokenRef.current = null;
@@ -87,9 +97,18 @@ export function useTurnstile() {
       return t;
     }
 
-    // Wait for the widget callback
-    return new Promise<string>((resolve) => {
-      resolveRef.current = resolve;
+    // Race the widget callback against a timeout so callers never hang
+    return new Promise<string | null>((resolve) => {
+      const timer = setTimeout(() => {
+        resolveRef.current = null;
+        resolve(null);
+      }, TOKEN_TIMEOUT_MS);
+
+      resolveRef.current = (token) => {
+        clearTimeout(timer);
+        resolve(token);
+      };
+
       if (widgetIdRef.current && window.turnstile) {
         window.turnstile.reset(widgetIdRef.current);
       }

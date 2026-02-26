@@ -3,6 +3,8 @@ import { Search, RefreshCw, Loader2, CheckCircle2, Circle, XCircle, Clock, Spark
 import { api, type BackgroundTask } from '../api';
 import { useWebSocket } from '../hooks/useWebSocket';
 import { useTurnstile } from '../hooks/useTurnstile';
+import { useToast } from '../hooks/useToast';
+import { describeApiError } from '../utils/errorMessages';
 
 /* ------------------------------------------------------------------ */
 /*  Agent registry — add new agents here to extend the page           */
@@ -273,6 +275,7 @@ export default function AIAgentPanel() {
   const { lastMessage } = useWebSocket();
   const prevMessageRef = useRef(lastMessage);
   const { getToken } = useTurnstile();
+  const { toast } = useToast();
 
   const refresh = useCallback(async () => {
     const t = await api.getTasks(20);
@@ -298,6 +301,8 @@ export default function AIAgentPanel() {
       const token = await getToken();
       await agent.run(token ?? undefined);
       await refresh();
+    } catch (err) {
+      toast(describeApiError(err, agent.label));
     } finally {
       setSubmitting('');
     }

@@ -25,6 +25,7 @@ services:
     environment:
       ALITHIA_CONFIG_PATH: /app/alithia_config.json
       ALITHIA_POSTGRES_DSN: "postgresql://${POSTGRES_USER:-alithia}:${POSTGRES_PASSWORD:-alithia}@postgres:5432/${POSTGRES_DB:-alithia}"
+      LITELLM_LOCAL_MODEL_COST_MAP: "true"
     volumes:
       - ./alithia_config.json:/app/alithia_config.json:ro
       - app_data:/app/data

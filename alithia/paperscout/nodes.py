@@ -325,7 +325,20 @@ def make_nodes(storage: Optional[StorageBackend], user_id: str) -> Dict[str, Cal
 
         if not state.email_content or (hasattr(state.email_content, "is_empty") and state.email_content.is_empty()):
             if not state.config.send_empty:
-                logger.info("No papers found and send_empty=False, skipping")
+                logger.info("No papers found and send_empty=False, recording as queried")
+                if _storage:
+                    try:
+                        _storage.save_notification_record(
+                            {
+                                "user_id": uid,
+                                "query_categories": query,
+                                "notification_date": notification_date.isoformat(),
+                                "paper_count": 0,
+                                "status": "queried",
+                            }
+                        )
+                    except Exception as e:
+                        logger.warning(f"Failed to save empty notification: {e}")
                 return {"current_step": "workflow_complete"}
 
         # When send_email is disabled, record as "queried" and return early
