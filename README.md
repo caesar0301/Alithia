@@ -121,7 +121,7 @@ Development mode (with auto-reload):
 python -m alithia.run dashboard --config alithia_config.json --dev
 ```
 
-For frontend development, see [DEVELOPMENT.md](DEVELOPMENT.md).
+For frontend development, see [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md).
 
 ## Storage Backend
 
@@ -134,61 +134,7 @@ Alithia supports three storage backends for persistent data storage with automat
 - **Google Scholar profile synchronization**
 - **Dashboard background task management**
 
-### Supported Backends
-
-| Backend | Description | Use Case |
-|---------|-------------|----------|
-| **SQLite** | Local file-based (default) | Works offline, no setup |
-| **Supabase** | Cloud PostgreSQL | Multi-user, full-text search |
-| **PostgreSQL** | Self-hosted | Full infrastructure control |
-
-### Configuration
-
-**SQLite (default)** — No config needed:
-
-```json
-{
-  "storage": {
-    "backend": "sqlite",
-    "user_id": "your_email@example.com"
-  }
-}
-```
-
-**Supabase:**
-
-```json
-{
-  "storage": {
-    "backend": "supabase",
-    "user_id": "your_email@example.com",
-    "supabase": {
-      "url": "https://xxxxx.supabase.co",
-      "service_role_key": "your_key"
-    }
-  }
-}
-```
-
-**PostgreSQL:**
-
-```json
-{
-  "storage": {
-    "backend": "postgres",
-    "user_id": "you@example.com",
-    "postgres": {
-      "dsn": "postgresql://user:pass@host:5432/db"
-    }
-  }
-}
-```
-
 See [docs/STORAGE_SETUP.md](docs/STORAGE_SETUP.md) for storage details.
-
-## Development
-
-For development setup, contributing guidelines, and building the frontend, see [DEVELOPMENT.md](DEVELOPMENT.md).
 
 ## License
 

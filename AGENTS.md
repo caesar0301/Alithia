@@ -265,7 +265,7 @@ python -m alithia.run dashboard --config alithia_config.json --dev
 
 Open http://localhost:8080 in your browser.
 
-For frontend development, see [DEVELOPMENT.md](DEVELOPMENT.md).
+For frontend development, see [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md).
 
 ## Data Models
 
