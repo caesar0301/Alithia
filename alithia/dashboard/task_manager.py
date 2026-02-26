@@ -29,6 +29,29 @@ class TaskManager:
         """Register a callback for task status changes (used by WebSocketHub)."""
         self._on_update = callback
 
+    def recover_stale_tasks(self) -> int:
+        """Mark orphaned running/queued tasks as failed.
+
+        Should be called once at startup to clean up tasks left behind by
+        a previous crash or forced shutdown (e.g. Ctrl+C / SIGKILL).
+        Returns the number of recovered tasks.
+        """
+        recovered = 0
+        now = datetime.utcnow().isoformat()
+        for status in ("running", "queued"):
+            stale = self._storage.get_tasks(self._user_id, status=status, limit=200)
+            for task_data in stale:
+                task_id = task_data["id"]
+                task_data.update(
+                    status="failed",
+                    error_message="Process interrupted — task did not complete",
+                    completed_at=now,
+                )
+                self._storage.save_task(task_data)
+                recovered += 1
+                logger.warning("Recovered stale task %s (was %s)", task_id, status)
+        return recovered
+
     async def submit(
         self,
         task_type: str,

@@ -75,6 +75,7 @@ def create_app(config: Dict[str, Any] | None = None, storage: StorageBackend | N
 
     @asynccontextmanager
     async def lifespan(_app: FastAPI):
+        task_manager.recover_stale_tasks()
         ws_hub.capture_loop()
         await scheduler.start()
         yield
