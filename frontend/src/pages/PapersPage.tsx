@@ -1,10 +1,10 @@
 import { useEffect, useMemo, useState } from 'react';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell } from 'recharts';
-import { Calendar, ChevronLeft, ChevronRight, X } from 'lucide-react';
+import { Calendar, ChevronLeft, ChevronRight, X, Search, Filter } from 'lucide-react';
 import { api, type Paper } from '../api';
 import PaperCard from '../components/PaperCard';
 
-const PAGE_SIZE = 25;
+const PAGE_SIZE = 10;
 
 function formatDateHeading(dateStr: string): string {
   if (dateStr === 'unknown') return 'Unknown Date';
@@ -30,12 +30,21 @@ export default function PapersPage() {
   const [papers, setPapers] = useState<Paper[]>([]);
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
   const [page, setPage] = useState(0);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [minScore, setMinScore] = useState<number>(0);
+  const [showFilters, setShowFilters] = useState(false);
 
   useEffect(() => {
     api.getPapers().then(setPapers).catch(console.error);
   }, []);
 
-  useEffect(() => { setPage(0); }, [selectedDate]);
+  useEffect(() => { setPage(0); }, [selectedDate, searchQuery, minScore]);
+
+  // Get unique dates for filter dropdown
+  const uniqueDates = useMemo(() => {
+    const dates = new Set(papers.map(p => p.assessment_date || 'unknown'));
+    return Array.from(dates).sort((a, b) => b.localeCompare(a));
+  }, [papers]);
 
   const byDate: Record<string, number> = {};
   papers.forEach((p) => {
@@ -46,9 +55,33 @@ export default function PapersPage() {
     .sort(([a], [b]) => a.localeCompare(b))
     .map(([date, count]) => ({ date, count }));
 
-  const filtered = selectedDate
-    ? papers.filter((p) => (p.assessment_date || 'unknown') === selectedDate)
-    : papers;
+  // Apply filters: date, search query, and minimum relevance score
+  const filtered = useMemo(() => {
+    let result = papers;
+
+    // Filter by date
+    if (selectedDate) {
+      result = result.filter((p) => (p.assessment_date || 'unknown') === selectedDate);
+    }
+
+    // Filter by search query (title, authors, summary)
+    if (searchQuery.trim()) {
+      const q = searchQuery.toLowerCase();
+      result = result.filter((p) =>
+        p.title.toLowerCase().includes(q) ||
+        p.authors.some(a => a.toLowerCase().includes(q)) ||
+        p.summary.toLowerCase().includes(q) ||
+        (p.tldr?.toLowerCase().includes(q) ?? false)
+      );
+    }
+
+    // Filter by minimum relevance score
+    if (minScore > 0) {
+      result = result.filter((p) => p.relevance_score >= minScore);
+    }
+
+    return result;
+  }, [papers, selectedDate, searchQuery, minScore]);
 
   const grouped = useMemo(() => {
     const acc: Record<string, Paper[]> = {};
@@ -124,6 +157,94 @@ export default function PapersPage() {
           </ResponsiveContainer>
         </div>
       )}
+
+      {/* Search and Filter Bar */}
+      <div className="bg-white rounded-xl border border-gray-200 p-4">
+        <div className="flex flex-wrap items-center gap-3">
+          {/* Search Input */}
+          <div className="relative flex-1 min-w-[200px]">
+            <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+            <input
+              type="text"
+              placeholder="Search papers by title, author, abstract..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="w-full pl-9 pr-4 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+            />
+          </div>
+
+          {/* Filter Toggle */}
+          <button
+            onClick={() => setShowFilters(!showFilters)}
+            className={`inline-flex items-center gap-2 px-3 py-2 text-sm font-medium rounded-lg border transition-colors ${
+              showFilters || minScore > 0
+                ? 'bg-indigo-50 border-indigo-200 text-indigo-700'
+                : 'border-gray-200 text-gray-600 hover:bg-gray-50'
+            }`}
+          >
+            <Filter size={14} />
+            Filters
+            {(minScore > 0) && (
+              <span className="ml-1 px-1.5 py-0.5 text-xs bg-indigo-200 text-indigo-800 rounded-full">1</span>
+            )}
+          </button>
+
+          {/* Results Count */}
+          <span className="text-sm text-gray-500 ml-auto">
+            {filtered.length} paper{filtered.length !== 1 ? 's' : ''}
+            {searchQuery || minScore > 0 ? ' found' : ''}
+          </span>
+        </div>
+
+        {/* Expandable Filter Panel */}
+        {showFilters && (
+          <div className="mt-4 pt-4 border-t border-gray-100 flex flex-wrap items-center gap-4">
+            {/* Date Filter */}
+            <div className="flex items-center gap-2">
+              <label className="text-sm font-medium text-gray-600">Date:</label>
+              <select
+                value={selectedDate || ''}
+                onChange={(e) => setSelectedDate(e.target.value || null)}
+                className="text-sm border border-gray-200 rounded-lg px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              >
+                <option value="">All dates</option>
+                {uniqueDates.map((d) => (
+                  <option key={d} value={d}>{formatShortDate(d)}</option>
+                ))}
+              </select>
+            </div>
+
+            {/* Min Score Filter */}
+            <div className="flex items-center gap-2">
+              <label className="text-sm font-medium text-gray-600">Min Score:</label>
+              <select
+                value={minScore}
+                onChange={(e) => setMinScore(Number(e.target.value))}
+                className="text-sm border border-gray-200 rounded-lg px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              >
+                <option value={0}>Any</option>
+                <option value={7}>7+ (highly relevant)</option>
+                <option value={8}>8+ (very relevant)</option>
+                <option value={9}>9+ (most relevant)</option>
+              </select>
+            </div>
+
+            {/* Clear Filters */}
+            {(searchQuery || minScore > 0 || selectedDate) && (
+              <button
+                onClick={() => {
+                  setSearchQuery('');
+                  setMinScore(0);
+                  setSelectedDate(null);
+                }}
+                className="text-sm text-indigo-600 hover:text-indigo-800 transition-colors"
+              >
+                Clear all filters
+              </button>
+            )}
+          </div>
+        )}
+      </div>
 
       {selectedDate && (
         <div className="flex items-center gap-2 text-sm text-indigo-700 bg-indigo-50 border border-indigo-200 rounded-lg px-4 py-2">

@@ -20,23 +20,39 @@ resources, ensuring you stay informed, empowered, and ahead.
 
 ## Features
 
-In Alithia, we connect each researcher's profile with publicly available academic resources, leveraging widely accessible cloud infrastructure to automate the entire process. In its current version, Alithia is designed to support the following features:
+Alithia connects your personal research profile with publicly available academic resources, leveraging cloud infrastructure to automate the research workflow.
 
-* Researcher Profile
-  * Basic profile: research interests, expertise, language
-  * Connected (personal) services:
-    * LLM (OpenAI compatible)
-    * Zotero library
-    * Email notification
-    * GitHub profile
-    * Google Scholar profile
-    * X account message stream
-  * Gems (general research digest or ideas)
-* Academic Resources
-  * arXiv papers
-  * Google Scholar search
-  * Web search engines (e.g., tavily)
-  * Individual researcher homepage
+### AI Agents
+
+* **PaperScout** — Personalized ArXiv paper recommendations delivered via email
+  * Analyzes your Zotero library to understand research interests
+  * Monitors ArXiv for new papers matching your profile
+  * Ranks papers by relevance using embeddings + LLM
+  * Sends daily curated digests with TLDR summaries
+
+* **PaperLens** — Deep paper interaction and analysis
+  * Parses PDFs using Docling with IBM Granite VLM
+  * Extracts text, figures, tables, and equations
+  * Semantic search across your paper collection
+  * Interactive Q&A for paper exploration
+
+### Researcher Profile
+
+* Research interests, expertise, and preferences
+* Connected services:
+  * LLM (OpenAI compatible APIs)
+  * Zotero personal library
+  * Email notifications (SMTP)
+  * GitHub profile
+  * Google Scholar profile
+* Gems — Save and organize research ideas and digests
+
+### Academic Data Sources
+
+* **arXiv** — Latest papers from cs.AI, cs.CV, cs.LG, and more
+* **Google Scholar** — Profile sync and publication tracking
+* **Web search** — Tavily and other search engines
+* **Researcher homepages** — Automated discovery
 
 ## Usage
 
@@ -70,16 +86,6 @@ For most users, install with default dependencies (includes PaperScout agent: Ar
 ```bash
 pip install alithia[default]
 ```
-
-This installs:
-- `arxiv` - ArXiv paper fetching
-- `pyzotero` - Zotero library integration
-- `scikit-learn` - Machine learning utilities
-- `sentence-transformers` - Embedding models
-- `feedparser` - RSS feed parsing
-- `beautifulsoup4` & `lxml` - Web scraping
-- `tiktoken` - Token counting
-- And other PaperScout dependencies
 
 **Optional Features:**
 
@@ -132,97 +138,53 @@ Alithia supports three storage backends for persistent data storage with automat
 
 | Backend | Description | Use Case |
 |---------|-------------|----------|
-| **SQLite** | Local file-based database | Default, works offline, no setup required |
-| **Supabase** | Cloud PostgreSQL service | Multi-user, automatic backups, full-text search |
-| **PostgreSQL** | Self-hosted PostgreSQL | Full control over database infrastructure |
+| **SQLite** | Local file-based (default) | Works offline, no setup |
+| **Supabase** | Cloud PostgreSQL | Multi-user, full-text search |
+| **PostgreSQL** | Self-hosted | Full infrastructure control |
 
 ### Configuration
 
-Configure storage in your config file:
+**SQLite (default)** — No config needed:
 
 ```json
 {
   "storage": {
-    "backend": "supabase",
-    "fallback_to_sqlite": true,
-    "user_id": "your_email@example.com",
-    "sqlite_path": "data/alithia.db"
-  }
-}
-```
-
-**Options:**
-- `backend`: `"sqlite"`, `"supabase"`, or `"postgres"`
-- `fallback_to_sqlite`: Auto-fallback to SQLite if primary backend fails (default: `true`)
-- `user_id`: User identifier for data isolation
-- `sqlite_path`: Path for SQLite database (default: `"data/alithia.db"`)
-
-#### Supabase Configuration
-
-```json
-{
-  "storage": {
-    "backend": "supabase",
+    "backend": "sqlite",
     "user_id": "your_email@example.com"
-  },
-  "supabase": {
-    "url": "https://xxxxx.supabase.co",
-    "service_role_key": "your_service_role_key"
   }
 }
 ```
 
-#### PostgreSQL Configuration
+**Supabase:**
+
+```json
+{
+  "storage": {
+    "backend": "supabase",
+    "user_id": "your_email@example.com",
+    "supabase": {
+      "url": "https://xxxxx.supabase.co",
+      "service_role_key": "your_key"
+    }
+  }
+}
+```
+
+**PostgreSQL:**
 
 ```json
 {
   "storage": {
     "backend": "postgres",
-    "user_id": "your_email@example.com"
-  },
-  "postgres": {
-    "dsn": "postgresql://user:password@host:port/database"
+    "user_id": "you@example.com",
+    "postgres": {
+      "dsn": "postgresql://user:pass@host:5432/db"
+    }
   }
 }
 ```
 
-Or use individual fields:
-
-```json
-{
-  "postgres": {
-    "host": "localhost",
-    "port": 5432,
-    "user": "postgres",
-    "password": "password",
-    "database": "alithia"
-  }
-}
-```
-
-### Database Migrations
-
-Run all migration files in order to set up your database schema:
-
-1. `alithia/storage/migrations/001_initial_schema.sql` - Core schema (Paperscout, PaperLens)
-2. `alithia/storage/migrations/002_paperscout_v2.sql` - PaperScout v2 enhancements
-3. `alithia/storage/migrations/003_sync_service.sql` - Google Scholar sync tables
-4. `alithia/storage/migrations/004_dashboard.sql` - Dashboard task tracking
-
-**For Supabase:** Copy each migration file's contents to the Supabase SQL Editor and run in order.
-
-**For PostgreSQL:** Run with `psql`:
-
-```bash
-psql -U postgres -d alithia -f alithia/storage/migrations/001_initial_schema.sql
-psql -U postgres -d alithia -f alithia/storage/migrations/002_paperscout_v2.sql
-psql -U postgres -d alithia -f alithia/storage/migrations/003_sync_service.sql
-psql -U postgres -d alithia -f alithia/storage/migrations/004_dashboard.sql
-```
-
-**SQLite** is auto-initialized on first run with the current schema.
-
-For detailed Supabase setup instructions, see [docs/SUPABASE_SETUP.md](docs/SUPABASE_SETUP.md).
+See [docs/STORAGE_SETUP.md](docs/STORAGE_SETUP.md) for storage details.
 
 ## Development
 

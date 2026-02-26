@@ -286,6 +286,38 @@ def make_nodes(storage: Optional[StorageBackend], user_id: str) -> Dict[str, Cal
                 if not paper.code_url:
                     paper.code_url = get_code_url(paper)
 
+            # Persist updated papers with TLDR, affiliations, and code_url
+            uid = user_id or (state.config.user_profile.email if state.config.user_profile else "default_user")
+            if _storage and state.scored_papers:
+                try:
+                    if state.config.from_date:
+                        try:
+                            assessment_date = date.fromisoformat(state.config.from_date)
+                        except ValueError:
+                            assessment_date = date.today() - timedelta(days=1)
+                    else:
+                        assessment_date = date.today() - timedelta(days=1)
+                    paper_dicts = []
+                    for sp in state.scored_papers:
+                        paper_dicts.append(
+                            {
+                                "arxiv_id": sp.paper.arxiv_id,
+                                "title": sp.paper.title,
+                                "authors": sp.paper.authors,
+                                "summary": sp.paper.summary,
+                                "pdf_url": sp.paper.pdf_url,
+                                "relevance_score": sp.score,
+                                "relevance_factors": sp.relevance_factors,
+                                "code_url": sp.paper.code_url,
+                                "tldr": sp.paper.tldr,
+                                "affiliations": sp.paper.affiliations or [],
+                            }
+                        )
+                    _storage.save_assessed_papers(uid, state.config.query, paper_dicts, assessment_date)
+                    logger.info(f"Persisted {len(paper_dicts)} assessed papers with TLDR")
+                except Exception as e:
+                    logger.warning(f"Failed to persist assessed papers with TLDR: {e}")
+
             email_content = construct_email_content(state.scored_papers)
             return {"email_content": email_content, "current_step": "content_generation_complete"}
 

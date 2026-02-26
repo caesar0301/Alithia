@@ -19,7 +19,7 @@ def _try_postgres(config: Dict[str, Any]) -> Optional[StorageBackend]:
     from .postgres import PostgresStorage
 
     storage_config = config.get("storage", {})
-    pg_config = config.get("postgres", {})
+    pg_config = storage_config.get("postgres", {}) or config.get("postgres", {})
     dsn = storage_config.get("postgres_dsn") or pg_config.get("dsn") or os.environ.get("ALITHIA_POSTGRES_DSN")
     if not dsn:
         host = pg_config.get("host") or os.environ.get("PGHOST")
@@ -95,8 +95,8 @@ def get_storage_backend(config: Dict[str, Any]) -> StorageBackend:
             - storage.backend: "postgres", "supabase", or "sqlite"
             - storage.fallback_to_sqlite: bool (default: True)
             - storage.sqlite_path: path for SQLite DB
-            - storage.postgres_dsn: PostgreSQL DSN (alternative to postgres section)
-            - postgres.dsn / postgres.host / postgres.user / ...: PostgreSQL config
+            - storage.postgres_dsn: PostgreSQL DSN (alternative)
+            - storage.postgres.dsn / postgres.host / postgres.user / ...: PostgreSQL config
             - storage.supabase.url: Supabase project URL
             - storage.supabase.anon_key or storage.supabase.service_role_key: API key
 
