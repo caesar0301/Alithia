@@ -38,7 +38,7 @@ class DoclingOcr(PaperOcrBase):
                     )
                 }
             )
-        except (ImportError, TypeError, AttributeError) as e:
+        except Exception as e:
             logger.warning(f"IBM Granite Docling VLM unavailable ({e}), using default")
             from docling.document_converter import DocumentConverter
 

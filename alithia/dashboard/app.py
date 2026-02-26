@@ -19,7 +19,11 @@ from .scheduler import PaperScoutScheduler
 from .task_manager import TaskManager
 from .websocket_hub import WebSocketHub
 
-FRONTEND_DIR = Path(__file__).parent.parent.parent / "dashboard-frontend" / "dist"
+FRONTEND_DIR = (
+    Path(os.environ.get("ALITHIA_FRONTEND_DIR", ""))
+    if os.environ.get("ALITHIA_FRONTEND_DIR")
+    else (Path(__file__).parent.parent.parent / "dashboard-frontend" / "dist")
+)
 
 
 def create_app(config: Dict[str, Any] | None = None, storage: StorageBackend | None = None) -> FastAPI:

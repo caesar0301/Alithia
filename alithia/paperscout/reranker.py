@@ -3,6 +3,7 @@ Paper recommendation and reranking utilities.
 """
 
 import logging
+import os
 from datetime import datetime
 from typing import Any, Dict, List, Optional, Union
 
@@ -45,7 +46,7 @@ class PaperReranker:
         """
         self.papers = papers
         self.corpus = corpus
-        self.cache_dir = cache_dir or "/tmp/alithia_models"
+        self.cache_dir = cache_dir or os.environ.get("SENTENCE_TRANSFORMERS_HOME", "/tmp/alithia_models")
 
         if not self.papers:
             logger.warning("No papers provided for reranking")
@@ -73,7 +74,7 @@ class PaperReranker:
             return [ScoredPaper(paper=paper, score=0.0) for paper in self.papers]
 
         # Initialize FlashRank ranker
-        ranker = Ranker(model_name=model_name, cache_dir="/tmp/flashrank_cache")
+        ranker = Ranker(model_name=model_name, cache_dir=self.cache_dir)
 
         # Sort corpus by date (newest first)
         sorted_corpus = sorted(
