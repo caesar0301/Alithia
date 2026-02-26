@@ -6,7 +6,7 @@ interface WSMessage {
   timestamp: string;
 }
 
-export function useWebSocket(url = `ws://${window.location.host}/ws`) {
+export function useWebSocket(url = `${window.location.protocol === 'https:' ? 'wss:' : 'ws:'}//${window.location.host}/ws`) {
   const wsRef = useRef<WebSocket | null>(null);
   const [lastMessage, setLastMessage] = useState<WSMessage | null>(null);
   const [connected, setConnected] = useState(false);
