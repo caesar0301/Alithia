@@ -80,28 +80,28 @@ export default function ProfilePage() {
   const displayName = profile.name || profile.scholar_name || profile.email;
 
   return (
-    <div className="space-y-8 max-w-3xl">
-      <h2 className="text-2xl font-bold text-gray-900">Researcher Profile</h2>
+    <div className="space-y-6 md:space-y-8 max-w-3xl">
+      <h2 className="text-xl md:text-2xl font-bold text-gray-900">Researcher Profile</h2>
 
       {/* Identity card */}
-      <div className="bg-white rounded-xl border border-gray-200 p-6 space-y-5">
-        <div className="flex items-center gap-4">
-          <div className="w-14 h-14 bg-indigo-100 rounded-full flex items-center justify-center">
-            <User size={28} className="text-indigo-600" />
+      <div className="bg-white rounded-xl border border-gray-200 p-4 md:p-6 space-y-4 md:space-y-5">
+        <div className="flex items-center gap-3 md:gap-4">
+          <div className="w-12 h-12 md:w-14 md:h-14 bg-indigo-100 rounded-full flex items-center justify-center shrink-0">
+            <User size={24} className="text-indigo-600 md:w-7 md:h-7" />
           </div>
-          <div>
-            <p className="font-semibold text-gray-900 text-lg">{displayName}</p>
+          <div className="min-w-0">
+            <p className="font-semibold text-gray-900 text-base md:text-lg truncate">{displayName}</p>
             {profile.affiliation && (
-              <p className="text-sm text-gray-500">{profile.affiliation}</p>
+              <p className="text-xs md:text-sm text-gray-500 truncate">{profile.affiliation}</p>
             )}
             {!profile.affiliation && profile.scholar_affiliation && (
-              <p className="text-sm text-gray-500">{profile.scholar_affiliation}</p>
+              <p className="text-xs md:text-sm text-gray-500 truncate">{profile.scholar_affiliation}</p>
             )}
             <p className="text-xs text-gray-400 capitalize mt-0.5">{profile.expertise_level}</p>
           </div>
         </div>
 
-        <div className="grid grid-cols-2 gap-x-6 gap-y-1 border-t border-gray-100 pt-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-1 border-t border-gray-100 pt-4">
           <InfoRow icon={Mail} label="Email" value={profile.email} />
           <InfoRow icon={Globe} label="Language" value={profile.language} />
           <InfoRow icon={Database} label="Storage" value={profile.storage_backend} />
@@ -110,7 +110,7 @@ export default function ProfilePage() {
       </div>
 
       {/* Research interests */}
-      <div className="bg-white rounded-xl border border-gray-200 p-6">
+      <div className="bg-white rounded-xl border border-gray-200 p-4 md:p-6">
         <h4 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">Research Interests</h4>
         <div className="flex flex-wrap gap-2">
           {profile.research_interests.map((i) => (
@@ -138,9 +138,9 @@ export default function ProfilePage() {
       </div>
 
       {/* Connected services */}
-      <div className="bg-white rounded-xl border border-gray-200 p-6">
+      <div className="bg-white rounded-xl border border-gray-200 p-4 md:p-6">
         <h4 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">Connected Services</h4>
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           {profile.services.map((svc) => (
             <ServiceCard key={svc.name} svc={svc} />
           ))}
@@ -149,7 +149,7 @@ export default function ProfilePage() {
 
       {/* Scholar metrics */}
       {profile.scholar_connected && (
-        <div className="bg-white rounded-xl border border-gray-200 p-6">
+        <div className="bg-white rounded-xl border border-gray-200 p-4 md:p-6">
           <h4 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-4">Scholar Metrics</h4>
           {profile.scholar_name && (
             <p className="text-sm text-gray-700 mb-1">{profile.scholar_name}</p>
@@ -157,7 +157,7 @@ export default function ProfilePage() {
           {profile.scholar_affiliation && (
             <p className="text-xs text-gray-500 mb-4">{profile.scholar_affiliation}</p>
           )}
-          <div className="grid grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 md:gap-4">
             <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg">
               <Hash size={18} className="text-amber-500" />
               <div>
@@ -185,15 +185,15 @@ export default function ProfilePage() {
 
       {/* Top publications */}
       {profile.top_publications.length > 0 && (
-        <div className="bg-white rounded-xl border border-gray-200 p-6">
+        <div className="bg-white rounded-xl border border-gray-200 p-4 md:p-6">
           <h3 className="text-sm font-semibold text-gray-700 mb-4">Top Publications</h3>
           <div className="space-y-3">
             {profile.top_publications.map((pub, i) => (
-              <div key={i} className="flex items-start gap-3 py-2 border-b border-gray-100 last:border-0">
-                <span className="text-xs text-gray-400 mt-1 w-5">{i + 1}.</span>
+              <div key={i} className="flex items-start gap-2 md:gap-3 py-2 border-b border-gray-100 last:border-0">
+                <span className="text-xs text-gray-400 mt-1 w-5 shrink-0">{i + 1}.</span>
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium text-gray-900">{String(pub.title || '')}</p>
-                  <div className="flex items-center gap-2 mt-0.5">
+                  <p className="text-xs md:text-sm font-medium text-gray-900">{String(pub.title || '')}</p>
+                  <div className="flex flex-wrap items-center gap-2 mt-0.5">
                     {pub.year && <span className="text-xs text-gray-500">{String(pub.year)}</span>}
                     {pub.venue && <span className="text-xs text-gray-400">{String(pub.venue)}</span>}
                     <span className="text-xs text-gray-500">{Number(pub.citation_count || 0)} citations</span>

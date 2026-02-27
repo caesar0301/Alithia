@@ -122,11 +122,11 @@ export default function PapersPage() {
   };
 
   return (
-    <div className="space-y-8 max-w-5xl">
-      <h2 className="text-2xl font-bold text-gray-900">Paper Trends</h2>
+    <div className="space-y-6 md:space-y-8 max-w-5xl">
+      <h2 className="text-xl md:text-2xl font-bold text-gray-900">Paper Trends</h2>
 
       {chartData.length > 0 && (
-        <div className="bg-white rounded-xl border border-gray-200 p-5">
+        <div className="bg-white rounded-xl border border-gray-200 p-4 md:p-5">
           <div className="flex items-center justify-between mb-4">
             <h3 className="text-sm font-semibold text-gray-700">Papers Queried by Date</h3>
             {selectedDate && (
@@ -134,7 +134,7 @@ export default function PapersPage() {
                 onClick={() => setSelectedDate(null)}
                 className="inline-flex items-center gap-1 text-xs font-medium text-indigo-600 hover:text-indigo-800 transition-colors"
               >
-                <X size={12} /> Clear filter
+                <X size={12} /> <span className="hidden sm:inline">Clear filter</span>
               </button>
             )}
           </div>
@@ -159,14 +159,14 @@ export default function PapersPage() {
       )}
 
       {/* Search and Filter Bar */}
-      <div className="bg-white rounded-xl border border-gray-200 p-4">
-        <div className="flex flex-wrap items-center gap-3">
+      <div className="bg-white rounded-xl border border-gray-200 p-3 md:p-4">
+        <div className="flex flex-wrap items-center gap-2 md:gap-3">
           {/* Search Input */}
-          <div className="relative flex-1 min-w-[200px]">
+          <div className="relative flex-1 min-w-[180px]">
             <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
             <input
               type="text"
-              placeholder="Search papers by title, author, abstract..."
+              placeholder="Search papers..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="w-full pl-9 pr-4 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
@@ -183,14 +183,14 @@ export default function PapersPage() {
             }`}
           >
             <Filter size={14} />
-            Filters
+            <span className="hidden sm:inline">Filters</span>
             {(minScore > 0) && (
               <span className="ml-1 px-1.5 py-0.5 text-xs bg-indigo-200 text-indigo-800 rounded-full">1</span>
             )}
           </button>
 
           {/* Results Count */}
-          <span className="text-sm text-gray-500 ml-auto">
+          <span className="text-xs md:text-sm text-gray-500 ml-auto">
             {filtered.length} paper{filtered.length !== 1 ? 's' : ''}
             {searchQuery || minScore > 0 ? ' found' : ''}
           </span>
@@ -198,7 +198,7 @@ export default function PapersPage() {
 
         {/* Expandable Filter Panel */}
         {showFilters && (
-          <div className="mt-4 pt-4 border-t border-gray-100 flex flex-wrap items-center gap-4">
+          <div className="mt-4 pt-4 border-t border-gray-100 flex flex-col sm:flex-row flex-wrap items-start sm:items-center gap-3 md:gap-4">
             {/* Date Filter */}
             <div className="flex items-center gap-2">
               <label className="text-sm font-medium text-gray-600">Date:</label>
@@ -247,10 +247,10 @@ export default function PapersPage() {
       </div>
 
       {selectedDate && (
-        <div className="flex items-center gap-2 text-sm text-indigo-700 bg-indigo-50 border border-indigo-200 rounded-lg px-4 py-2">
+        <div className="flex flex-wrap items-center gap-2 text-sm text-indigo-700 bg-indigo-50 border border-indigo-200 rounded-lg px-3 md:px-4 py-2">
           <Calendar size={14} />
-          Showing papers for <span className="font-semibold">{formatShortDate(selectedDate)}</span>
-          <span className="text-indigo-400">({filtered.length} paper{filtered.length !== 1 ? 's' : ''})</span>
+          <span className="text-xs md:text-sm">Showing papers for <span className="font-semibold">{formatShortDate(selectedDate)}</span></span>
+          <span className="text-indigo-400 text-xs md:text-sm">({filtered.length} paper{filtered.length !== 1 ? 's' : ''})</span>
           <button
             onClick={() => setSelectedDate(null)}
             className="ml-auto text-indigo-500 hover:text-indigo-700 transition-colors"
@@ -261,22 +261,22 @@ export default function PapersPage() {
       )}
 
       {pageDates.length > 0 ? (
-        <div className="space-y-8">
+        <div className="space-y-6 md:space-y-8">
           {pageDates.map((dateStr) => (
             <section key={dateStr}>
               <div
-                className="flex items-center gap-2 mb-4 pb-2 border-b border-gray-200 cursor-pointer group"
+                className="flex items-center gap-2 mb-3 md:mb-4 pb-2 border-b border-gray-200 cursor-pointer group"
                 onClick={() => toggleDate(dateStr)}
               >
                 <Calendar size={16} className={selectedDate === dateStr ? 'text-indigo-600' : 'text-indigo-500'} />
-                <h3 className="text-lg font-semibold text-gray-800 group-hover:text-indigo-600 transition-colors">
+                <h3 className="text-base md:text-lg font-semibold text-gray-800 group-hover:text-indigo-600 transition-colors">
                   {formatDateHeading(dateStr)}
                 </h3>
                 <span className="ml-auto text-xs font-medium text-gray-400 bg-gray-100 px-2 py-0.5 rounded-full">
                   {(grouped[dateStr] || []).length} paper{(grouped[dateStr] || []).length !== 1 ? 's' : ''}
                 </span>
               </div>
-              <div className="space-y-4">
+              <div className="space-y-3 md:space-y-4">
                 {pageGrouped[dateStr].map((p) => (
                   <PaperCard key={p.arxiv_id} paper={p} />
                 ))}
@@ -289,23 +289,23 @@ export default function PapersPage() {
       )}
 
       {flatList.length > PAGE_SIZE && (
-        <div className="flex items-center justify-center gap-4 pt-2 pb-4">
+        <div className="flex items-center justify-center gap-2 md:gap-4 pt-2 pb-4">
           <button
             onClick={() => setPage((p) => Math.max(0, p - 1))}
             disabled={page === 0}
-            className="inline-flex items-center gap-1 text-sm font-medium px-3 py-1.5 rounded-md border border-gray-200 bg-white hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+            className="inline-flex items-center gap-1 text-sm font-medium px-2 md:px-3 py-1.5 rounded-md border border-gray-200 bg-white hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
           >
-            <ChevronLeft size={14} /> Previous
+            <ChevronLeft size={14} /> <span className="hidden sm:inline">Previous</span>
           </button>
-          <span className="text-sm text-gray-500">
+          <span className="text-xs md:text-sm text-gray-500">
             Page {page + 1} of {totalPages}
           </span>
           <button
             onClick={() => setPage((p) => Math.min(totalPages - 1, p + 1))}
             disabled={page >= totalPages - 1}
-            className="inline-flex items-center gap-1 text-sm font-medium px-3 py-1.5 rounded-md border border-gray-200 bg-white hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+            className="inline-flex items-center gap-1 text-sm font-medium px-2 md:px-3 py-1.5 rounded-md border border-gray-200 bg-white hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
           >
-            Next <ChevronRight size={14} />
+            <span className="hidden sm:inline">Next</span> <ChevronRight size={14} />
           </button>
         </div>
       )}

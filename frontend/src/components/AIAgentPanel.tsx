@@ -149,7 +149,7 @@ function AgentCard({
   const isRunning = busy;
 
   return (
-    <div className="bg-white rounded-xl border border-gray-200 p-5 flex flex-col gap-4">
+    <div className="bg-white rounded-xl border border-gray-200 p-4 md:p-5 flex flex-col gap-4">
       <div className="flex items-start gap-3">
         <div className={`p-2.5 rounded-lg ${agent.accent} shrink-0`}>
           <Icon size={20} className="text-white" />
@@ -189,7 +189,7 @@ function AgentCard({
         <MilestoneTimeline logs={lastTask.logs} status={lastTask.status} />
       )}
 
-      <div className="flex items-center justify-between mt-auto pt-1 border-t border-gray-100">
+      <div className="flex flex-wrap items-center justify-between gap-2 mt-auto pt-1 border-t border-gray-100">
         <button
           onClick={onRun}
           disabled={globalBusy}
@@ -199,14 +199,16 @@ function AgentCard({
           {isRunning ? 'Running…' : 'Run'}
         </button>
         {lastTask && (
-          <span className="text-xs text-gray-400 flex items-center gap-1">
+          <span className="text-xs text-gray-400 flex flex-wrap items-center gap-1">
             <StatusBadge status={lastTask.status} />
             {lastTask.completed_at && (
               <>
                 <Clock size={11} />
-                {new Date(lastTask.completed_at).toLocaleString(undefined, {
-                  month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit',
-                })}
+                <span className="hidden sm:inline">
+                  {new Date(lastTask.completed_at).toLocaleString(undefined, {
+                    month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit',
+                  })}
+                </span>
               </>
             )}
           </span>
@@ -227,10 +229,10 @@ function TaskCard({ task }: { task: BackgroundTask }) {
   const queriedDate = formatQueriedDate(task);
 
   return (
-    <div className={`bg-white rounded-lg border p-4 ${isActive ? 'border-indigo-200 shadow-sm' : 'border-gray-200'}`}>
-      <div className="flex items-center gap-4">
-        <div className="w-32 shrink-0">
-          <span className="text-sm font-medium text-gray-700 truncate block">{label}</span>
+    <div className={`bg-white rounded-lg border p-3 md:p-4 ${isActive ? 'border-indigo-200 shadow-sm' : 'border-gray-200'}`}>
+      <div className="flex flex-wrap items-center gap-2 md:gap-4">
+        <div className="w-28 md:w-32 shrink-0">
+          <span className="text-xs md:text-sm font-medium text-gray-700 truncate block">{label}</span>
           {queriedDate && (
             <span className="text-xs text-gray-400 flex items-center gap-1 mt-0.5">
               <Calendar size={10} /> {queriedDate}
@@ -239,7 +241,7 @@ function TaskCard({ task }: { task: BackgroundTask }) {
         </div>
         <StatusBadge status={task.status} />
         {task.status === 'running' && (
-          <div className="flex-1 bg-gray-100 rounded-full h-1.5">
+          <div className="flex-1 bg-gray-100 rounded-full h-1.5 min-w-[80px]">
             <div
               className="bg-indigo-500 h-1.5 rounded-full transition-all duration-500"
               style={{ width: `${(task.progress * 100).toFixed(0)}%` }}
@@ -309,9 +311,9 @@ export default function AIAgentPanel() {
   };
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-6 md:space-y-8">
       {/* Agent cards grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-4">
         {AGENTS.map((agent) => (
           <AgentCard
             key={agent.id}
@@ -332,7 +334,7 @@ export default function AIAgentPanel() {
             onClick={refresh}
             className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-gray-600 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"
           >
-            <RefreshCw size={13} /> Refresh
+            <RefreshCw size={13} /> <span className="hidden sm:inline">Refresh</span>
           </button>
         </div>
         <div className="space-y-2">

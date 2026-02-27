@@ -17,19 +17,19 @@ export default function PaperCard({ paper }: { paper: Paper }) {
   const [expanded, setExpanded] = useState(false);
 
   return (
-    <div className="bg-white rounded-xl border border-gray-200 p-5 space-y-3 hover:shadow-md transition-shadow">
+    <div className="bg-white rounded-xl border border-gray-200 p-4 md:p-5 space-y-3 hover:shadow-md transition-shadow">
       <div className="flex items-start justify-between gap-3">
-        <h3 className="font-semibold text-gray-900 leading-snug">{paper.title}</h3>
+        <h3 className="font-semibold text-sm md:text-base text-gray-900 leading-snug">{paper.title}</h3>
         <Stars score={paper.relevance_score} />
       </div>
 
-      <p className="text-sm text-gray-500">
+      <p className="text-xs md:text-sm text-gray-500">
         {paper.authors.slice(0, 4).join(', ')}
         {paper.authors.length > 4 && `, +${paper.authors.length - 4} more`}
       </p>
 
       {paper.tldr && (
-        <p className="text-sm text-gray-700 font-medium bg-indigo-50 -mx-5 px-5 py-2 border-y border-indigo-100">
+        <p className="text-xs md:text-sm text-gray-700 font-medium bg-indigo-50 -mx-4 md:-mx-5 px-4 md:px-5 py-2 border-y border-indigo-100">
           {paper.tldr}
         </p>
       )}
@@ -44,13 +44,13 @@ export default function PaperCard({ paper }: { paper: Paper }) {
           {expanded ? 'Hide abstract' : 'Show abstract'}
         </button>
         {expanded && (
-          <p className="mt-2 text-sm text-gray-600 leading-relaxed">
+          <p className="mt-2 text-xs md:text-sm text-gray-600 leading-relaxed">
             {paper.summary}
           </p>
         )}
       </div>
 
-      <div className="flex items-center gap-3 pt-1">
+      <div className="flex flex-wrap items-center gap-2 md:gap-3 pt-1">
         <a
           href={paper.pdf_url}
           target="_blank"
