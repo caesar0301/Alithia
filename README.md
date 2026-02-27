@@ -1,10 +1,16 @@
 <div align="center">
   <img src="docs/logos/alithia-logo.jpg" alt="Alithia Logo" width="200" />
+
+  # Alithia Research Companion
+
+  ![Python](https://img.shields.io/pypi/pyversions/alithia)
+  ![PyPI version](https://img.shields.io/pypi/v/alithia)
+  ![PyPI - Downloads](https://img.shields.io/pypi/dw/alithia)
+  ![License](https://img.shields.io/github/license/caesar0301/alithia)
+  ![GitHub Stars](https://img.shields.io/github/stars/caesar0301/alithia)
+  ![GitHub Workflow Status](https://img.shields.io/github/actions/workflow/status/caesar0301/alithia/ci)
+  ![Code Style](https://img.shields.io/badge/code%20style-black-000000.svg)
 </div>
-
-# Alithia Research Companion
-
-[![PyPI version](https://img.shields.io/pypi/v/alithia.svg)](https://pypi.org/project/alithia/)
 
 ![Alithia Overview](docs/screenshots/ss-overview.jpg)
 
