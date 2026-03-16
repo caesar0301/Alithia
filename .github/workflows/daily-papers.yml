@@ -2,7 +2,7 @@ name: Daily Papers
 
 on:
   schedule:
-    cron: '0 23 * * *'
+    - cron: '0 23 * * *'
   workflow_dispatch:
     inputs:
       from_date:
