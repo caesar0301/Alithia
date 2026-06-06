@@ -1,7 +1,7 @@
 """PaperLens state and configuration models.
 
 AgentState TypedDict for LangGraph workflow.
-PaperLensConfig for user-controlled parameters.
+PaperLensRuntimeConfig for runtime parameters.
 """
 
 from __future__ import annotations
@@ -15,8 +15,8 @@ from pydantic import BaseModel, ConfigDict, Field
 from alithia_agent.models import AcademicPaper, ScoredPaper
 
 
-class PaperLensConfig(BaseModel):
-    """PaperLens subagent configuration."""
+class PaperLensRuntimeConfig(BaseModel):
+    """PaperLens runtime configuration (derived from global config)."""
 
     model_config = ConfigDict(extra="forbid")
 
@@ -29,14 +29,50 @@ class PaperLensConfig(BaseModel):
     # Similarity
     sbert_model: str = "all-MiniLM-L6-v2"
     use_gpu: bool = Field(default=False)
+    top_n: int = Field(default=10, ge=1, le=50)
 
-    # LLM enhancement
-    llm_enhance_metadata: bool = Field(default=True)
+    # LLM enhancement (injected from researcher_profile)
+    llm_enhance_metadata: bool = True
     llm_max_tokens: int = Field(default=500, ge=100, le=1000)
+    llm_api_key: str | None = None
+    llm_api_base: str | None = None
+    llm_model: str = "qwen-turbo-latest"
 
     # Output
     output_format: Literal["markdown", "json"] = "markdown"
-    include_full_text: bool = Field(default=False)
+    include_full_text: bool = False
+
+
+def build_runtime_config(global_config: "Config") -> PaperLensRuntimeConfig:
+    """Build runtime config from global alithia config.
+
+    Args:
+        global_config: The loaded alithia Config object.
+
+    Returns:
+        PaperLensRuntimeConfig ready for agent execution.
+    """
+    from alithia_agent.config import Config
+
+    cfg = global_config
+    profile = cfg.researcher_profile
+
+    return PaperLensRuntimeConfig(
+        pdf_extensions=cfg.paperlens_agent.pdf_extensions,
+        recursive_scan=cfg.paperlens_agent.recursive_scan,
+        max_papers=cfg.paperlens_agent.max_papers,
+        batch_size=cfg.paperlens_agent.batch_size,
+        sbert_model=cfg.paperlens_agent.sbert_model,
+        use_gpu=cfg.paperlens_agent.force_gpu,
+        top_n=cfg.paperlens_agent.top_n,
+        llm_enhance_metadata=cfg.paperlens_agent.llm_enhance_metadata,
+        llm_max_tokens=cfg.paperlens_agent.llm_max_tokens,
+        llm_api_key=profile.llm.openai_api_key if profile.llm else None,
+        llm_api_base=profile.llm.openai_api_base if profile.llm else None,
+        llm_model=profile.llm.model_name if profile.llm else "qwen-turbo-latest",
+        output_format=cfg.paperlens_agent.output_format,
+        include_full_text=cfg.paperlens_agent.include_full_text,
+    )
 
 
 class AgentState(TypedDict):
@@ -49,7 +85,7 @@ class AgentState(TypedDict):
     messages: Annotated[list[Any], add_messages]
 
     # Configuration
-    config: PaperLensConfig
+    config: PaperLensRuntimeConfig
     user_id: str
 
     # Input
@@ -70,7 +106,14 @@ class AgentState(TypedDict):
     metrics: dict[str, Any]
 
 
+# Legacy alias for backward compatibility
+PaperLensConfig = PaperLensRuntimeConfig
+
+
 __all__ = [
-    "PaperLensConfig",
+    "PaperLensRuntimeConfig",
+    "build_runtime_config",
     "AgentState",
+    # Legacy alias
+    "PaperLensConfig",
 ]

@@ -180,7 +180,12 @@ def make_nodes(store: Any, user_id: str) -> dict[str, Any]:
                             config.zotero.library_type,
                             config.zotero.api_key,
                         )
-                        items = zot.everything(zot.top())
+
+                        # Suppress pyzotero's harmless transaction rollback warnings
+                        import warnings
+                        with warnings.catch_warnings():
+                            warnings.simplefilter("ignore")
+                            items = list(zot.everything(zot.top()))
 
                         for item in items:
                             data = item.get("data", {})
@@ -210,8 +215,12 @@ def make_nodes(store: Any, user_id: str) -> dict[str, Any]:
                     _emit_step("data_collection", f"Loaded {len(zotero_papers)} papers from Zotero")
 
                 except Exception as e:
-                    _emit_error(f"Zotero error: {e}", "data_collection")
-                    errors.append(f"Zotero error: {e}")
+                    # Ignore harmless transaction rollback errors from pyzotero
+                    if "rollback" not in str(e).lower():
+                        _emit_error(f"Zotero error: {e}", "data_collection")
+                        errors.append(f"Zotero error: {e}")
+                    else:
+                        logger.debug(f"Suppressed pyzotero transaction warning: {e}")
 
             metrics["arxiv_found"] = len(arxiv_papers)
             metrics["arxiv_new"] = len(new_papers)

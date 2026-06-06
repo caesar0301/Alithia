@@ -2,6 +2,9 @@
 
 Ranks ArXiv papers by relevance to user's Zotero library
 using sentence transformer embeddings and time-decay weighting.
+
+Model cache is isolated from Soothe framework.
+Download priority: ModelScope → HF mirror → fallback.
 """
 
 from __future__ import annotations
@@ -9,12 +12,109 @@ from __future__ import annotations
 import logging
 import os
 from datetime import datetime
+from pathlib import Path
 
 import numpy as np
 
 from alithia_agent.models import ArxivPaper, ZoteroPaper, ScoredPaper
 
 logger = logging.getLogger(__name__)
+
+
+def get_model_cache_dir() -> Path:
+    """Get Alithia's own model cache directory (isolated from Soothe).
+
+    Priority:
+    1. ALITHIA_HF_CACHE env var (for Docker builds)
+    2. SENTENCE_TRANSFORMERS_HOME env var
+    3. Default: ~/.cache/alithia/models/huggingface
+    """
+    # Priority 1: Alithia-specific cache env var
+    env_cache = os.environ.get("ALITHIA_HF_CACHE")
+    if env_cache:
+        return Path(env_cache)
+
+    # Priority 2: Sentence transformers default env var
+    st_cache = os.environ.get("SENTENCE_TRANSFORMERS_HOME")
+    if st_cache:
+        return Path(st_cache)
+
+    # Priority 3: Alithia's own cache (isolated from Soothe)
+    return Path.home() / ".cache" / "alithia" / "models" / "huggingface"
+
+
+def download_from_modelscope(model_name: str, cache_dir: Path) -> Path | None:
+    """Download model from ModelScope.
+
+    Args:
+        model_name: Model name.
+        cache_dir: Cache directory.
+
+    Returns:
+        Path to model, or None if failed.
+    """
+    try:
+        from modelscope.hub.snapshot_download import snapshot_download
+
+        modelscope_model = f"sentence-transformers/{model_name}"
+        logger.info(f"Downloading from ModelScope: {modelscope_model}")
+
+        model_path = snapshot_download(
+            modelscope_model,
+            cache_dir=str(cache_dir),
+        )
+        logger.info(f"ModelScope download complete: {model_path}")
+        return Path(model_path)
+
+    except ImportError:
+        logger.debug("ModelScope SDK not installed")
+        return None
+    except Exception as e:
+        logger.warning(f"ModelScope download failed: {e}")
+        return None
+
+
+def load_encoder(model_name: str, cache_dir: Path) -> tuple[Any, str]:
+    """Load sentence transformer encoder.
+
+    Priority: ModelScope → HF mirror → fallback
+
+    Args:
+        model_name: Model name to load.
+        cache_dir: Cache directory.
+
+    Returns:
+        Tuple of (encoder, source) or (None, "fallback").
+    """
+    # Try ModelScope first
+    model_path = download_from_modelscope(model_name, cache_dir)
+
+    if model_path and model_path.exists():
+        try:
+            from sentence_transformers import SentenceTransformer
+            encoder = SentenceTransformer(str(model_path))
+            logger.info(f"Loaded encoder from ModelScope (max_seq_length: {encoder.max_seq_length})")
+            return encoder, "modelscope"
+        except Exception as e:
+            logger.warning(f"Failed to load ModelScope model: {e}")
+
+    # Fallback to HF mirror
+    os.environ["HF_ENDPOINT"] = "https://hf-mirror.com"
+
+    try:
+        from sentence_transformers import SentenceTransformer
+
+        logger.info(f"Loading encoder from HF mirror: {model_name}")
+        logger.info(f"Cache directory: {cache_dir}")
+
+        encoder = SentenceTransformer(model_name, cache_folder=str(cache_dir))
+        logger.info(f"Encoder loaded from HF mirror (max_seq_length: {encoder.max_seq_length})")
+        return encoder, "hf_mirror"
+
+    except Exception as e:
+        logger.error(f"Failed to load encoder: {e}")
+        logger.warning("Will use fallback scoring instead")
+        return None, "fallback"
 
 
 class PaperReranker:
@@ -41,10 +141,7 @@ class PaperReranker:
         """
         self.papers = papers
         self.corpus = corpus
-        self.cache_dir = cache_dir or os.environ.get(
-            "SENTENCE_TRANSFORMERS_HOME",
-            "/tmp/alithia_models",
-        )
+        self.cache_dir = cache_dir or str(get_model_cache_dir())
 
         if not self.papers:
             logger.warning("No papers provided for reranking")
@@ -76,12 +173,14 @@ class PaperReranker:
                 for p in self.papers
             ]
 
+        # Load encoder
+        encoder, source = load_encoder(model_name, Path(self.cache_dir))
+
+        if encoder is None:
+            logger.warning("Using fallback scoring (no embedding model available)")
+            return self._fallback_rank()
+
         try:
-            from sentence_transformers import SentenceTransformer
-
-            logger.info(f"Loading sentence transformer: {model_name}")
-            encoder = SentenceTransformer(model_name, cache_folder=self.cache_dir)
-
             # Sort corpus by date (newest first)
             sorted_corpus = sorted(
                 [p for p in self.corpus if p.date_added],
@@ -178,10 +277,54 @@ class PaperReranker:
 
         except Exception as e:
             logger.error(f"Reranking error: {e}")
-            return [
-                ScoredPaper(paper=p, score=5.0, relevance_factors={"error_fallback": 5.0})
-                for p in self.papers
-            ]
+            return self._fallback_rank()
+
+    def _fallback_rank(self) -> list[ScoredPaper]:
+        """Fallback ranking when embeddings unavailable.
+
+        Uses title keyword matching and recency.
+        """
+        logger.info("Using keyword-based fallback ranking")
+
+        # Get keywords from corpus titles
+        corpus_keywords: set[str] = set()
+        for paper in self.corpus:
+            if paper.title:
+                # Extract significant words from title
+                words = paper.title.lower().split()
+                for w in words:
+                    if len(w) > 4 and w not in {"the", "for", "with", "from", "this", "that"}:
+                        corpus_keywords.add(w)
+
+        scored: list[ScoredPaper] = []
+        for paper in self.papers:
+            # Count keyword overlap
+            title_words = set(paper.title.lower().split()) if paper.title else set()
+            overlap = len(title_words & corpus_keywords)
+
+            # Base score with keyword bonus
+            score = 5.0 + min(overlap * 0.5, 3.0)
+
+            # Recency bonus
+            if paper.published_date:
+                days_old = (datetime.now() - paper.published_date.replace(tzinfo=None)).days
+                if days_old < 7:
+                    score += 1.0
+                elif days_old < 30:
+                    score += 0.5
+
+            scored.append(ScoredPaper(
+                paper=paper,
+                score=score,
+                relevance_factors={
+                    "keyword_overlap": overlap,
+                    "recency_bonus": paper.published_date is not None,
+                    "fallback": True,
+                },
+            ))
+
+        scored.sort(key=lambda x: x.score, reverse=True)
+        return scored
 
 
-__all__ = ["PaperReranker"]
+__all__ = ["PaperReranker", "load_encoder", "get_model_cache_dir"]

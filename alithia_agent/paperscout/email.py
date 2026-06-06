@@ -14,7 +14,10 @@ from email.mime.text import MIMEText
 from typing import Any
 
 from alithia_agent.models import EmailContent, ScoredPaper
-from alithia_agent.paperscout.state import SmtpConfig
+from alithia_agent.paperscout.state import SmtpRuntimeConfig
+
+# Legacy alias
+SmtpConfig = SmtpRuntimeConfig
 
 logger = logging.getLogger(__name__)
 
@@ -224,11 +227,19 @@ def send_email(
 
         logger.info(f"Connecting to SMTP: {smtp_config.host}:{smtp_config.port}")
 
-        with smtplib.SMTP(smtp_config.host, smtp_config.port) as server:
-            if smtp_config.use_tls:
-                server.starttls()
-            server.login(smtp_config.user, smtp_config.password)
-            server.sendmail(smtp_config.user, recipient, msg.as_string())
+        # Port 465 uses implicit SSL (SMTP_SSL), port 587 uses starttls
+        if smtp_config.port == 465:
+            # Implicit SSL connection
+            with smtplib.SMTP_SSL(smtp_config.host, smtp_config.port) as server:
+                server.login(smtp_config.user, smtp_config.password)
+                server.sendmail(smtp_config.user, recipient, msg.as_string())
+        else:
+            # Standard SMTP with optional starttls
+            with smtplib.SMTP(smtp_config.host, smtp_config.port) as server:
+                if smtp_config.use_tls:
+                    server.starttls()
+                server.login(smtp_config.user, smtp_config.password)
+                server.sendmail(smtp_config.user, recipient, msg.as_string())
 
         logger.info(f"Email sent to {recipient} ({len(email_content.papers)} papers)")
         return True

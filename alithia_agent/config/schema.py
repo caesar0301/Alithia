@@ -1,6 +1,7 @@
 """Configuration schema definitions.
 
 Pydantic models for configuration validation.
+Aligned with existing alithia config structure.
 """
 
 from __future__ import annotations
@@ -25,85 +26,138 @@ class ConfigError(Exception):
         return self.message
 
 
+# ============================================================
+# Researcher Profile
+# ============================================================
+
+class LlmProfileConfig(BaseModel):
+    """LLM settings within researcher profile."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    openai_api_key: str | None = None
+    openai_api_base: str | None = None
+    model_name: str = "qwen-turbo-latest"
+
+
+class ZoteroProfileConfig(BaseModel):
+    """Zotero settings within researcher profile."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    zotero_id: str
+    zotero_key: str
+
+
+class EmailNotificationConfig(BaseModel):
+    """Email notification settings."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    smtp_server: str
+    smtp_port: int = Field(default=465, ge=1, le=65535)
+    sender: str
+    sender_password: str
+
+
+class GithubProfileConfig(BaseModel):
+    """GitHub settings."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    github_username: str | None = None
+    github_token: str | None = None
+
+
+class GoogleScholarProfileConfig(BaseModel):
+    """Google Scholar settings."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    google_scholar_id: str | None = None
+    google_scholar_token: str | None = None
+
+
+class XProfileConfig(BaseModel):
+    """X/Twitter settings."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    x_username: str | None = None
+    x_token: str | None = None
+
+
+class GemsConfig(BaseModel):
+    """Gems (custom research topics)."""
+
+    model_config = ConfigDict(extra="allow")
+
+    # Dynamic key-value pairs for custom topics
+
+
+class ResearcherProfileConfig(BaseModel):
+    """Researcher profile configuration."""
+
+    model_config = ConfigDict(extra="allow")
+
+    research_interests: list[str] = Field(default=["AI", "Machine Learning"])
+    expertise_level: Literal["beginner", "intermediate", "advanced", "expert"] = "intermediate"
+    language: str = "English"
+    email: str | None = None
+    llm: LlmProfileConfig | None = None
+    zotero: ZoteroProfileConfig | None = None
+    email_notification: EmailNotificationConfig | None = None
+    github: GithubProfileConfig | None = None
+    google_scholar: GoogleScholarProfileConfig | None = None
+    x: XProfileConfig | None = None
+    gems: GemsConfig | None = None
+
+
+# ============================================================
+# Storage
+# ============================================================
+
+class SupabaseConfig(BaseModel):
+    """Supabase storage configuration."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    url: str | None = None
+    anon_key: str | None = None
+    service_role_key: str | None = None
+
+
 class StorageConfig(BaseModel):
     """Storage backend configuration."""
 
     model_config = ConfigDict(extra="forbid")
 
-    backend: str = "sqlite"
-    path: str = "~/.alithia/alithia.db"
-    user_id: str = "default"
+    backend: Literal["sqlite", "postgres", "supabase"] = "sqlite"
+    fallback_to_sqlite: bool = False
+    sqlite_path: str = "data/alithia.db"
+    user_id: str = "default_user"
+    supabase: SupabaseConfig | None = None
 
 
-class ZoteroConfig(BaseModel):
-    """Zotero API configuration."""
+# ============================================================
+# Subagents
+# ============================================================
 
-    model_config = ConfigDict(extra="forbid")
-
-    api_key: str
-    library_id: str
-    library_type: Literal["user", "group"] = "user"
-
-
-class SmtpConfig(BaseModel):
-    """SMTP server configuration."""
+class PaperScoutAgentConfig(BaseModel):
+    """PaperScout agent configuration."""
 
     model_config = ConfigDict(extra="forbid")
 
-    host: str
-    port: int = Field(default=587, ge=1, le=65535)
-    user: str
-    password: str
-    use_tls: bool = True
-
-
-class LlmConfig(BaseModel):
-    """LLM provider configuration."""
-
-    model_config = ConfigDict(extra="forbid")
-
-    provider: str = "openai"
-    api_key: str | None = None
-    base_url: str | None = None
-    model: str = "gpt-4o-mini"
-    max_tokens: int = Field(default=150, ge=50, le=4000)
-    temperature: float = Field(default=0.1, ge=0.0, le=2.0)
-
-
-class PaperScoutConfig(BaseModel):
-    """PaperScout subagent configuration."""
-
-    model_config = ConfigDict(extra="forbid")
-
-    # ArXiv query settings
-    arxiv_categories: list[str] = Field(
-        default=["cs.AI", "cs.CV", "cs.LG", "cs.CL"],
-        min_length=1,
-        description="ArXiv categories to query",
-    )
-    max_papers: int = Field(
-        default=25,
-        ge=1,
-        le=100,
-        description="Maximum papers in digest",
-    )
-    max_papers_queried: int = Field(
-        default=500,
-        ge=10,
-        le=1000,
-        description="Maximum papers to query from ArXiv",
-    )
-
-    # Email settings
-    send_email: bool = Field(default=True)
-    send_empty: bool = Field(default=False)
-    recipient_email: str | None = None
+    query: str = "cs.AI+cs.CV+cs.LG+cs.CL"
+    max_papers: int = Field(default=25, ge=1, le=100)
+    max_papers_queried: int = Field(default=500, ge=10, le=1000)
+    send_email: bool = True
+    send_empty: bool = False
+    ignore_patterns: list[str] = Field(default_factory=list)
+    big_bang: date | None = None
 
     # Date range settings
     lookback_days: int = Field(default=7, ge=1, le=30)
-    big_bang_date: date | None = None
-
-    # Notification settings
     gap_window_days: int = Field(default=7, ge=1, le=30)
     emailed_papers_retention_days: int = Field(default=30, ge=7, le=90)
 
@@ -112,58 +166,97 @@ class PaperScoutConfig(BaseModel):
     tldr_language: str = "English"
 
 
-class PaperLensConfig(BaseModel):
-    """PaperLens subagent configuration."""
+class PaperLensAgentConfig(BaseModel):
+    """PaperLens agent configuration."""
 
     model_config = ConfigDict(extra="forbid")
 
+    sbert_model: str = "all-MiniLM-L6-v2"
+    force_gpu: bool = False
+    top_n: int = Field(default=10, ge=1, le=50)
+
     # PDF processing
     pdf_extensions: list[str] = Field(default=["pdf"])
-    recursive_scan: bool = Field(default=True)
+    recursive_scan: bool = True
     max_papers: int = Field(default=50, ge=1, le=200)
     batch_size: int = Field(default=8, ge=1, le=32)
 
-    # Similarity
-    sbert_model: str = "all-MiniLM-L6-v2"
-    use_gpu: bool = Field(default=False)
-
     # LLM enhancement
-    llm_enhance_metadata: bool = Field(default=True)
+    llm_enhance_metadata: bool = True
     llm_max_tokens: int = Field(default=500, ge=100, le=1000)
 
     # Output
     output_format: Literal["markdown", "json"] = "markdown"
-    include_full_text: bool = Field(default=False)
+    include_full_text: bool = False
 
+
+# ============================================================
+# Turnstile (CAPTCHA)
+# ============================================================
+
+class TurnstileConfig(BaseModel):
+    """Cloudflare Turnstile configuration."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    enabled: bool = False
+    site_key: str = ""
+    secret_key: str = ""
+
+
+# ============================================================
+# Root Config
+# ============================================================
 
 class Config(BaseModel):
     """Root configuration model."""
 
     model_config = ConfigDict(extra="allow")
 
+    researcher_profile: ResearcherProfileConfig = Field(default_factory=ResearcherProfileConfig)
     storage: StorageConfig = Field(default_factory=StorageConfig)
-    zotero: ZoteroConfig | None = None
-    smtp: SmtpConfig | None = None
-    llm: LlmConfig | None = None
-    paperscout: PaperScoutConfig = Field(default_factory=PaperScoutConfig)
-    paperlens: PaperLensConfig = Field(default_factory=PaperLensConfig)
+    paperscout_agent: PaperScoutAgentConfig = Field(default_factory=PaperScoutAgentConfig)
+    paperlens_agent: PaperLensAgentConfig = Field(default_factory=PaperLensAgentConfig)
+    turnstile: TurnstileConfig = Field(default_factory=TurnstileConfig)
+    debug: bool = False
 
     @model_validator(mode="after")
-    def validate_paperscout_dependencies(self) -> "Config":
-        """PaperScout requires zotero and smtp if send_email=True."""
-        if self.paperscout.send_email:
-            if not self.smtp:
-                raise ValueError("smtp config required when paperscout.send_email=True")
+    def validate_notification_dependencies(self) -> "Config":
+        """Validate email notification requires SMTP config."""
+        if self.paperscout_agent.send_email:
+            if not self.researcher_profile.email_notification:
+                raise ValueError(
+                    "researcher_profile.email_notification required when "
+                    "paperscout_agent.send_email=True"
+                )
         return self
+
+    # Legacy aliases for backward compatibility
+    @property
+    def paperscout(self) -> PaperScoutAgentConfig:
+        """Alias for paperscout_agent."""
+        return self.paperscout_agent
+
+    @property
+    def paperlens(self) -> PaperLensAgentConfig:
+        """Alias for paperlens_agent."""
+        return self.paperlens_agent
 
 
 __all__ = [
     "ConfigError",
     "Config",
+    "ResearcherProfileConfig",
+    "LlmProfileConfig",
+    "ZoteroProfileConfig",
+    "EmailNotificationConfig",
+    "GithubProfileConfig",
+    "GoogleScholarProfileConfig",
+    "XProfileConfig",
+    "GemsConfig",
     "StorageConfig",
-    "ZoteroConfig",
-    "SmtpConfig",
-    "LlmConfig",
-    "PaperScoutConfig",
-    "PaperLensConfig",
+    "SupabaseConfig",
+    "PaperScoutAgentConfig",
+    "PaperLensAgentConfig",
+    "TurnstileConfig",
 ]

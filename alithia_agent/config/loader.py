@@ -93,47 +93,51 @@ def deep_merge(base: dict, override: dict) -> dict:
     return result
 
 
-# Default configuration values
+# Default configuration values (aligned with existing alithia config)
 DEFAULT_CONFIG = {
+    "researcher_profile": {
+        "research_interests": ["AI", "Machine Learning", "Computer Vision"],
+        "expertise_level": "intermediate",
+        "language": "English",
+    },
     "storage": {
         "backend": "sqlite",
-        "path": "~/.alithia/alithia.db",
-        "user_id": "default",
+        "fallback_to_sqlite": False,
+        "sqlite_path": "data/alithia.db",
+        "user_id": "default_user",
     },
-    "paperscout": {
-        "arxiv_categories": ["cs.AI", "cs.CV", "cs.LG", "cs.CL"],
+    "paperscout_agent": {
+        "query": "cs.AI+cs.CV+cs.LG+cs.CL",
         "max_papers": 25,
         "max_papers_queried": 500,
         "send_email": True,
         "send_empty": False,
+        "ignore_patterns": [],
         "lookback_days": 7,
         "gap_window_days": 7,
         "emailed_papers_retention_days": 30,
         "tldr_max_tokens": 150,
         "tldr_language": "English",
     },
-    "paperlens": {
+    "paperlens_agent": {
+        "sbert_model": "all-MiniLM-L6-v2",
+        "force_gpu": False,
+        "top_n": 10,
         "pdf_extensions": ["pdf"],
         "recursive_scan": True,
         "max_papers": 50,
         "batch_size": 8,
-        "sbert_model": "all-MiniLM-L6-v2",
-        "use_gpu": False,
         "llm_enhance_metadata": True,
         "llm_max_tokens": 500,
         "output_format": "markdown",
         "include_full_text": False,
     },
-    "smtp": {
-        "port": 587,
-        "use_tls": True,
+    "turnstile": {
+        "enabled": False,
+        "site_key": "",
+        "secret_key": "",
     },
-    "llm": {
-        "provider": "openai",
-        "model": "gpt-4o-mini",
-        "max_tokens": 150,
-        "temperature": 0.1,
-    },
+    "debug": False,
 }
 
 
@@ -157,13 +161,15 @@ class ConfigLoader:
         Returns:
             Path to config file, or None if not found.
         """
+        from alithia_agent import ALITHIA_HOME
+
         if cli_path:
             path = Path(cli_path)
             if not path.exists():
                 raise ConfigError(f"Config file not found: {path}")
             return path
 
-        default_path = Path.home() / ".alithia" / "config.json"
+        default_path = ALITHIA_HOME / "config.json"
         if default_path.exists():
             return default_path
 

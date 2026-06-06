@@ -10,16 +10,24 @@ A soothe framework subagent that:
 
 from alithia_agent.paperscout.implementation import create_paperscout_subagent
 from alithia_agent.paperscout.state import (
-    PaperScoutConfig,
-    SmtpConfig,
-    ZoteroConfig,
+    PaperScoutRuntimeConfig,
+    PaperScoutConfig,  # Legacy alias
+    SmtpRuntimeConfig,
+    SmtpConfig,  # Legacy alias
+    ZoteroRuntimeConfig,
+    ZoteroConfig,  # Legacy alias
     AgentState,
+    build_runtime_config,
 )
 
 __all__ = [
     "create_paperscout_subagent",
+    "PaperScoutRuntimeConfig",
     "PaperScoutConfig",
+    "SmtpRuntimeConfig",
     "SmtpConfig",
+    "ZoteroRuntimeConfig",
     "ZoteroConfig",
     "AgentState",
+    "build_runtime_config",
 ]

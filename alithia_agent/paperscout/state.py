@@ -1,7 +1,7 @@
 """PaperScout state and configuration models.
 
 AgentState TypedDict for LangGraph workflow.
-PaperScoutConfig, SmtpConfig, ZoteroConfig for user-controlled parameters.
+PaperScoutRuntimeConfig, SmtpRuntimeConfig, ZoteroRuntimeConfig for runtime parameters.
 """
 
 from __future__ import annotations
@@ -15,8 +15,8 @@ from pydantic import BaseModel, ConfigDict, Field
 from alithia_agent.models import ArxivPaper, ZoteroPaper, ScoredPaper, EmailContent
 
 
-class SmtpConfig(BaseModel):
-    """SMTP server configuration."""
+class SmtpRuntimeConfig(BaseModel):
+    """SMTP server configuration for runtime."""
 
     model_config = ConfigDict(extra="forbid")
 
@@ -27,8 +27,8 @@ class SmtpConfig(BaseModel):
     use_tls: bool = True
 
 
-class ZoteroConfig(BaseModel):
-    """Zotero API configuration."""
+class ZoteroRuntimeConfig(BaseModel):
+    """Zotero API configuration for runtime."""
 
     model_config = ConfigDict(extra="forbid")
 
@@ -37,8 +37,8 @@ class ZoteroConfig(BaseModel):
     library_type: Literal["user", "group"] = "user"
 
 
-class PaperScoutConfig(BaseModel):
-    """PaperScout subagent configuration."""
+class PaperScoutRuntimeConfig(BaseModel):
+    """PaperScout runtime configuration (derived from global config)."""
 
     model_config = ConfigDict(extra="forbid")
 
@@ -73,13 +73,77 @@ class PaperScoutConfig(BaseModel):
     gap_window_days: int = Field(default=7, ge=1, le=30)
     emailed_papers_retention_days: int = Field(default=30, ge=7, le=90)
 
-    # Service configurations (injected)
-    smtp: SmtpConfig | None = None
-    zotero: ZoteroConfig | None = None
+    # Service configurations (injected from researcher_profile)
+    smtp: SmtpRuntimeConfig | None = None
+    zotero: ZoteroRuntimeConfig | None = None
 
-    # LLM settings
+    # LLM settings (injected from researcher_profile)
+    llm_api_key: str | None = None
+    llm_api_base: str | None = None
+    llm_model: str = "qwen-turbo-latest"
+
+    # TLDR settings
     tldr_max_tokens: int = Field(default=150, ge=50, le=300)
     tldr_language: str = "English"
+
+
+def build_runtime_config(global_config: "Config") -> PaperScoutRuntimeConfig:
+    """Build runtime config from global alithia config.
+
+    Args:
+        global_config: The loaded alithia Config object.
+
+    Returns:
+        PaperScoutRuntimeConfig ready for agent execution.
+    """
+    from alithia_agent.config import Config
+
+    cfg = global_config
+    profile = cfg.researcher_profile
+
+    # Build SMTP config from email_notification
+    smtp = None
+    if profile.email_notification:
+        smtp = SmtpRuntimeConfig(
+            host=profile.email_notification.smtp_server,
+            port=profile.email_notification.smtp_port,
+            user=profile.email_notification.sender,
+            password=profile.email_notification.sender_password,
+            use_tls=profile.email_notification.smtp_port != 25,
+        )
+
+    # Build Zotero config
+    zotero = None
+    if profile.zotero:
+        zotero = ZoteroRuntimeConfig(
+            api_key=profile.zotero.zotero_key,
+            library_id=profile.zotero.zotero_id,
+            library_type="user",
+        )
+
+    # Parse query string into categories
+    query = cfg.paperscout_agent.query or "cs.AI+cs.CV+cs.LG+cs.CL"
+    categories = query.replace("+", ",").split(",") if "+" in query else query.split(",")
+
+    return PaperScoutRuntimeConfig(
+        arxiv_categories=categories,
+        max_papers=cfg.paperscout_agent.max_papers,
+        max_papers_queried=cfg.paperscout_agent.max_papers_queried,
+        send_email=cfg.paperscout_agent.send_email,
+        send_empty=cfg.paperscout_agent.send_empty,
+        recipient_email=profile.email,
+        lookback_days=cfg.paperscout_agent.lookback_days,
+        big_bang_date=cfg.paperscout_agent.big_bang,
+        gap_window_days=cfg.paperscout_agent.gap_window_days,
+        emailed_papers_retention_days=cfg.paperscout_agent.emailed_papers_retention_days,
+        smtp=smtp,
+        zotero=zotero,
+        llm_api_key=profile.llm.openai_api_key if profile.llm else None,
+        llm_api_base=profile.llm.openai_api_base if profile.llm else None,
+        llm_model=profile.llm.model_name if profile.llm else "qwen-turbo-latest",
+        tldr_max_tokens=cfg.paperscout_agent.tldr_max_tokens,
+        tldr_language=cfg.paperscout_agent.tldr_language,
+    )
 
 
 class AgentState(TypedDict):
@@ -93,7 +157,7 @@ class AgentState(TypedDict):
     messages: Annotated[list[Any], add_messages]
 
     # Configuration
-    config: PaperScoutConfig
+    config: PaperScoutRuntimeConfig
     user_id: str
 
     # Discovered papers (from ArXiv)
@@ -114,9 +178,20 @@ class AgentState(TypedDict):
     metrics: dict[str, Any]
 
 
+# Legacy aliases for backward compatibility
+SmtpConfig = SmtpRuntimeConfig
+ZoteroConfig = ZoteroRuntimeConfig
+PaperScoutConfig = PaperScoutRuntimeConfig
+
+
 __all__ = [
+    "SmtpRuntimeConfig",
+    "ZoteroRuntimeConfig",
+    "PaperScoutRuntimeConfig",
+    "build_runtime_config",
+    "AgentState",
+    # Legacy aliases
     "SmtpConfig",
     "ZoteroConfig",
     "PaperScoutConfig",
-    "AgentState",
 ]

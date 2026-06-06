@@ -10,7 +10,7 @@ from typing import Any
 
 from langgraph.graph import END, START, StateGraph
 
-from alithia_agent.paperscout.state import AgentState, PaperScoutConfig
+from alithia_agent.paperscout.state import AgentState, PaperScoutRuntimeConfig
 from alithia_agent.paperscout.nodes import make_nodes
 
 logger = logging.getLogger(__name__)
@@ -56,14 +56,14 @@ def create_paperscout_graph(
 
 
 def create_paperscout_subagent(
-    config: PaperScoutConfig,
+    config: PaperScoutRuntimeConfig,
     store: Any,
     user_id: str = "default",
 ) -> dict[str, Any]:
     """Create PaperScout subagent.
 
     Args:
-        config: PaperScout configuration (with smtp and zotero attached).
+        config: PaperScout runtime configuration (with smtp and zotero attached).
         store: AsyncPersistStore.
         user_id: User identifier.
 

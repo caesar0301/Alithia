@@ -23,6 +23,7 @@ from pathlib import Path
 from typing import Any
 
 from alithia_agent.config import load_config, Config, ConfigError
+from alithia_agent import ALITHIA_HOME, SOOTHE_HOME
 
 logger = logging.getLogger(__name__)
 
@@ -43,10 +44,21 @@ def setup_logging(verbose: bool, quiet: bool) -> None:
     else:
         level = logging.INFO
 
+    # Log to ALITHIA_HOME/logs/alithia.log
+    log_dir = ALITHIA_HOME / "logs"
+    log_dir.mkdir(parents=True, exist_ok=True)
+    log_file = log_dir / "alithia.log"
+
     logging.basicConfig(
         level=level,
         format="[%(levelname)s] %(message)s",
+        handlers=[
+            logging.StreamHandler(),
+            logging.FileHandler(log_file),
+        ],
     )
+    logger.info(f"ALITHIA_HOME: {ALITHIA_HOME}")
+    logger.info(f"SOOTHE_HOME: {SOOTHE_HOME}")
 
 
 def parse_args() -> argparse.Namespace:
@@ -178,7 +190,7 @@ def build_cli_overrides(args: argparse.Namespace) -> dict[str, Any]:
         paperscout_overrides: dict[str, Any] = {}
 
         if args.categories:
-            paperscout_overrides["arxiv_categories"] = args.categories.split(",")
+            paperscout_overrides["query"] = args.categories.replace(",", "+")
         if args.max_papers:
             paperscout_overrides["max_papers"] = args.max_papers
         if args.lookback:
@@ -187,7 +199,7 @@ def build_cli_overrides(args: argparse.Namespace) -> dict[str, Any]:
             paperscout_overrides["send_email"] = False
 
         if paperscout_overrides:
-            overrides["paperscout"] = paperscout_overrides
+            overrides["paperscout_agent"] = paperscout_overrides
 
     # PaperLens overrides
     if args.subagent == "paperlens":
@@ -199,7 +211,7 @@ def build_cli_overrides(args: argparse.Namespace) -> dict[str, Any]:
         paperlens_overrides["output_format"] = args.format
 
         if paperlens_overrides:
-            overrides["paperlens"] = paperlens_overrides
+            overrides["paperlens_agent"] = paperlens_overrides
 
     return overrides
 
@@ -242,31 +254,34 @@ async def run_paperscout(config: Config, args: argparse.Namespace) -> dict[str, 
     """Run PaperScout subagent."""
     from alithia_agent.storage import initialize_storage
     from alithia_agent.paperscout.implementation import create_paperscout_subagent
+    from alithia_agent.paperscout import build_runtime_config
 
     # Initialize storage
     storage = initialize_storage(config.storage.user_id)
 
+    # Build runtime config from global config
+    runtime_config = build_runtime_config(config)
+
     # Create subagent
     subagent = create_paperscout_subagent(
-        config=config.paperscout,
+        config=runtime_config,
         store=storage,
         user_id=config.storage.user_id,
     )
 
     # Build initial state
-    initial_state = {
-        "config": config.paperscout,
+    initial_state: dict[str, Any] = {
+        "config": runtime_config,
         "user_id": config.storage.user_id,
         "errors": [],
         "info": [],
         "metrics": {},
+        "messages": [],
+        "discovered_papers": [],
+        "zotero_papers": [],
+        "scored_papers": [],
+        "email_content": None,
     }
-
-    # Attach config dependencies
-    if config.zotero:
-        initial_state["config"].zotero = config.zotero
-    if config.smtp:
-        initial_state["config"].smtp = config.smtp
 
     # Run workflow
     runnable = subagent["runnable"]
@@ -278,6 +293,7 @@ async def run_paperscout(config: Config, args: argparse.Namespace) -> dict[str, 
 async def run_paperlens(config: Config, args: argparse.Namespace) -> dict[str, Any]:
     """Run PaperLens subagent."""
     from alithia_agent.paperlens.implementation import create_paperlens_subagent
+    from alithia_agent.paperlens import build_runtime_config
 
     # Validate required arguments
     if not args.query:
@@ -293,27 +309,30 @@ async def run_paperlens(config: Config, args: argparse.Namespace) -> dict[str, A
         print(f"ERROR: PDF path does not exist: {args.pdf_path}")
         sys.exit(EXIT_VALIDATION_ERROR)
 
+    # Build runtime config from global config
+    runtime_config = build_runtime_config(config)
+
     # Create subagent
     subagent = create_paperlens_subagent(
-        config=config.paperlens,
-        llm=None,  # Will use config.llm if available
+        config=runtime_config,
         user_id=config.storage.user_id,
     )
 
     # Build initial state
-    initial_state = {
-        "config": config.paperlens,
+    initial_state: dict[str, Any] = {
+        "config": runtime_config,
         "user_id": config.storage.user_id,
         "query": args.query,
         "pdf_path": str(pdf_path),
         "errors": [],
         "info": [],
         "metrics": {},
+        "messages": [],
+        "parsed_papers": [],
+        "papers_with_scores": [],
+        "ranked_papers": [],
+        "response_content": "",
     }
-
-    # Attach LLM config
-    if config.llm:
-        initial_state["_llm_config"] = config.llm
 
     # Run workflow
     runnable = subagent["runnable"]

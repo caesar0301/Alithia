@@ -198,7 +198,7 @@ class MigrationRunner:
 def initialize_storage(user_id: str = "default") -> SQLiteStorage:
     """Initialize storage for alithia-agent.
 
-    Creates ~/.alithia/ directory, runs migrations, and returns storage instance.
+    Creates ~/.alithia/ directory (ALITHIA_HOME), runs migrations, and returns storage instance.
 
     Args:
         user_id: User identifier for storage keys.
@@ -206,12 +206,12 @@ def initialize_storage(user_id: str = "default") -> SQLiteStorage:
     Returns:
         Initialized SQLiteStorage instance.
     """
+    from alithia_agent import ALITHIA_HOME
     from alithia_agent.storage.sqlite import SQLiteStorage
 
-    alithia_dir = Path.home() / ".alithia"
-    alithia_dir.mkdir(exist_ok=True)
+    ALITHIA_HOME.mkdir(parents=True, exist_ok=True)
 
-    db_path = alithia_dir / "alithia.db"
+    db_path = ALITHIA_HOME / "alithia.db"
 
     # Run migrations
     runner = MigrationRunner(db_path)
@@ -219,7 +219,7 @@ def initialize_storage(user_id: str = "default") -> SQLiteStorage:
 
     # Create storage instance
     storage = SQLiteStorage(db_path)
-    logger.info(f"Storage initialized for user {user_id}")
+    logger.info(f"Storage initialized for user {user_id} at {db_path}")
 
     return storage
 

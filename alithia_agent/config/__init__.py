@@ -4,24 +4,41 @@ JSON-based configuration with environment variable substitution.
 Pydantic validation with fail-fast on missing required fields.
 """
 
-from alithia_agent.config.loader import ConfigLoader
+from alithia_agent.config.loader import ConfigLoader, load_config
 from alithia_agent.config.schema import (
     Config,
+    ConfigError,
+    ResearcherProfileConfig,
+    LlmProfileConfig,
+    ZoteroProfileConfig,
+    EmailNotificationConfig,
+    GithubProfileConfig,
+    GoogleScholarProfileConfig,
+    XProfileConfig,
+    GemsConfig,
     StorageConfig,
-    ZoteroConfig,
-    SmtpConfig,
-    LlmConfig,
-    PaperScoutConfig,
-    PaperLensConfig,
+    SupabaseConfig,
+    PaperScoutAgentConfig,
+    PaperLensAgentConfig,
+    TurnstileConfig,
 )
 
 __all__ = [
     "ConfigLoader",
+    "load_config",
     "Config",
+    "ConfigError",
+    "ResearcherProfileConfig",
+    "LlmProfileConfig",
+    "ZoteroProfileConfig",
+    "EmailNotificationConfig",
+    "GithubProfileConfig",
+    "GoogleScholarProfileConfig",
+    "XProfileConfig",
+    "GemsConfig",
     "StorageConfig",
-    "ZoteroConfig",
-    "SmtpConfig",
-    "LlmConfig",
-    "PaperScoutConfig",
-    "PaperLensConfig",
+    "SupabaseConfig",
+    "PaperScoutAgentConfig",
+    "PaperLensAgentConfig",
+    "TurnstileConfig",
 ]
