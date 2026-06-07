@@ -114,29 +114,32 @@ class AlithiaAgent:
         Returns:
             SootheConfig with minimal defaults for alithia.
         """
-        # Create default config with OpenAI provider (can be overridden)
+        # Create default config matching SootheConfig structure
+        # providers: list of ModelProviderConfig
+        # tools: ToolsConfig with enabled tool categories
+        # subagents: dict of SubagentConfig
         default_config = {
-            "providers": {
-                "openai": {
+            "providers": [
+                {
+                    "name": "openai",
                     "api_key": os.environ.get("OPENAI_API_KEY", ""),
                 },
-            },
-            "models": {
-                "default": "openai:gpt-4o-mini",
-            },
+            ],
+            "router": {"default": "openai:gpt-4o-mini"},
             "subagents": {
                 "paperscout": {
                     "enabled": True,
-                    "triggers": ["new papers", "arxiv", "paper digest", "daily papers"],
                 },
                 "paperlens": {
                     "enabled": True,
-                    "triggers": ["rank papers", "analyze pdf", "similar papers", "local papers"],
                 },
             },
-            "tools": ["file_ops", "websearch"],
-            "memory": {"enabled": False},
-            "planner": {"enabled": True},
+            "tools": {
+                "file_ops": {"enabled": True},
+                "wizsearch": {"enabled": True},
+            },
+            "memory": [],  # No memory plugins by default
+            "debug": False,
         }
 
         return SootheConfig(**default_config)

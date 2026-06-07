@@ -32,6 +32,11 @@ dev = [
 [project.scripts]
 alithia-agent = "alithia_agent.__main__:main"
 
+# Soothe plugin entry points
+[project.entry-points."soothe.plugins"]
+paperscout = "alithia_agent.plugins.paperscout:PaperScoutPlugin"
+paperlens = "alithia_agent.plugins.paperlens:PaperLensPlugin"
+
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
