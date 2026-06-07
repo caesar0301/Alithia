@@ -4,7 +4,7 @@ Provides branded CLI entry point that:
 - Sets SOOTHE_HOME to ~/.alithia/soothe/
 - Loads alithia domain config from ~/.alithia/config.yml
 - Registers paperscout/paperlens plugins in soothe's global registry
-- Creates and manages soothe CoreAgent for execution
+- Creates and manages soothe SootheRunner for protocol-orchestrated execution
 """
 
 from __future__ import annotations
@@ -12,22 +12,20 @@ from __future__ import annotations
 import logging
 import os
 from collections.abc import AsyncIterator
-from pathlib import Path
 from typing import Any
 
 from alithia_agent import ALITHIA_HOME, SOOTHE_HOME
-from alithia_agent.config import load_config, Config
-from alithia_agent.storage import AlithiaStore
+from alithia_agent.config import Config, load_config
 
 # Soothe imports - handle gracefully if not fully available
 try:
-    from soothe.core import CoreAgent, create_soothe_agent
     from soothe.config.settings import SootheConfig
+    from soothe.core import SootheRunner
+
     HAS_SOOTHE = True
-except ImportError as e:
+except ImportError:
     HAS_SOOTHE = False
-    CoreAgent = None  # type: ignore
-    create_soothe_agent = None  # type: ignore
+    SootheRunner = None  # type: ignore
     SootheConfig = None  # type: ignore
 
 logger = logging.getLogger(__name__)
@@ -36,7 +34,7 @@ logger = logging.getLogger(__name__)
 class AlithiaAgent:
     """Alithia research assistant powered by soothe framework.
 
-    Wraps soothe's CoreAgent with alithia-specific initialization:
+    Wraps soothe's SootheRunner with alithia-specific initialization:
     - Uses SOOTHE_HOME=~/.alithia/soothe/ (set in __init__.py)
     - Loads alithia domain config from ~/.alithia/config.yml
     - Registers paperscout/paperlens plugins in soothe's global registry
@@ -45,6 +43,10 @@ class AlithiaAgent:
     Example:
         agent = AlithiaAgent()
         async for chunk in agent.run("Find new papers about transformers"):
+            print(chunk)
+
+        # Explicitly route to paperscout subagent
+        async for chunk in agent.run("arxiv daily papers", subagent="paperscout"):
             print(chunk)
     """
 
@@ -63,8 +65,7 @@ class AlithiaAgent:
         """
         if not HAS_SOOTHE:
             raise RuntimeError(
-                "Soothe framework not available. "
-                "Install soothe package to use AlithiaAgent."
+                "Soothe framework not available. Install soothe package to use AlithiaAgent."
             )
 
         # Ensure soothe directories exist
@@ -74,7 +75,7 @@ class AlithiaAgent:
         self._alithia_config = load_config(config_path)
 
         # Register alithia plugins in soothe's global registry
-        # This must happen BEFORE create_soothe_agent()
+        # This must happen BEFORE SootheRunner initialization
         self._register_plugins()
 
         # Load soothe config (from SOOTHE_HOME/config/config.yml)
@@ -89,8 +90,8 @@ class AlithiaAgent:
                 "Using defaults. Create config.yml for customization."
             )
 
-        # Create soothe CoreAgent
-        self._core_agent = self._create_core_agent()
+        # Create soothe SootheRunner (Layer 2 with protocol orchestration)
+        self._runner = self._create_runner()
 
         logger.info(f"AlithiaAgent initialized (SOOTHE_HOME={SOOTHE_HOME})")
 
@@ -140,73 +141,58 @@ class AlithiaAgent:
 
         return SootheConfig(**default_config)
 
-    def _create_core_agent(self) -> Any:
-        """Create soothe CoreAgent with alithia configuration.
+    def _create_runner(self) -> Any:
+        """Create soothe SootheRunner with alithia configuration.
+
+        SootheRunner is Layer 2 of soothe architecture, providing:
+        - Protocol orchestration (intent classification, goal engine)
+        - Canonical StreamChunk format with soothe.* events
+        - preferred_subagent parameter for explicit routing
 
         Returns:
-            CoreAgent instance with registered plugins.
+            SootheRunner instance ready for astream() execution.
         """
-        # Create storage implementing AsyncPersistStore
-        store = AlithiaStore(self._alithia_config.storage.user_id)
+        # SootheRunner handles all agent creation internally
+        # Plugins were registered earlier in _register_plugins()
+        runner = SootheRunner(self._soothe_config)
 
-        # Create CoreAgent with alithia-specific kwargs
-        # These kwargs are passed to subagent factories
-        agent = create_soothe_agent(
-            self._soothe_config,
-            # Pass alithia config to subagent factories via kwargs
-            alithia_config=self._alithia_config.model_dump(),
-            store=store,
-            user_id=self._alithia_config.storage.user_id,
-        )
-
-        logger.debug("CoreAgent created with alithia configuration")
-        return agent
+        logger.debug("SootheRunner created with alithia configuration")
+        return runner
 
     async def run(
         self,
         user_input: str,
         *,
         thread_id: str | None = None,
-        stream_mode: list[str] | None = None,
         subagent: str | None = None,
     ) -> AsyncIterator[Any]:
-        """Run user input through soothe's agent loop.
+        """Run user input through soothe's runner loop.
 
         Args:
             user_input: Natural language input from user.
             thread_id: Optional thread identifier for persistence.
-            stream_mode: Optional stream mode (default: ["messages", "updates"]).
             subagent: Optional explicit subagent name (bypasses intent routing).
+                When specified, uses SootheRunner's preferred_subagent parameter
+                which sets routing_hint="subagent" in RoutingClassification.
 
         Returns:
-            AsyncIterator of stream events from soothe execution.
+            AsyncIterator of StreamChunk tuples from soothe execution.
+            Each chunk is (namespace, mode, data) in canonical format.
         """
-        config: dict[str, Any] = {}
-
-        if thread_id:
-            config["configurable"] = {"thread_id": thread_id}
-
-        # If explicit subagent requested, add execution hint
-        if subagent:
-            if "configurable" not in config:
-                config["configurable"] = {}
-            config["configurable"]["soothe_step_subagent"] = subagent
-
-        if stream_mode is None:
-            stream_mode = ["messages", "updates"]
-
         logger.info(f"Running user input: {user_input[:50]}...")
 
-        return self._core_agent.astream(
+        # Use SootheRunner.astream() with preferred_subagent for explicit routing
+        # This is the clean Layer 2 API that handles RoutingClassification internally
+        return self._runner.astream(
             user_input,
-            config or None,
-            stream_mode=stream_mode,
+            thread_id=thread_id,
+            preferred_subagent=subagent,  # Explicit routing when provided
         )
 
     @property
-    def core_agent(self) -> Any:
-        """Access underlying soothe CoreAgent."""
-        return self._core_agent
+    def runner(self) -> Any:
+        """Access underlying soothe SootheRunner."""
+        return self._runner
 
     @property
     def alithia_config(self) -> Config:
@@ -214,7 +200,7 @@ class AlithiaAgent:
         return self._alithia_config
 
     @classmethod
-    def create(cls, config_path: str | None = None) -> "AlithiaAgent":
+    def create(cls, config_path: str | None = None) -> AlithiaAgent:
         """Factory method for AlithiaAgent.
 
         Args:
