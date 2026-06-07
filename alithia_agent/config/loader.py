@@ -1,6 +1,6 @@
 """Configuration loader.
 
-JSON file loading with environment variable substitution.
+YAML file loading with environment variable substitution.
 Merge precedence: CLI > file > defaults.
 """
 
@@ -12,6 +12,8 @@ import os
 import re
 from pathlib import Path
 from typing import Any
+
+import yaml
 
 from pydantic import ValidationError
 
@@ -169,14 +171,19 @@ class ConfigLoader:
                 raise ConfigError(f"Config file not found: {path}")
             return path
 
-        default_path = ALITHIA_HOME / "config.json"
-        if default_path.exists():
-            return default_path
+        # Prefer YAML config, fallback to JSON for backward compatibility
+        yaml_path = ALITHIA_HOME / "config.yml"
+        if yaml_path.exists():
+            return yaml_path
+
+        json_path = ALITHIA_HOME / "config.json"
+        if json_path.exists():
+            return json_path
 
         return None
 
     def load_file(self, path: Path) -> dict[str, Any]:
-        """Load JSON configuration file.
+        """Load YAML or JSON configuration file.
 
         Args:
             path: Path to config file.
@@ -189,7 +196,16 @@ class ConfigLoader:
         """
         try:
             with open(path) as f:
-                return json.load(f)
+                content = f.read()
+
+            # Detect format from file extension
+            if path.suffix in (".yml", ".yaml"):
+                return yaml.safe_load(content)
+            else:
+                return json.loads(content)
+
+        except yaml.YAMLError as e:
+            raise ConfigError(f"Invalid YAML in config file: {e}")
         except json.JSONDecodeError as e:
             raise ConfigError(f"Invalid JSON in config file: {e}")
 

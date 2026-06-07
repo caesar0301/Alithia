@@ -10,13 +10,20 @@ authors = [{name = "Alithia Team"}]
 dependencies = [
     "langgraph>=0.2.0",
     "pydantic>=2.0",
+    "pyyaml>=6.0",
     "arxiv>=2.0.0",
     "pyzotero>=1.5.0",
     "sentence-transformers>=2.2.0",
     "scikit-learn>=1.0.0",
     "numpy>=1.20.0",
     "docling>=2.0.0",
+    # soothe framework integration (local development)
+    # soothe-sdk is included as a dependency of soothe
+    "soothe",
 ]
+
+[tool.uv.sources]
+soothe = { path = "../../soothe/packages/soothe" }
 
 [project.optional-dependencies]
 dev = [

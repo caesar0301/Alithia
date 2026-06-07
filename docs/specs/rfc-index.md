@@ -16,6 +16,7 @@ Master index of all RFC specifications.
 | [RFC-006-configuration](RFC-006-configuration.md) | Configuration Management | Architecture Design | Draft | 2026-06-06 | 2026-06-06 |
 | [RFC-007-plugin-integration](RFC-007-plugin-integration.md) | Soothe Framework Integration | Implementation Interface Design | Draft | 2026-06-06 | 2026-06-06 |
 | [RFC-008-data-models](RFC-008-data-models.md) | Shared Data Model Contracts | Implementation Interface Design | Draft | 2026-06-06 | 2026-06-06 |
+| [RFC-009-soothe-integration](RFC-009-soothe-integration.md) | Soothe Framework Integration Architecture | Architecture Design | Draft | 2026-06-07 | 2026-06-07 |
 
 ---
 
@@ -36,7 +37,10 @@ RFC-002-world-view (Conceptual — foundation, no dependencies)
     │                                            │
     ├── RFC-007-plugin-integration ──────────────┤
     │                                            │
-    └── RFC-008-data-models ─────────────────────┘
+    ├── RFC-008-data-models ─────────────────────┤
+    │                                            │
+    └── RFC-009-soothe-integration ──────────────┘
+        (depends on RFC-002, RFC-007)
 ```
 
 ---

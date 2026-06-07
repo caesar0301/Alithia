@@ -181,4 +181,81 @@ class SQLiteStorage:
             logger.info("SQLite storage connections closed")
 
 
-__all__ = ["SQLiteStorage"]
+class AlithiaStore:
+    """Alithia storage wrapper with user_id namespace.
+
+    Wraps SQLiteStorage to provide user-isolated keys for soothe integration.
+    Implements AsyncPersistStore protocol with user_id prefix for all keys.
+    """
+
+    def __init__(self, user_id: str = "default", db_path: Path | None = None):
+        """Initialize AlithiaStore.
+
+        Args:
+            user_id: User identifier for key namespace.
+            db_path: Optional database path (defaults to ~/.alithia/data/alithia.db).
+        """
+        from alithia_agent import ALITHIA_HOME
+
+        self._user_id = user_id
+        if db_path is None:
+            db_path = ALITHIA_HOME / "data" / "alithia.db"
+        self._storage = SQLiteStorage(db_path)
+
+    def _user_prefix(self) -> str:
+        """Get user-specific key prefix."""
+        return f"alithia:{self._user_id}:"
+
+    def _full_key(self, key: str) -> str:
+        """Add user prefix to key."""
+        return f"{self._user_prefix()}{key}"
+
+    async def load(self, key: str) -> Any | None:
+        """Load value by key with user namespace.
+
+        Args:
+            key: Storage key (without user prefix).
+
+        Returns:
+            Deserialized value or None if not found.
+        """
+        return await self._storage.load(self._full_key(key))
+
+    async def save(self, key: str, value: Any) -> None:
+        """Save value with key in user namespace.
+
+        Args:
+            key: Storage key (without user prefix).
+            value: Value to store (will be JSON-serialized).
+        """
+        await self._storage.save(self._full_key(key), value)
+
+    async def delete(self, key: str) -> None:
+        """Delete value by key in user namespace.
+
+        Args:
+            key: Storage key (without user prefix).
+        """
+        await self._storage.delete(self._full_key(key))
+
+    async def list_keys(self, prefix: str) -> list[str]:
+        """List all keys matching prefix in user namespace.
+
+        Args:
+            prefix: Key prefix (without user prefix).
+
+        Returns:
+            List of matching keys (without user prefix).
+        """
+        full_prefix = self._full_key(prefix)
+        full_keys = await self._storage.list_keys(full_prefix)
+        # Strip user prefix from returned keys
+        user_prefix = self._user_prefix()
+        return [k[len(user_prefix):] for k in full_keys]
+
+    def close(self) -> None:
+        """Close underlying storage connections."""
+        self._storage.close()
+
+
+__all__ = ["SQLiteStorage", "AlithiaStore"]

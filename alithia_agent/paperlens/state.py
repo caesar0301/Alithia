@@ -42,9 +42,42 @@ class PaperLensRuntimeConfig(BaseModel):
     output_format: Literal["markdown", "json"] = "markdown"
     include_full_text: bool = False
 
+    @classmethod
+    def build_runtime_config(cls, global_config: "Config") -> "PaperLensRuntimeConfig":
+        """Build runtime config from global alithia config.
 
+        Args:
+            global_config: The loaded alithia Config object.
+
+        Returns:
+            PaperLensRuntimeConfig ready for agent execution.
+        """
+        from alithia_agent.config import Config
+
+        cfg = global_config
+        profile = cfg.researcher_profile
+
+        return cls(
+            pdf_extensions=cfg.paperlens_agent.pdf_extensions,
+            recursive_scan=cfg.paperlens_agent.recursive_scan,
+            max_papers=cfg.paperlens_agent.max_papers,
+            batch_size=cfg.paperlens_agent.batch_size,
+            sbert_model=cfg.paperlens_agent.sbert_model,
+            use_gpu=cfg.paperlens_agent.force_gpu,
+            top_n=cfg.paperlens_agent.top_n,
+            llm_enhance_metadata=cfg.paperlens_agent.llm_enhance_metadata,
+            llm_max_tokens=cfg.paperlens_agent.llm_max_tokens,
+            llm_api_key=profile.llm.openai_api_key if profile.llm else None,
+            llm_api_base=profile.llm.openai_api_base if profile.llm else None,
+            llm_model=profile.llm.model_name if profile.llm else "qwen-turbo-latest",
+            output_format=cfg.paperlens_agent.output_format,
+            include_full_text=cfg.paperlens_agent.include_full_text,
+        )
+
+
+# Backward-compatible function wrapper for build_runtime_config
 def build_runtime_config(global_config: "Config") -> PaperLensRuntimeConfig:
-    """Build runtime config from global alithia config.
+    """Build runtime config from global alithia config (backward-compatible wrapper).
 
     Args:
         global_config: The loaded alithia Config object.
@@ -52,27 +85,7 @@ def build_runtime_config(global_config: "Config") -> PaperLensRuntimeConfig:
     Returns:
         PaperLensRuntimeConfig ready for agent execution.
     """
-    from alithia_agent.config import Config
-
-    cfg = global_config
-    profile = cfg.researcher_profile
-
-    return PaperLensRuntimeConfig(
-        pdf_extensions=cfg.paperlens_agent.pdf_extensions,
-        recursive_scan=cfg.paperlens_agent.recursive_scan,
-        max_papers=cfg.paperlens_agent.max_papers,
-        batch_size=cfg.paperlens_agent.batch_size,
-        sbert_model=cfg.paperlens_agent.sbert_model,
-        use_gpu=cfg.paperlens_agent.force_gpu,
-        top_n=cfg.paperlens_agent.top_n,
-        llm_enhance_metadata=cfg.paperlens_agent.llm_enhance_metadata,
-        llm_max_tokens=cfg.paperlens_agent.llm_max_tokens,
-        llm_api_key=profile.llm.openai_api_key if profile.llm else None,
-        llm_api_base=profile.llm.openai_api_base if profile.llm else None,
-        llm_model=profile.llm.model_name if profile.llm else "qwen-turbo-latest",
-        output_format=cfg.paperlens_agent.output_format,
-        include_full_text=cfg.paperlens_agent.include_full_text,
-    )
+    return PaperLensRuntimeConfig.build_runtime_config(global_config)
 
 
 class AgentState(TypedDict):

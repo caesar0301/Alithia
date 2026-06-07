@@ -86,9 +86,69 @@ class PaperScoutRuntimeConfig(BaseModel):
     tldr_max_tokens: int = Field(default=150, ge=50, le=300)
     tldr_language: str = "English"
 
+    @classmethod
+    def build_runtime_config(cls, global_config: "Config") -> "PaperScoutRuntimeConfig":
+        """Build runtime config from global alithia config.
 
+        Args:
+            global_config: The loaded alithia Config object.
+
+        Returns:
+            PaperScoutRuntimeConfig ready for agent execution.
+        """
+        from alithia_agent.config import Config
+
+        cfg = global_config
+        profile = cfg.researcher_profile
+
+        # Build SMTP config from email_notification
+        smtp = None
+        if profile.email_notification:
+            smtp = SmtpRuntimeConfig(
+                host=profile.email_notification.smtp_server,
+                port=profile.email_notification.smtp_port,
+                user=profile.email_notification.sender,
+                password=profile.email_notification.sender_password,
+                use_tls=profile.email_notification.smtp_port != 25,
+            )
+
+        # Build Zotero config
+        zotero = None
+        if profile.zotero:
+            zotero = ZoteroRuntimeConfig(
+                api_key=profile.zotero.zotero_key,
+                library_id=profile.zotero.zotero_id,
+                library_type="user",
+            )
+
+        # Parse query string into categories
+        query = cfg.paperscout_agent.query or "cs.AI+cs.CV+cs.LG+cs.CL"
+        categories = query.replace("+", ",").split(",") if "+" in query else query.split(",")
+
+        return cls(
+            arxiv_categories=categories,
+            max_papers=cfg.paperscout_agent.max_papers,
+            max_papers_queried=cfg.paperscout_agent.max_papers_queried,
+            send_email=cfg.paperscout_agent.send_email,
+            send_empty=cfg.paperscout_agent.send_empty,
+            recipient_email=profile.email,
+            lookback_days=cfg.paperscout_agent.lookback_days,
+            big_bang_date=cfg.paperscout_agent.big_bang,
+            gap_window_days=cfg.paperscout_agent.gap_window_days,
+            emailed_papers_retention_days=cfg.paperscout_agent.emailed_papers_retention_days,
+            smtp=smtp,
+            zotero=zotero,
+            llm_api_key=profile.llm.openai_api_key if profile.llm else None,
+            llm_api_base=profile.llm.openai_api_base if profile.llm else None,
+            llm_model=profile.llm.model_name if profile.llm else "qwen-turbo-latest",
+            tldr_max_tokens=cfg.paperscout_agent.tldr_max_tokens,
+            tldr_language=cfg.paperscout_agent.tldr_language,
+        )
+
+
+# Backward-compatible function wrapper for build_runtime_config
 def build_runtime_config(global_config: "Config") -> PaperScoutRuntimeConfig:
-    """Build runtime config from global alithia config.
+    """Build runtime config from global alithia config (backward-compatible wrapper).
 
     Args:
         global_config: The loaded alithia Config object.
@@ -96,54 +156,7 @@ def build_runtime_config(global_config: "Config") -> PaperScoutRuntimeConfig:
     Returns:
         PaperScoutRuntimeConfig ready for agent execution.
     """
-    from alithia_agent.config import Config
-
-    cfg = global_config
-    profile = cfg.researcher_profile
-
-    # Build SMTP config from email_notification
-    smtp = None
-    if profile.email_notification:
-        smtp = SmtpRuntimeConfig(
-            host=profile.email_notification.smtp_server,
-            port=profile.email_notification.smtp_port,
-            user=profile.email_notification.sender,
-            password=profile.email_notification.sender_password,
-            use_tls=profile.email_notification.smtp_port != 25,
-        )
-
-    # Build Zotero config
-    zotero = None
-    if profile.zotero:
-        zotero = ZoteroRuntimeConfig(
-            api_key=profile.zotero.zotero_key,
-            library_id=profile.zotero.zotero_id,
-            library_type="user",
-        )
-
-    # Parse query string into categories
-    query = cfg.paperscout_agent.query or "cs.AI+cs.CV+cs.LG+cs.CL"
-    categories = query.replace("+", ",").split(",") if "+" in query else query.split(",")
-
-    return PaperScoutRuntimeConfig(
-        arxiv_categories=categories,
-        max_papers=cfg.paperscout_agent.max_papers,
-        max_papers_queried=cfg.paperscout_agent.max_papers_queried,
-        send_email=cfg.paperscout_agent.send_email,
-        send_empty=cfg.paperscout_agent.send_empty,
-        recipient_email=profile.email,
-        lookback_days=cfg.paperscout_agent.lookback_days,
-        big_bang_date=cfg.paperscout_agent.big_bang,
-        gap_window_days=cfg.paperscout_agent.gap_window_days,
-        emailed_papers_retention_days=cfg.paperscout_agent.emailed_papers_retention_days,
-        smtp=smtp,
-        zotero=zotero,
-        llm_api_key=profile.llm.openai_api_key if profile.llm else None,
-        llm_api_base=profile.llm.openai_api_base if profile.llm else None,
-        llm_model=profile.llm.model_name if profile.llm else "qwen-turbo-latest",
-        tldr_max_tokens=cfg.paperscout_agent.tldr_max_tokens,
-        tldr_language=cfg.paperscout_agent.tldr_language,
-    )
+    return PaperScoutRuntimeConfig.build_runtime_config(global_config)
 
 
 class AgentState(TypedDict):
