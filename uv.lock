@@ -236,7 +236,7 @@ requires-dist = [
     { name = "ruff", marker = "extra == 'dev'", specifier = ">=0.1.0" },
     { name = "scikit-learn", specifier = ">=1.0.0" },
     { name = "sentence-transformers", specifier = ">=2.2.0" },
-    { name = "soothe", directory = "../../soothe/packages/soothe" },
+    { name = "soothe", specifier = ">=0.5.29" },
 ]
 provides-extras = ["dev"]
 
@@ -4316,7 +4316,8 @@ wheels = [
 
 [[package]]
 name = "soothe"
-source = { directory = "../../soothe/packages/soothe" }
+version = "0.5.29"
+source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "aiohttp" },
     { name = "aiosqlite" },
@@ -4349,114 +4350,24 @@ dependencies = [
     { name = "soothe-sdk" },
     { name = "sqlite-vec" },
 ]
-
-[package.metadata]
-requires-dist = [
-    { name = "aiohttp", specifier = ">=3.9.0,<4.0.0" },
-    { name = "aiosqlite", specifier = ">=0.22.1,<1.0.0" },
-    { name = "anthropic", specifier = ">=0.96.0,<1.0.0" },
-    { name = "anthropic", marker = "extra == 'all'", specifier = ">=0.96.0,<1.0.0" },
-    { name = "anthropic", marker = "extra == 'claude'", specifier = ">=0.96.0,<1.0.0" },
-    { name = "anyio", specifier = ">=3.0.0,<5.0.0" },
-    { name = "arxiv", marker = "extra == 'all'", specifier = ">=2.1.0" },
-    { name = "arxiv", marker = "extra == 'research'", specifier = ">=2.1.0" },
-    { name = "browser-use", marker = "extra == 'all'", specifier = ">=0.11.0,<0.13.0" },
-    { name = "browser-use", marker = "extra == 'browser-use'", specifier = ">=0.11.0,<0.13.0" },
-    { name = "bubus", specifier = ">=1.5.6" },
-    { name = "chardet", marker = "extra == 'all'", specifier = "<6" },
-    { name = "chardet", marker = "extra == 'research'", specifier = "<6" },
-    { name = "claude-agent-sdk", marker = "extra == 'all'", specifier = ">=0.1.0,<1.0.0" },
-    { name = "claude-agent-sdk", marker = "extra == 'claude'", specifier = ">=0.1.0,<1.0.0" },
-    { name = "dashscope", marker = "extra == 'all'", specifier = ">=1.20.0" },
-    { name = "dashscope", marker = "extra == 'dashscope'", specifier = ">=1.20.0" },
-    { name = "deepagents", specifier = ">=0.4.10,<1.0.0" },
-    { name = "deepxiv-sdk", marker = "extra == 'all'", specifier = ">=0.2.5" },
-    { name = "deepxiv-sdk", marker = "extra == 'research'", specifier = ">=0.2.5" },
-    { name = "docx2txt", marker = "extra == 'all'", specifier = ">=0.8.0" },
-    { name = "docx2txt", marker = "extra == 'document'", specifier = ">=0.8.0" },
-    { name = "jinja2", specifier = ">=3.1.0" },
-    { name = "jsonschema", specifier = ">=4.0.0,<5.0.0" },
-    { name = "langchain", specifier = ">=1.2.11,<2.0.0" },
-    { name = "langchain-community", specifier = ">=0.3.0,<1.0.0" },
-    { name = "langchain-core", specifier = ">=1.2.18,<2.0.0" },
-    { name = "langchain-experimental", specifier = ">=0.0.50,<1.0.0" },
-    { name = "langchain-mcp-adapters", specifier = ">=0.2.0,<1.0.0" },
-    { name = "langchain-openai", specifier = ">=0.3.0,<1.0.0" },
-    { name = "langchain-quickjs", specifier = ">=0.1.0" },
-    { name = "langchain-tavily", marker = "extra == 'all'", specifier = ">=0.2.17" },
-    { name = "langchain-tavily", marker = "extra == 'research'", specifier = ">=0.2.17" },
-    { name = "langfuse", marker = "extra == 'all'", specifier = ">=3.0.0,<4.0.0" },
-    { name = "langfuse", marker = "extra == 'dev'", specifier = ">=3.0.0,<4.0.0" },
-    { name = "langfuse", marker = "extra == 'langfuse'", specifier = ">=3.0.0,<4.0.0" },
-    { name = "langgraph", specifier = ">=1.1.1,<2.0.0" },
-    { name = "langgraph-checkpoint", specifier = ">=4.0.0,<5.0.0" },
-    { name = "langgraph-checkpoint-postgres", specifier = ">=3.1.0,<4.0.0" },
-    { name = "langgraph-checkpoint-sqlite", specifier = ">=3.0.0,<4.0.0" },
-    { name = "mypy", marker = "extra == 'dev'", specifier = ">=1.0.0" },
-    { name = "openai", specifier = ">=1.104.2,<3.0.0" },
-    { name = "opencv-python", marker = "extra == 'all'", specifier = ">=4.8.0" },
-    { name = "opencv-python", marker = "extra == 'video'", specifier = ">=4.8.0" },
-    { name = "openpyxl", marker = "extra == 'all'", specifier = ">=3.1.0" },
-    { name = "openpyxl", marker = "extra == 'tabular'", specifier = ">=3.1.0" },
-    { name = "pandas", marker = "extra == 'all'", specifier = ">=2.0.0" },
-    { name = "pandas", marker = "extra == 'tabular'", specifier = ">=2.0.0" },
-    { name = "pathspec", specifier = ">=0.12.0,<2.0.0" },
-    { name = "pexpect", specifier = ">=4.9.0,<5.0.0" },
-    { name = "pillow", marker = "extra == 'all'", specifier = ">=10.0.0" },
-    { name = "pillow", marker = "extra == 'media'", specifier = ">=10.0.0" },
-    { name = "pillow", marker = "extra == 'video'", specifier = ">=10.0.0" },
-    { name = "psycopg", extras = ["binary", "pool"], specifier = ">=3.2.0,<4.0.0" },
-    { name = "pydantic", specifier = ">=2.0.0,<3.0.0" },
-    { name = "pydantic-settings", specifier = ">=2.0.0,<3.0.0" },
-    { name = "pydub", marker = "extra == 'all'", specifier = ">=0.25.0" },
-    { name = "pydub", marker = "extra == 'media'", specifier = ">=0.25.0" },
-    { name = "pygithub", marker = "extra == 'all'", specifier = ">=2.0.0" },
-    { name = "pygithub", marker = "extra == 'github'", specifier = ">=2.0.0" },
-    { name = "pymupdf", marker = "extra == 'all'", specifier = ">=1.24.0" },
-    { name = "pymupdf", marker = "extra == 'document'", specifier = ">=1.24.0" },
-    { name = "pypdf", marker = "extra == 'all'", specifier = ">=3.0.0" },
-    { name = "pypdf", marker = "extra == 'document'", specifier = ">=3.0.0" },
-    { name = "pytest", marker = "extra == 'dev'", specifier = ">=8.0.0" },
-    { name = "pytest-asyncio", marker = "extra == 'dev'", specifier = ">=1.3.0" },
-    { name = "pytest-cov", marker = "extra == 'dev'" },
-    { name = "python-dotenv", specifier = ">=1.0.0,<2.0.0" },
-    { name = "pyyaml", specifier = ">=6.0.0,<7.0.0" },
-    { name = "requests", specifier = ">=2.32.3,<3.0.0" },
-    { name = "ruff", marker = "extra == 'dev'", specifier = ">=0.12.0" },
-    { name = "sentence-transformers", marker = "extra == 'all'", specifier = ">=2.2.0" },
-    { name = "sentence-transformers", marker = "extra == 'semantic'", specifier = ">=2.2.0" },
-    { name = "soothe-sdk", editable = "../../soothe/packages/soothe-sdk" },
-    { name = "sqlite-vec", specifier = ">=0.1.0" },
-    { name = "tavily-python", marker = "extra == 'all'", specifier = ">=0.5.0" },
-    { name = "tavily-python", marker = "extra == 'research'", specifier = ">=0.5.0" },
-    { name = "wizsearch", marker = "extra == 'all'", specifier = ">=1.1.8,<2.0.0" },
-    { name = "wizsearch", marker = "extra == 'research'", specifier = ">=1.1.8,<2.0.0" },
-    { name = "yt-dlp", marker = "extra == 'all'", specifier = ">=2023.0.0" },
-    { name = "yt-dlp", marker = "extra == 'media'", specifier = ">=2023.0.0" },
+sdist = { url = "https://files.pythonhosted.org/packages/70/a8/9e101c9527a3ec1769ed92f60f1bd4d58feb0064188003c7fbbc7c53fd0f/soothe-0.5.29.tar.gz", hash = "sha256:7b8810b9bb7a6a448c6c4bc2e93cd76376c1b9b06c02be880b5664606dc33402", size = 788953, upload-time = "2026-06-05T15:52:35.436Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/a2/ac/fa2620498cc9b48f7c9476a1b00e96f6e462c362c2f69718e89dfefa23cd/soothe-0.5.29-py3-none-any.whl", hash = "sha256:1726bb7c8767302d676f525b5c5a7900ef6256bd89480d1da805934d8e2b9579", size = 1030005, upload-time = "2026-06-05T15:52:33.395Z" },
 ]
-provides-extras = ["all", "browser-use", "claude", "dashscope", "dev", "document", "github", "langfuse", "media", "research", "semantic", "tabular", "video"]
 
 [[package]]
 name = "soothe-sdk"
-source = { editable = "../../soothe/packages/soothe-sdk" }
+version = "0.5.29"
+source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "langchain-core" },
     { name = "pydantic" },
     { name = "websockets" },
 ]
-
-[package.metadata]
-requires-dist = [
-    { name = "langchain-core", specifier = ">=1.2.0,<2.0.0" },
-    { name = "mypy", marker = "extra == 'dev'", specifier = ">=1.0.0" },
-    { name = "pydantic", specifier = ">=2.0.0,<3.0.0" },
-    { name = "pytest", marker = "extra == 'dev'", specifier = ">=8.0.0" },
-    { name = "pytest-asyncio", marker = "extra == 'dev'", specifier = ">=1.3.0" },
-    { name = "pytest-cov", marker = "extra == 'dev'" },
-    { name = "ruff", marker = "extra == 'dev'", specifier = ">=0.12.0" },
-    { name = "websockets", specifier = ">=12.0" },
+sdist = { url = "https://files.pythonhosted.org/packages/93/76/1720da51b9a7033c1ac831dfb93556db45b11d5243310507df2e934ce11c/soothe_sdk-0.5.29.tar.gz", hash = "sha256:1d973ea9378f2cce61c19eb765ba79f66785b8cd140e625ed84a6a72e9cbc51b", size = 79748, upload-time = "2026-06-05T15:49:38.77Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/9f/c4/433b78e7d819e2466cfe05c1dfbc4f354e4e3db59f4d4c5648f941aea7d0/soothe_sdk-0.5.29-py3-none-any.whl", hash = "sha256:abccc6d764685384434450326799f8070f5b86fcdf3c50c97fbc5312a7892394", size = 102893, upload-time = "2026-06-05T15:49:37.26Z" },
 ]
-provides-extras = ["dev"]
 
 [[package]]
 name = "soupsieve"

@@ -17,13 +17,9 @@ dependencies = [
     "scikit-learn>=1.0.0",
     "numpy>=1.20.0",
     "docling>=2.0.0",
-    # soothe framework integration (local development)
-    # soothe-sdk is included as a dependency of soothe
-    "soothe",
+    # soothe framework from PyPI
+    "soothe>=0.5.29",
 ]
-
-[tool.uv.sources]
-soothe = { path = "../../soothe/packages/soothe" }
 
 [project.optional-dependencies]
 dev = [
