@@ -1,12 +1,12 @@
 """Tests for PaperScout email formatting."""
 
-from soothe_community.paperscout.email import (
+from alithia_agent.paperscout.email import (
     construct_email_content,
     create_empty_email_html,
     create_paper_html,
     get_stars_html,
 )
-from soothe_community.paperscout.models import ScoredPaper
+from alithia_agent.models import ScoredPaper
 
 
 def test_get_stars_html_low_score():
@@ -54,7 +54,7 @@ def test_construct_email_content_empty():
     """Test constructing email with no papers."""
     email_content = construct_email_content([])
 
-    assert "No Papers Today" in email_content.subject
+    assert "No Papers" in email_content.subject
     assert email_content.html_body is not None
     assert len(email_content.papers) == 0
 

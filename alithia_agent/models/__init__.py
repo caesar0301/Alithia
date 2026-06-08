@@ -5,6 +5,7 @@ All models follow naming conventions from RFC-008.
 """
 
 from alithia_agent.models.metadata import (
+    DateRange,
     FileMetadata,
     PaperContent,
     PaperMetadata,
@@ -31,6 +32,7 @@ __all__ = [
     "FileMetadata",
     "PaperMetadata",
     "PaperContent",
+    "DateRange",
     # Notifications
     "EmailContent",
     "NotificationRecord",

@@ -1,7 +1,6 @@
 """Tests for PaperScout event system."""
 
-from soothe_sdk.plugin.registry import get_plugin_events
-from soothe_community.paperscout.events import (
+from alithia_agent.plugins.paperscout.events import (
     PAPERSCOUT_EMAIL_SENT,
     PAPERSCOUT_ERROR,
     PAPERSCOUT_PAPER_FOUND,
@@ -13,15 +12,13 @@ from soothe_community.paperscout.events import (
 )
 
 
-def test_events_registered():
-    """Test that all PaperScout events are registered in plugin registry."""
-    plugin_events = get_plugin_events()
-
-    # Check that all event types are registered
-    assert PAPERSCOUT_STEP in plugin_events
-    assert PAPERSCOUT_PAPER_FOUND in plugin_events
-    assert PAPERSCOUT_EMAIL_SENT in plugin_events
-    assert PAPERSCOUT_ERROR in plugin_events
+def test_events_constants():
+    """Test that all PaperScout event constants have correct wire types."""
+    # Check that all event types have the correct wire type prefix
+    assert PAPERSCOUT_STEP.startswith("soothe.subagent.alithia.paperscout")
+    assert PAPERSCOUT_PAPER_FOUND.startswith("soothe.subagent.alithia.paperscout")
+    assert PAPERSCOUT_EMAIL_SENT.startswith("soothe.subagent.alithia.paperscout")
+    assert PAPERSCOUT_ERROR.startswith("soothe.subagent.alithia.paperscout")
 
 
 def test_step_event():

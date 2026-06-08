@@ -2,7 +2,7 @@
 
 import pytest
 
-from soothe_community.paperscout.reranker import PaperReranker
+from alithia_agent.paperscout.reranker import PaperReranker
 
 
 def test_reranker_initialization(sample_arxiv_paper, sample_zotero_paper):

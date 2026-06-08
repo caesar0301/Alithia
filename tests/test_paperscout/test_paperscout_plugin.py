@@ -3,7 +3,7 @@
 import pytest
 from unittest.mock import MagicMock
 
-from soothe_community.paperscout import PaperScoutPlugin
+from alithia_agent.plugins.paperscout import PaperScoutPlugin
 
 
 @pytest.mark.asyncio
@@ -17,12 +17,12 @@ async def test_plugin_creation():
 async def test_plugin_has_subagent_method():
     """Test that plugin has subagent factory method."""
     plugin = PaperScoutPlugin()
-    assert hasattr(plugin, "create_paperscout")
+    assert hasattr(plugin, "create_subagent")
     assert hasattr(plugin, "get_subagents")
 
     subagents = plugin.get_subagents()
     assert len(subagents) == 1
-    assert subagents[0] == plugin.create_paperscout
+    assert subagents[0] == plugin.create_subagent
 
 
 @pytest.mark.asyncio
@@ -50,7 +50,7 @@ async def test_create_paperscout_subagent(sample_config, mock_persist_store):
     context.logger = MagicMock()
 
     # Create subagent
-    subagent_dict = await plugin.create_paperscout(
+    subagent_dict = await plugin.create_subagent(
         model=None,  # Not used in basic implementation
         config=MagicMock(subagents={"paperscout": MagicMock(enabled=True, config=sample_config.model_dump())}),
         context=context,

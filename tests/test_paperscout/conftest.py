@@ -5,8 +5,8 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from soothe_community.paperscout.models import ArxivPaper, ZoteroPaper
-from soothe_community.paperscout.state import PaperScoutConfig, SmtpConfig, ZoteroConfig
+from alithia_agent.models import ArxivPaper, ZoteroPaper
+from alithia_agent.paperscout.state import PaperScoutRuntimeConfig, SmtpRuntimeConfig, ZoteroRuntimeConfig
 
 
 @pytest.fixture
@@ -51,18 +51,18 @@ def mock_persist_store():
 @pytest.fixture
 def sample_config():
     """Sample PaperScout configuration."""
-    return PaperScoutConfig(
+    return PaperScoutRuntimeConfig(
         arxiv_categories=["cs.AI", "cs.LG"],
         max_papers=10,
         max_papers_queried=100,
         send_email=False,  # Disable email for tests
-        smtp=SmtpConfig(
+        smtp=SmtpRuntimeConfig(
             host="smtp.example.com",
             port=587,
             user="test@example.com",
             password="testpass",
         ),
-        zotero=ZoteroConfig(
+        zotero=ZoteroRuntimeConfig(
             api_key="test_key",
             library_id="test_library",
         ),

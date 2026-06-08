@@ -2,7 +2,7 @@
 
 from datetime import datetime
 
-from soothe_community.paperscout.models import (
+from alithia_agent.models import (
     ArxivPaper,
     DateRange,
     EmailContent,

@@ -3,11 +3,12 @@
 FileMetadata: PDF file system metadata
 PaperMetadata: Extracted paper metadata
 PaperContent: Structured paper content
+DateRange: Date range for queries
 """
 
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import date, datetime
 from pathlib import Path
 from typing import Any
 
@@ -93,8 +94,39 @@ class PaperContent(BaseModel):
         return self.model_dump()
 
 
+class DateRange(BaseModel):
+    """Date range for queries.
+
+    Used by PaperScout for tracking query date ranges.
+    """
+
+    model_config = ConfigDict(extra="allow")
+
+    start_date: date
+    end_date: date
+    category: str | None = None  # ArXiv category (optional)
+
+    def to_dict(self) -> dict[str, Any]:
+        """Serialize for storage."""
+        return {
+            "start_date": self.start_date.isoformat(),
+            "end_date": self.end_date.isoformat(),
+            "category": self.category,
+        }
+
+    @classmethod
+    def from_dict(cls, data: dict[str, Any]) -> DateRange:
+        """Deserialize from storage."""
+        if "start_date" in data and isinstance(data["start_date"], str):
+            data["start_date"] = date.fromisoformat(data["start_date"])
+        if "end_date" in data and isinstance(data["end_date"], str):
+            data["end_date"] = date.fromisoformat(data["end_date"])
+        return cls(**data)
+
+
 __all__ = [
     "FileMetadata",
     "PaperMetadata",
     "PaperContent",
+    "DateRange",
 ]
