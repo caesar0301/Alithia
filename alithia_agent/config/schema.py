@@ -30,6 +30,7 @@ class ConfigError(Exception):
 # Researcher Profile
 # ============================================================
 
+
 class LlmProfileConfig(BaseModel):
     """LLM settings within researcher profile."""
 
@@ -117,6 +118,7 @@ class ResearcherProfileConfig(BaseModel):
 # Storage
 # ============================================================
 
+
 class SupabaseConfig(BaseModel):
     """Supabase storage configuration."""
 
@@ -142,6 +144,7 @@ class StorageConfig(BaseModel):
 # ============================================================
 # Subagents
 # ============================================================
+
 
 class PaperScoutAgentConfig(BaseModel):
     """PaperScout agent configuration."""
@@ -194,6 +197,7 @@ class PaperLensAgentConfig(BaseModel):
 # Turnstile (CAPTCHA)
 # ============================================================
 
+
 class TurnstileConfig(BaseModel):
     """Cloudflare Turnstile configuration."""
 
@@ -205,8 +209,41 @@ class TurnstileConfig(BaseModel):
 
 
 # ============================================================
+# Daemon Scheduler
+# ============================================================
+
+
+class DaemonSchedulerConfig(BaseModel):
+    """Daemon scheduler configuration."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    enabled: bool = False
+    hour: int = Field(default=23, ge=0, le=23, description="UTC hour for daily run")
+    minute: int = Field(default=0, ge=0, le=59, description="UTC minute for daily run")
+    timezone: str = "UTC"
+    retry_window_days: int = Field(
+        default=3, ge=1, le=7, description="Days to retry failed notifications"
+    )
+
+
+class DaemonConfig(BaseModel):
+    """Daemon process configuration."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    scheduler: DaemonSchedulerConfig = Field(default_factory=DaemonSchedulerConfig)
+    pid_file: str = "daemon.pid"
+    log_file: str = "logs/daemon.log"
+    big_bang: date | None = Field(
+        default=None, description="Tracking start date, no scans before this"
+    )
+
+
+# ============================================================
 # Root Config
 # ============================================================
+
 
 class Config(BaseModel):
     """Root configuration model."""
@@ -218,10 +255,11 @@ class Config(BaseModel):
     paperscout_agent: PaperScoutAgentConfig = Field(default_factory=PaperScoutAgentConfig)
     paperlens_agent: PaperLensAgentConfig = Field(default_factory=PaperLensAgentConfig)
     turnstile: TurnstileConfig = Field(default_factory=TurnstileConfig)
+    daemon: DaemonConfig = Field(default_factory=DaemonConfig)
     debug: bool = False
 
     @model_validator(mode="after")
-    def validate_notification_dependencies(self) -> "Config":
+    def validate_notification_dependencies(self) -> Config:
         """Validate email notification requires SMTP config."""
         if self.paperscout_agent.send_email:
             if not self.researcher_profile.email_notification:
@@ -259,4 +297,6 @@ __all__ = [
     "PaperScoutAgentConfig",
     "PaperLensAgentConfig",
     "TurnstileConfig",
+    "DaemonSchedulerConfig",
+    "DaemonConfig",
 ]

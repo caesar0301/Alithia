@@ -186,7 +186,7 @@ class AlithiaAgent:
 
         # Use SootheRunner.astream() with preferred_subagent for explicit routing
         # This is the clean Layer 2 API that handles RoutingClassification internally
-        return self._runner.astream(
+        return self._runner.astream(  # type: ignore[no-any-return]
             user_input,
             thread_id=thread_id,
             preferred_subagent=subagent,  # Explicit routing when provided

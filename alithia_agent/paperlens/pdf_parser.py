@@ -11,7 +11,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any
 
-from alithia_agent.models import AcademicPaper, PaperMetadata, PaperContent
+from alithia_agent.models import AcademicPaper, PaperContent, PaperMetadata
 from alithia_agent.models.metadata import FileMetadata
 
 logger = logging.getLogger(__name__)
@@ -55,6 +55,7 @@ class DoclingParser:
         except Exception as e:
             logger.warning(f"IBM Granite VLM unavailable ({e}), using default")
             from docling.document_converter import DocumentConverter
+
             self.converter = DocumentConverter()
 
         if self.llm is None:
@@ -74,12 +75,13 @@ class DoclingParser:
         parse_timestamp = datetime.now()
 
         try:
-            # Compute file metadata
+            # Compute file metadata for hashing
             stat = path.stat()
             with open(path, "rb") as f:
                 md5_hash = hashlib.md5(f.read()).hexdigest()
 
-            file_metadata = FileMetadata(
+            # File metadata available for future use (caching, etc.)
+            _file_metadata = FileMetadata(
                 file_path=path,
                 file_name=path.name,
                 file_size=stat.st_size,
@@ -217,13 +219,17 @@ Return as JSON."""
 
         # Call LLM (implementation depends on LLM client type)
         # This is a placeholder - actual implementation depends on soothe LLM interface
-        if hasattr(self.llm, "structured_completion"):
-            return self.llm.structured_completion(
+        if self.llm and hasattr(self.llm, "structured_completion"):
+            result = self.llm.structured_completion(  # type: ignore[union-attr]
                 messages=[{"role": "user", "content": prompt}],
                 response_model=PaperMetadata,
                 temperature=0.1,
                 max_tokens=500,
             )
+            # Ensure we return PaperMetadata, not Any
+            if isinstance(result, PaperMetadata):
+                return result
+            return PaperMetadata()
         else:
             logger.warning("LLM does not support structured_completion")
             return PaperMetadata()

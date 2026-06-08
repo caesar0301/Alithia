@@ -9,9 +9,9 @@ A soothe framework subagent that:
 
 from alithia_agent.paperlens.implementation import create_paperlens_subagent
 from alithia_agent.paperlens.state import (
-    PaperLensRuntimeConfig,
-    PaperLensConfig,  # Legacy alias
     AgentState,
+    PaperLensConfig,  # Legacy alias
+    PaperLensRuntimeConfig,
     build_runtime_config,
 )
 

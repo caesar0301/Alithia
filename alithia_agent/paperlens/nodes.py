@@ -6,19 +6,18 @@ validate_input → parse_pdfs → calculate_similarity → rank_results → gene
 
 from __future__ import annotations
 
-import asyncio
 import logging
 import time
 from pathlib import Path
 from typing import Any
 
-from alithia_agent.models import AcademicPaper, ScoredPaper
+from alithia_agent.models import AcademicPaper, ArxivPaper, ScoredPaper
 from alithia_agent.paperlens.events import (
-    PaperLensStepEvent,
+    PaperLensCompleteEvent,
+    PaperLensErrorEvent,
     PaperLensPaperParsedEvent,
     PaperLensRankEvent,
-    PaperLensErrorEvent,
-    PaperLensCompleteEvent,
+    PaperLensStepEvent,
 )
 from alithia_agent.paperlens.pdf_parser import DoclingParser
 from alithia_agent.paperlens.similarity import SimilarityEngine
@@ -29,31 +28,31 @@ logger = logging.getLogger(__name__)
 
 def _emit_step(step: str, status: str) -> None:
     """Emit workflow step event."""
-    event = PaperLensStepEvent(step=step, status=status)
+    PaperLensStepEvent(step=step, status=status)  # Registers with soothe
     logger.info(f"[{step}] {status}")
 
 
 def _emit_paper_parsed(paper_title: str, file_name: str) -> None:
     """Emit paper parsed event."""
-    event = PaperLensPaperParsedEvent(paper_title=paper_title, file_name=file_name)
+    PaperLensPaperParsedEvent(paper_title=paper_title, file_name=file_name)  # Registers
     logger.info(f"Parsed: {paper_title} ({file_name})")
 
 
 def _emit_rank(rank: int, paper_title: str, score: float) -> None:
     """Emit rank event."""
-    event = PaperLensRankEvent(rank=rank, paper_title=paper_title, score=score)
+    PaperLensRankEvent(rank=rank, paper_title=paper_title, score=score)  # Registers
     logger.info(f"Rank #{rank}: {paper_title} (score: {score:.2f})")
 
 
 def _emit_error(error_message: str, step: str, paper_id: str | None = None) -> None:
     """Emit error event."""
-    event = PaperLensErrorEvent(error_message=error_message, step=step, paper_id=paper_id)
+    PaperLensErrorEvent(error_message=error_message, step=step, paper_id=paper_id)  # Registers
     logger.error(f"Error in {step}: {error_message}")
 
 
 def _emit_complete(papers_count: int) -> None:
     """Emit complete event."""
-    event = PaperLensCompleteEvent(papers_count=papers_count)
+    PaperLensCompleteEvent(papers_count=papers_count)  # Registers
     logger.info(f"Completed: {papers_count} papers analyzed")
 
 
@@ -116,7 +115,7 @@ def make_nodes(config: Any, llm: Any | None = None) -> dict[str, Any]:
             pattern = "**/*.pdf" if config.recursive_scan else "*.pdf"
             pdf_files = list(pdf_path.glob(pattern))
 
-        pdf_files = pdf_files[:config.max_papers * 2]  # Limit for safety
+        pdf_files = pdf_files[: config.max_papers * 2]  # Limit for safety
 
         metrics["pdfs_found"] = len(pdf_files)
         _emit_step("parse_pdfs", f"Found {len(pdf_files)} PDF files")
@@ -143,7 +142,9 @@ def make_nodes(config: Any, llm: Any | None = None) -> dict[str, Any]:
 
         metrics["pdfs_parsed"] = len(parsed_papers)
         metrics["pdfs_failed"] = len(parse_errors)
-        metrics["avg_parse_time_ms"] = sum(parse_times) * 1000 / len(parse_times) if parse_times else 0
+        metrics["avg_parse_time_ms"] = (
+            sum(parse_times) * 1000 / len(parse_times) if parse_times else 0
+        )
 
         _emit_step("parse_pdfs", f"Parsed {len(parsed_papers)} papers successfully")
 
@@ -172,7 +173,9 @@ def make_nodes(config: Any, llm: Any | None = None) -> dict[str, Any]:
         try:
             scored = similarity_engine.calculate_scores(query, papers)
 
-            metrics["avg_similarity_score"] = sum(p.score for p in scored) / len(scored) if scored else 0
+            metrics["avg_similarity_score"] = (
+                sum(p.score for p in scored) / len(scored) if scored else 0
+            )
             metrics["top_score"] = scored[0].score if scored else 0
 
             _emit_step("calculate_similarity", f"Scored {len(scored)} papers")
@@ -269,33 +272,48 @@ def _generate_markdown_summary(
 ) -> str:
     """Generate markdown summary output."""
     lines = [
-        f"# PaperLens Results",
-        f"",
-        f"Query: \"{query}\"",
-        f"",
+        "# PaperLens Results",
+        "",
+        f'Query: "{query}"',
+        "",
         f"## Top {len(ranked)} Papers",
         "",
     ]
 
     for paper in ranked:
-        lines.extend([
-            f"### {paper.rank}. {paper.paper_title} — Score: {paper.score:.2f}",
-            f"- **Authors**: {paper.paper_authors}",
-            f"- **Source**: {paper.paper.source}",
-        ])
+        # Get source - handle union type
+        source = "unknown"
+        if isinstance(paper.paper, AcademicPaper):
+            source = paper.paper.source
+        elif isinstance(paper.paper, ArxivPaper):
+            source = "arxiv"
+
+        lines.extend(
+            [
+                f"### {paper.rank}. {paper.paper_title} — Score: {paper.score:.2f}",
+                f"- **Authors**: {paper.paper_authors}",
+                f"- **Source**: {source}",
+            ]
+        )
 
         if paper.paper.abstract:
-            abstract_preview = paper.paper.abstract[:300] + "..." if len(paper.paper.abstract) > 300 else paper.paper.abstract
+            abstract_preview = (
+                paper.paper.abstract[:300] + "..."
+                if len(paper.paper.abstract) > 300
+                else paper.paper.abstract
+            )
             lines.append(f"- **Abstract**: {abstract_preview}")
 
         lines.append("")
 
-    lines.extend([
-        "---",
-        "",
-        f"Papers analyzed: {metrics.get('pdfs_parsed', 0)}",
-        f"Top score: {metrics.get('top_score', 0):.2f}",
-    ])
+    lines.extend(
+        [
+            "---",
+            "",
+            f"Papers analyzed: {metrics.get('pdfs_parsed', 0)}",
+            f"Top score: {metrics.get('top_score', 0):.2f}",
+        ]
+    )
 
     return "\n".join(lines)
 

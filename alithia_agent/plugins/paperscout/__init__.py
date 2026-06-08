@@ -17,8 +17,7 @@ from alithia_agent.paperscout.state import PaperScoutRuntimeConfig
 logger = logging.getLogger(__name__)
 
 # Import events to register them with soothe's event system
-from alithia_agent.plugins.paperscout import events as _events  # noqa: F401
-
+from alithia_agent.plugins.paperscout import events as _events  # noqa: F401, E402
 
 __all__ = [
     "PaperScoutPlugin",
@@ -61,6 +60,7 @@ class PaperScoutPlugin:
         # Optional: Check for heavy dependencies
         try:
             import sentence_transformers  # noqa: F401
+
             context.logger.debug("sentence-transformers available")
         except ImportError:
             context.logger.warning(
@@ -78,7 +78,14 @@ class PaperScoutPlugin:
             "newly published papers by relevance. Use for proactive paper discovery, "
             "daily research digest, and email notifications about new papers."
         ),
-        triggers=["new papers", "arxiv", "paper digest", "daily papers", "research papers", "find papers"],
+        triggers=[
+            "new papers",
+            "arxiv",
+            "paper digest",
+            "daily papers",
+            "research papers",
+            "find papers",
+        ],
     )
     async def create_subagent(
         self,
@@ -107,6 +114,7 @@ class PaperScoutPlugin:
         if alithia_config:
             # Use the existing build_runtime_config from paperscout.state
             from alithia_agent.config import Config
+
             try:
                 full_config = Config(**alithia_config)
                 runtime_config = PaperScoutRuntimeConfig.build_runtime_config(full_config)

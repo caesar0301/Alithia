@@ -7,12 +7,15 @@ PaperScoutRuntimeConfig, SmtpRuntimeConfig, ZoteroRuntimeConfig for runtime para
 from __future__ import annotations
 
 from datetime import date
-from typing import Annotated, Any, Literal, TypedDict
+from typing import TYPE_CHECKING, Annotated, Any, Literal, TypedDict
 
 from langgraph.graph.message import add_messages
 from pydantic import BaseModel, ConfigDict, Field
 
-from alithia_agent.models import ArxivPaper, ZoteroPaper, ScoredPaper, EmailContent
+from alithia_agent.models import ArxivPaper, EmailContent, ScoredPaper, ZoteroPaper
+
+if TYPE_CHECKING:
+    from alithia_agent.config.schema import Config
 
 
 class SmtpRuntimeConfig(BaseModel):
@@ -47,6 +50,10 @@ class PaperScoutRuntimeConfig(BaseModel):
         default=["cs.AI", "cs.CV", "cs.LG", "cs.CL"],
         description="ArXiv categories to query",
     )
+    query: str = Field(
+        default="cs.AI+cs.CV+cs.LG+cs.CL",
+        description="Original ArXiv query string",
+    )
     max_papers: int = Field(
         default=25,
         ge=1,
@@ -65,9 +72,23 @@ class PaperScoutRuntimeConfig(BaseModel):
     send_empty: bool = Field(default=False)
     recipient_email: str | None = None
 
-    # Date range settings
+    # Date range settings (for scheduler/daemon support)
+    from_date: str | None = Field(
+        default=None,
+        description="Start date for paper query (YYYY-MM-DD), defaults to yesterday",
+    )
+    to_date: str | None = Field(
+        default=None,
+        description="End date for paper query (YYYY-MM-DD), defaults to from_date",
+    )
     lookback_days: int = Field(default=7, ge=1, le=30)
     big_bang_date: date | None = None
+
+    # Source tracking
+    source: Literal["manual", "scheduler", "scheduler_retry", "gap_fill"] = Field(
+        default="manual",
+        description="Source of the run request",
+    )
 
     # Notification settings
     gap_window_days: int = Field(default=7, ge=1, le=30)
@@ -87,7 +108,7 @@ class PaperScoutRuntimeConfig(BaseModel):
     tldr_language: str = "English"
 
     @classmethod
-    def build_runtime_config(cls, global_config: "Config") -> "PaperScoutRuntimeConfig":
+    def build_runtime_config(cls, global_config: Config) -> PaperScoutRuntimeConfig:
         """Build runtime config from global alithia config.
 
         Args:
@@ -96,7 +117,6 @@ class PaperScoutRuntimeConfig(BaseModel):
         Returns:
             PaperScoutRuntimeConfig ready for agent execution.
         """
-        from alithia_agent.config import Config
 
         cfg = global_config
         profile = cfg.researcher_profile
@@ -127,6 +147,7 @@ class PaperScoutRuntimeConfig(BaseModel):
 
         return cls(
             arxiv_categories=categories,
+            query=query,
             max_papers=cfg.paperscout_agent.max_papers,
             max_papers_queried=cfg.paperscout_agent.max_papers_queried,
             send_email=cfg.paperscout_agent.send_email,
@@ -147,7 +168,7 @@ class PaperScoutRuntimeConfig(BaseModel):
 
 
 # Backward-compatible function wrapper for build_runtime_config
-def build_runtime_config(global_config: "Config") -> PaperScoutRuntimeConfig:
+def build_runtime_config(global_config: Config) -> PaperScoutRuntimeConfig:
     """Build runtime config from global alithia config (backward-compatible wrapper).
 
     Args:

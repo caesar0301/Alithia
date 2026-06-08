@@ -39,7 +39,7 @@ class FileMetadata(BaseModel):
         }
 
     @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> "FileMetadata":
+    def from_dict(cls, data: dict[str, Any]) -> FileMetadata:
         """Deserialize from storage."""
         if "file_path" in data:
             data["file_path"] = Path(data["file_path"])

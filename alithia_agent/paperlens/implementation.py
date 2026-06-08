@@ -10,8 +10,8 @@ from typing import Any
 
 from langgraph.graph import END, START, StateGraph
 
-from alithia_agent.paperlens.state import AgentState, PaperLensConfig
 from alithia_agent.paperlens.nodes import make_nodes
+from alithia_agent.paperlens.state import AgentState, PaperLensConfig
 
 logger = logging.getLogger(__name__)
 

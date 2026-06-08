@@ -8,19 +8,19 @@ from alithia_agent.config.loader import ConfigLoader, load_config
 from alithia_agent.config.schema import (
     Config,
     ConfigError,
-    ResearcherProfileConfig,
-    LlmProfileConfig,
-    ZoteroProfileConfig,
     EmailNotificationConfig,
+    GemsConfig,
     GithubProfileConfig,
     GoogleScholarProfileConfig,
-    XProfileConfig,
-    GemsConfig,
+    LlmProfileConfig,
+    PaperLensAgentConfig,
+    PaperScoutAgentConfig,
+    ResearcherProfileConfig,
     StorageConfig,
     SupabaseConfig,
-    PaperScoutAgentConfig,
-    PaperLensAgentConfig,
     TurnstileConfig,
+    XProfileConfig,
+    ZoteroProfileConfig,
 )
 
 __all__ = [

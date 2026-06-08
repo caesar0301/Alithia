@@ -9,8 +9,8 @@ Core paper types used across PaperScout and PaperLens:
 
 from __future__ import annotations
 
-from datetime import datetime, date
-from typing import Annotated, Any
+from datetime import datetime
+from typing import Any
 
 from pydantic import BaseModel, ConfigDict, Field
 

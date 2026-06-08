@@ -6,13 +6,15 @@ PaperLensRuntimeConfig for runtime parameters.
 
 from __future__ import annotations
 
-from datetime import date
-from typing import Annotated, Any, Literal, TypedDict
+from typing import TYPE_CHECKING, Annotated, Any, Literal, TypedDict
 
 from langgraph.graph.message import add_messages
 from pydantic import BaseModel, ConfigDict, Field
 
 from alithia_agent.models import AcademicPaper, ScoredPaper
+
+if TYPE_CHECKING:
+    from alithia_agent.config.schema import Config
 
 
 class PaperLensRuntimeConfig(BaseModel):
@@ -43,7 +45,7 @@ class PaperLensRuntimeConfig(BaseModel):
     include_full_text: bool = False
 
     @classmethod
-    def build_runtime_config(cls, global_config: "Config") -> "PaperLensRuntimeConfig":
+    def build_runtime_config(cls, global_config: Config) -> PaperLensRuntimeConfig:
         """Build runtime config from global alithia config.
 
         Args:
@@ -52,7 +54,6 @@ class PaperLensRuntimeConfig(BaseModel):
         Returns:
             PaperLensRuntimeConfig ready for agent execution.
         """
-        from alithia_agent.config import Config
 
         cfg = global_config
         profile = cfg.researcher_profile
@@ -76,7 +77,7 @@ class PaperLensRuntimeConfig(BaseModel):
 
 
 # Backward-compatible function wrapper for build_runtime_config
-def build_runtime_config(global_config: "Config") -> PaperLensRuntimeConfig:
+def build_runtime_config(global_config: Config) -> PaperLensRuntimeConfig:
     """Build runtime config from global alithia config (backward-compatible wrapper).
 
     Args:
@@ -91,7 +92,8 @@ def build_runtime_config(global_config: "Config") -> PaperLensRuntimeConfig:
 class AgentState(TypedDict):
     """LangGraph agent state for PaperLens workflow.
 
-    State flows through: validate_input → parse_pdfs → calculate_similarity → rank_results → generate_summary
+    State flows through:
+    validate_input → parse_pdfs → calculate_similarity → rank_results → generate_summary
     """
 
     # LangGraph message history

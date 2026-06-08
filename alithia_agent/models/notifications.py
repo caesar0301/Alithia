@@ -7,12 +7,12 @@ PaperLensQueryRecord: Query history tracking
 
 from __future__ import annotations
 
-from datetime import datetime, date
+from datetime import date, datetime
 from typing import Any
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from alithia_agent.models.papers import ArxivPaper
+from alithia_agent.models.papers import AcademicPaper, ArxivPaper
 
 
 class EmailContent(BaseModel):
@@ -26,7 +26,7 @@ class EmailContent(BaseModel):
     subject: str
     html_body: str
     text_body: str | None = None  # Plain text fallback
-    papers: list[ArxivPaper] = Field(default_factory=list)
+    papers: list[ArxivPaper | AcademicPaper] = Field(default_factory=list)
 
     digest_date: str | None = None  # YYYY/MM/DD format
 
@@ -77,7 +77,7 @@ class NotificationRecord(BaseModel):
         }
 
     @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> "NotificationRecord":
+    def from_dict(cls, data: dict[str, Any]) -> NotificationRecord:
         """Deserialize from storage."""
         if "date" in data and isinstance(data["date"], str):
             data["date"] = date.fromisoformat(data["date"])
@@ -114,7 +114,7 @@ class PaperLensQueryRecord(BaseModel):
         }
 
     @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> "PaperLensQueryRecord":
+    def from_dict(cls, data: dict[str, Any]) -> PaperLensQueryRecord:
         """Deserialize from storage."""
         if "queried_at" in data and isinstance(data["queried_at"], str):
             data["queried_at"] = datetime.fromisoformat(data["queried_at"])

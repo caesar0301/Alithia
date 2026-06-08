@@ -64,7 +64,7 @@ def register_alithia_plugins() -> None:
         from alithia_agent.plugins.paperscout import PaperScoutPlugin
 
         registry.register(
-            PaperScoutPlugin._plugin_manifest,
+            getattr(PaperScoutPlugin, "_plugin_manifest"),
             source="config",
             priority=30,  # PRIORITY_CONFIG level
         )
@@ -74,7 +74,7 @@ def register_alithia_plugins() -> None:
         from alithia_agent.plugins.paperlens import PaperLensPlugin
 
         registry.register(
-            PaperLensPlugin._plugin_manifest,
+            getattr(PaperLensPlugin, "_plugin_manifest"),
             source="config",
             priority=30,
         )

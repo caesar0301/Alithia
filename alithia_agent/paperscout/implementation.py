@@ -10,8 +10,8 @@ from typing import Any
 
 from langgraph.graph import END, START, StateGraph
 
-from alithia_agent.paperscout.state import AgentState, PaperScoutRuntimeConfig
 from alithia_agent.paperscout.nodes import make_nodes
+from alithia_agent.paperscout.state import AgentState, PaperScoutRuntimeConfig
 
 logger = logging.getLogger(__name__)
 

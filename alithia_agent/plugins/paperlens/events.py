@@ -15,6 +15,7 @@ from soothe_sdk.core.verbosity import VerbosityTier
 # Try to import register_event from soothe, make optional if not available
 try:
     from soothe.core.events import register_event
+
     HAS_REGISTER_EVENT = True
 except ImportError:
     HAS_REGISTER_EVENT = False

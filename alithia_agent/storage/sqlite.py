@@ -116,10 +116,13 @@ class SQLiteStorage:
             cursor.execute("BEGIN IMMEDIATE")  # Acquire write lock
 
             # Upsert: insert or replace
-            cursor.execute("""
+            cursor.execute(
+                """
                 INSERT OR REPLACE INTO kv_store (key, value, updated_at)
                 VALUES (?, ?, datetime('now'))
-            """, (key, serialized))
+            """,
+                (key, serialized),
+            )
 
             cursor.execute("COMMIT")
             logger.debug(f"Saved key {key}")
@@ -162,14 +165,223 @@ class SQLiteStorage:
 
         try:
             cursor.execute(
-                "SELECT key FROM kv_store WHERE key LIKE ? ORDER BY key",
-                (prefix + "%",)
+                "SELECT key FROM kv_store WHERE key LIKE ? ORDER BY key", (prefix + "%",)
             )
             rows = cursor.fetchall()
             return [row["key"] for row in rows]
 
         except Exception as e:
             logger.error(f"Failed to list keys with prefix {prefix}: {e}")
+            return []
+
+    # ===========================
+    # Notification records (exactly-once semantics)
+    # ===========================
+
+    def _ensure_notification_table(self) -> None:
+        """Ensure notification_records table exists."""
+        conn = self._get_connection()
+        cursor = conn.cursor()
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS notification_records (
+                id TEXT PRIMARY KEY,
+                user_id TEXT NOT NULL,
+                query_categories TEXT NOT NULL,
+                notification_date TEXT NOT NULL,
+                paper_count INTEGER DEFAULT 0,
+                status TEXT NOT NULL DEFAULT 'pending',
+                retry_count INTEGER DEFAULT 0,
+                sent_at TEXT,
+                error_message TEXT,
+                created_at TEXT,
+                UNIQUE(user_id, query_categories, notification_date)
+            )
+        """)
+        cursor.execute("""
+            CREATE INDEX IF NOT EXISTS idx_notification_lookup
+            ON notification_records(user_id, query_categories, notification_date)
+        """)
+        cursor.execute("""
+            CREATE INDEX IF NOT EXISTS idx_notification_status
+            ON notification_records(user_id, status, notification_date)
+        """)
+        conn.commit()
+
+    def save_notification_record(self, record: dict[str, Any]) -> None:
+        """Save a notification record.
+
+        Enforces unique (user_id, query_categories, notification_date) constraint
+        for exactly-once semantics (RFC-0002 PS-001).
+
+        Args:
+            record: Dict with fields:
+                - id: UUID (optional, auto-generated if missing)
+                - user_id: User identifier
+                - query_categories: ArXiv query string
+                - notification_date: Date string (YYYY-MM-DD)
+                - paper_count: Number of papers in notification
+                - status: "pending" | "sent" | "failed" | "queried"
+                - retry_count: Number of retry attempts
+                - sent_at: Timestamp when sent
+                - error_message: Error if failed
+                - created_at: Creation timestamp
+        """
+        self._ensure_notification_table()
+        conn = self._get_connection()
+        cursor = conn.cursor()
+
+        import uuid
+        from datetime import datetime
+
+        now = datetime.utcnow().isoformat()
+
+        try:
+            cursor.execute("BEGIN IMMEDIATE")
+            cursor.execute(
+                """
+                INSERT OR REPLACE INTO notification_records
+                (id, user_id, query_categories, notification_date, paper_count,
+                 status, retry_count, sent_at, error_message, created_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+                (
+                    record.get("id", str(uuid.uuid4())),
+                    record["user_id"],
+                    record["query_categories"],
+                    record["notification_date"],
+                    record.get("paper_count", 0),
+                    record.get("status", "pending"),
+                    record.get("retry_count", 0),
+                    record.get("sent_at"),
+                    record.get("error_message"),
+                    record.get("created_at", now),
+                ),
+            )
+            cursor.execute("COMMIT")
+            logger.debug(f"Saved notification record for {record['notification_date']}")
+
+        except Exception as e:
+            cursor.execute("ROLLBACK")
+            logger.error(f"Failed to save notification record: {e}")
+            raise
+
+    def get_notification_record(
+        self,
+        user_id: str,
+        query_categories: str,
+        notification_date: str,
+    ) -> dict[str, Any] | None:
+        """Get notification record for a specific date.
+
+        Args:
+            user_id: User identifier
+            query_categories: ArXiv query string
+            notification_date: Date string (YYYY-MM-DD)
+
+        Returns:
+            Notification record dict or None if not found.
+        """
+        self._ensure_notification_table()
+        conn = self._get_connection()
+        cursor = conn.cursor()
+
+        try:
+            cursor.execute(
+                """
+                SELECT * FROM notification_records
+                WHERE user_id = ? AND query_categories = ? AND notification_date = ?
+                LIMIT 1
+            """,
+                (user_id, query_categories, notification_date),
+            )
+            row = cursor.fetchone()
+            return dict(row) if row else None
+
+        except Exception as e:
+            logger.error(f"Failed to get notification record: {e}")
+            return None
+
+    def get_missing_notification_dates(
+        self,
+        user_id: str,
+        query_categories: str,
+        window_days: int = 7,
+    ) -> list[str]:
+        """Get dates within window that have no successful notification.
+
+        Args:
+            user_id: User identifier
+            query_categories: ArXiv query string
+            window_days: Number of days to look back
+
+        Returns:
+            List of date strings (YYYY-MM-DD) missing notifications.
+        """
+        self._ensure_notification_table()
+        conn = self._get_connection()
+        cursor = conn.cursor()
+
+        from datetime import date, timedelta
+
+        today = date.today()
+        expected = [today - timedelta(days=i) for i in range(1, window_days + 1)]
+        expected_strs = [d.isoformat() for d in expected]
+
+        try:
+            placeholders = ",".join("?" * len(expected_strs))
+            cursor.execute(
+                f"""
+                SELECT notification_date FROM notification_records
+                WHERE user_id = ? AND query_categories = ?
+                  AND notification_date IN ({placeholders})
+                  AND status = 'sent'
+            """,
+                [user_id, query_categories] + expected_strs,
+            )
+            sent_dates = {row["notification_date"] for row in cursor.fetchall()}
+            missing = [d for d in expected_strs if d not in sent_dates]
+            return sorted(missing)
+
+        except Exception as e:
+            logger.error(f"Failed to get missing notification dates: {e}")
+            return []
+
+    def get_notification_records_range(
+        self,
+        user_id: str,
+        query_categories: str,
+        from_date: str,
+        to_date: str,
+    ) -> list[dict[str, Any]]:
+        """Get notification records for a date range (calendar view).
+
+        Args:
+            user_id: User identifier
+            query_categories: ArXiv query string
+            from_date: Start date (YYYY-MM-DD)
+            to_date: End date (YYYY-MM-DD)
+
+        Returns:
+            List of notification records within range.
+        """
+        self._ensure_notification_table()
+        conn = self._get_connection()
+        cursor = conn.cursor()
+
+        try:
+            cursor.execute(
+                """
+                SELECT * FROM notification_records
+                WHERE user_id = ? AND query_categories = ?
+                  AND notification_date >= ? AND notification_date <= ?
+                ORDER BY notification_date
+            """,
+                (user_id, query_categories, from_date, to_date),
+            )
+            return [dict(row) for row in cursor.fetchall()]
+
+        except Exception as e:
+            logger.error(f"Failed to get notification records range: {e}")
             return []
 
     def close(self) -> None:
@@ -251,11 +463,51 @@ class AlithiaStore:
         full_keys = await self._storage.list_keys(full_prefix)
         # Strip user prefix from returned keys
         user_prefix = self._user_prefix()
-        return [k[len(user_prefix):] for k in full_keys]
+        return [k[len(user_prefix) :] for k in full_keys]
 
     def close(self) -> None:
         """Close underlying storage connections."""
         self._storage.close()
+
+    # ===========================
+    # Notification record methods (wrapper)
+    # ===========================
+
+    def save_notification_record(self, record: dict[str, Any]) -> None:
+        """Save notification record with user_id from store."""
+        record["user_id"] = self._user_id
+        self._storage.save_notification_record(record)
+
+    def get_notification_record(
+        self,
+        query_categories: str,
+        notification_date: str,
+    ) -> dict[str, Any] | None:
+        """Get notification record for user."""
+        return self._storage.get_notification_record(
+            self._user_id, query_categories, notification_date
+        )
+
+    def get_missing_notification_dates(
+        self,
+        query_categories: str,
+        window_days: int = 7,
+    ) -> list[str]:
+        """Get missing notification dates for user."""
+        return self._storage.get_missing_notification_dates(
+            self._user_id, query_categories, window_days
+        )
+
+    def get_notification_records_range(
+        self,
+        query_categories: str,
+        from_date: str,
+        to_date: str,
+    ) -> list[dict[str, Any]]:
+        """Get notification records range for user."""
+        return self._storage.get_notification_records_range(
+            self._user_id, query_categories, from_date, to_date
+        )
 
 
 __all__ = ["SQLiteStorage", "AlithiaStore"]

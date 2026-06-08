@@ -33,16 +33,16 @@ os.environ["SOOTHE_HOME"] = str(SOOTHE_HOME)
 ALITHIA_HOME.mkdir(parents=True, exist_ok=True)
 SOOTHE_HOME.mkdir(parents=True, exist_ok=True)
 
-from alithia_agent.models import (
+from alithia_agent.models import (  # noqa: E402
     AcademicPaper,
     ArxivPaper,
-    ZoteroPaper,
-    ScoredPaper,
-    FileMetadata,
-    PaperMetadata,
-    PaperContent,
     EmailContent,
+    FileMetadata,
     NotificationRecord,
+    PaperContent,
+    PaperMetadata,
+    ScoredPaper,
+    ZoteroPaper,
 )
 
 __all__ = [

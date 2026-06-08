@@ -14,7 +14,6 @@ from pathlib import Path
 from typing import Any
 
 import yaml
-
 from pydantic import ValidationError
 
 from alithia_agent.config.schema import (
@@ -25,7 +24,7 @@ from alithia_agent.config.schema import (
 logger = logging.getLogger(__name__)
 
 # Environment variable pattern: ${VAR_NAME} or ${VAR_NAME:default}
-ENV_PATTERN = re.compile(r'\$\{([A-Za-z_][A-Za-z0-9_]*)(?::([^}]*))?\}')
+ENV_PATTERN = re.compile(r"\$\{([A-Za-z_][A-Za-z0-9_]*)(?::([^}]*))?\}")
 
 
 def substitute_env(value: str) -> str:
@@ -40,7 +39,8 @@ def substitute_env(value: str) -> str:
     Raises:
         ConfigError: If variable not set and no default provided.
     """
-    def replace(match: re.Match) -> str:
+
+    def replace(match: re.Match[str]) -> str:
         var_name = match.group(1)
         default = match.group(2)
 
@@ -63,6 +63,7 @@ def process_config_env(config: dict[str, Any]) -> dict[str, Any]:
     Returns:
         Configuration with environment variables substituted.
     """
+
     def process_value(value: Any) -> Any:
         if isinstance(value, str):
             return substitute_env(value)
@@ -73,7 +74,7 @@ def process_config_env(config: dict[str, Any]) -> dict[str, Any]:
         else:
             return value
 
-    return process_value(config)
+    return process_value(config)  # type: ignore[no-any-return]
 
 
 def deep_merge(base: dict, override: dict) -> dict:
@@ -200,9 +201,9 @@ class ConfigLoader:
 
             # Detect format from file extension
             if path.suffix in (".yml", ".yaml"):
-                return yaml.safe_load(content)
+                return yaml.safe_load(content)  # type: ignore[no-any-return]
             else:
-                return json.loads(content)
+                return json.loads(content)  # type: ignore[no-any-return]
 
         except yaml.YAMLError as e:
             raise ConfigError(f"Invalid YAML in config file: {e}")
@@ -251,7 +252,7 @@ class ConfigLoader:
                 loc = ".".join(str(x) for x in error["loc"])
                 msg = error["msg"]
                 errors.append(f"{loc}: {msg}")
-            raise ConfigError(f"Config validation failed", errors)
+            raise ConfigError("Config validation failed", errors)
 
 
 def load_config(

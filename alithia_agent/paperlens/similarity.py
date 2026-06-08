@@ -7,7 +7,6 @@ from __future__ import annotations
 
 import logging
 import os
-from typing import Any
 
 import numpy as np
 
@@ -47,6 +46,7 @@ class SimilarityEngine:
         if use_gpu:
             try:
                 import torch
+
                 if torch.cuda.is_available():
                     device = "cuda"
                     logger.info("Using GPU for embeddings")
@@ -58,13 +58,14 @@ class SimilarityEngine:
         # Load model
         try:
             from sentence_transformers import SentenceTransformer
+
             logger.info(f"Loading sentence transformer: {model_name} (device: {device})")
             self.model = SentenceTransformer(model_name, device=device, cache_folder=self.cache_dir)
             logger.info("Sentence transformer loaded successfully")
         except ImportError as e:
             raise ImportError(
-                f"sentence-transformers not installed. "
-                f"Install with: pip install sentence-transformers"
+                "sentence-transformers not installed. "
+                "Install with: pip install sentence-transformers"
             ) from e
 
     def calculate_scores(
@@ -88,7 +89,7 @@ class SimilarityEngine:
         if not query:
             logger.warning("Empty query, returning papers with default scores")
             return [
-                ScoredPaper(paper=p, score=5.0, relevance_factors={"default": 5.0})
+                ScoredPaper(paper=paper, score=5.0, relevance_factors={"default": 5.0})
                 for paper in papers
             ]
 
@@ -123,6 +124,7 @@ class SimilarityEngine:
 
         # Calculate cosine similarity
         from sentence_transformers import util
+
         similarities = util.cos_sim(query_embedding, paper_embeddings)[0]
 
         # Create ScoredPaper objects

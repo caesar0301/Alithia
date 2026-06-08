@@ -59,3 +59,18 @@ testpaths = ["tests"]
 python_version = "3.11"
 warn_return_any = true
 warn_unused_configs = true
+
+# Third-party libraries without type stubs
+[[tool.mypy.overrides]]
+module = [
+    "arxiv",
+    "yaml",
+    "pyzotero",
+    "sentence_transformers",
+    "sklearn.*",
+    "docling.*",
+    "modelscope.*",
+    "soothe.*",
+    "soothe_sdk.*",
+]
+ignore_missing_imports = true

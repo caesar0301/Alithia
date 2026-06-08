@@ -7,11 +7,13 @@ Applied sequentially, tracked in schema_version table.
 from __future__ import annotations
 
 import logging
+import sqlite3
 from datetime import datetime
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING
 
-import sqlite3
+if TYPE_CHECKING:
+    from alithia_agent.storage.sqlite import SQLiteStorage
 
 logger = logging.getLogger(__name__)
 
@@ -90,6 +92,28 @@ MIGRATIONS = {
         );
 
         CREATE INDEX IF NOT EXISTS idx_query_user ON paperlens_query_history(user_id);
+    """,
+    2: """
+        -- Notification records for exactly-once semantics (RFC-0002 PS-001)
+        CREATE TABLE IF NOT EXISTS notification_records (
+            id TEXT PRIMARY KEY,
+            user_id TEXT NOT NULL,
+            query_categories TEXT NOT NULL,
+            notification_date TEXT NOT NULL,
+            paper_count INTEGER DEFAULT 0,
+            status TEXT NOT NULL DEFAULT 'pending',
+            retry_count INTEGER DEFAULT 0,
+            sent_at TEXT,
+            error_message TEXT,
+            created_at TEXT,
+            UNIQUE(user_id, query_categories, notification_date)
+        );
+
+        CREATE INDEX IF NOT EXISTS idx_notification_lookup
+        ON notification_records(user_id, query_categories, notification_date);
+
+        CREATE INDEX IF NOT EXISTS idx_notification_status
+        ON notification_records(user_id, status, notification_date);
     """,
 }
 
@@ -170,10 +194,13 @@ class MigrationRunner:
                 cursor.executescript(sql)
 
                 # Record in schema_version
-                cursor.execute("""
+                cursor.execute(
+                    """
                     INSERT INTO schema_version (version, applied_at, description)
                     VALUES (?, ?, ?)
-                """, (version, datetime.now().isoformat(), description))
+                """,
+                    (version, datetime.now().isoformat(), description),
+                )
 
                 conn.commit()
                 logger.info(f"Migration {version} applied successfully")

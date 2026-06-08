@@ -6,14 +6,12 @@ Generates HTML email digests from scored papers and sends via SMTP.
 from __future__ import annotations
 
 import logging
-import math
 import smtplib
 from datetime import datetime
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
-from typing import Any
 
-from alithia_agent.models import EmailContent, ScoredPaper
+from alithia_agent.models import ArxivPaper, EmailContent, ScoredPaper
 from alithia_agent.paperscout.state import SmtpRuntimeConfig
 
 # Legacy alias
@@ -109,11 +107,24 @@ def create_paper_html(paper: ScoredPaper) -> str:
     if len(paper.paper.authors) > 5:
         authors_str += ", ..."
 
-    tldr = paper.paper.tldr or paper.paper_abstract[:200] + "..."
+    # Get TLDR - handle union type properly
+    tldr = None
+    if isinstance(paper.paper, ArxivPaper):
+        tldr = paper.paper.tldr or paper.paper.summary[:200] + "..."
+    else:
+        # AcademicPaper - use abstract
+        tldr = paper.paper.abstract[:200] + "..." if paper.paper.abstract else "..."
 
     code_link = ""
-    if hasattr(paper.paper, "code_url") and paper.paper.code_url:
+    if isinstance(paper.paper, ArxivPaper) and paper.paper.code_url:
         code_link = f'<a href="{paper.paper.code_url}" class="link-button code-link">Code</a>'
+
+    # Get PDF URL - handle union type
+    pdf_url = ""
+    if isinstance(paper.paper, ArxivPaper):
+        pdf_url = paper.paper.pdf_url
+    elif paper.paper.source_url:
+        pdf_url = paper.paper.source_url
 
     return f"""
 <div class="paper-card">
@@ -126,7 +137,7 @@ def create_paper_html(paper: ScoredPaper) -> str:
     <strong>TLDR:</strong> {tldr}
   </div>
   <div class="paper-links">
-    <a href="{paper.paper.pdf_url}" class="link-button pdf-link">PDF</a>
+    <a href="{pdf_url}" class="link-button pdf-link">PDF</a>
     {code_link}
   </div>
 </div>
@@ -145,7 +156,11 @@ def create_empty_email_html() -> str:
 def get_digest_date(papers: list[ScoredPaper]) -> str:
     """Get digest date from papers or current date."""
     if papers:
-        dates = [p.paper.published_date for p in papers if hasattr(p.paper, "published_date") and p.paper.published_date]
+        dates = [
+            p.paper.published_date
+            for p in papers
+            if hasattr(p.paper, "published_date") and p.paper.published_date
+        ]
         if dates:
             latest = max(dates)
             return latest.strftime("%Y/%m/%d")

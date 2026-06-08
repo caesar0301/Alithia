@@ -17,8 +17,7 @@ from alithia_agent.paperlens.state import PaperLensRuntimeConfig
 logger = logging.getLogger(__name__)
 
 # Import events to register them with soothe's event system
-from alithia_agent.plugins.paperlens import events as _events  # noqa: F401
-
+from alithia_agent.plugins.paperlens import events as _events  # noqa: F401, E402
 
 __all__ = [
     "PaperLensPlugin",
@@ -58,15 +57,14 @@ class PaperLensPlugin:
         # Check for heavy dependencies
         try:
             import docling  # noqa: F401
+
             context.logger.debug("docling available")
         except ImportError:
-            context.logger.warning(
-                "docling not installed. "
-                "Install with: pip install docling"
-            )
+            context.logger.warning("docling not installed. Install with: pip install docling")
 
         try:
             import sentence_transformers  # noqa: F401
+
             context.logger.debug("sentence-transformers available")
         except ImportError:
             context.logger.warning(
@@ -84,7 +82,14 @@ class PaperLensPlugin:
             "ranking PDFs by relevance to a research topic, and finding "
             "similar papers in your collection."
         ),
-        triggers=["rank papers", "analyze pdf", "similar papers", "local papers", "find relevant", "pdf analysis"],
+        triggers=[
+            "rank papers",
+            "analyze pdf",
+            "similar papers",
+            "local papers",
+            "find relevant",
+            "pdf analysis",
+        ],
     )
     async def create_subagent(
         self,
@@ -111,6 +116,7 @@ class PaperLensPlugin:
         # Build runtime config from alithia config if available
         if alithia_config:
             from alithia_agent.config import Config
+
             try:
                 full_config = Config(**alithia_config)
                 runtime_config = PaperLensRuntimeConfig.build_runtime_config(full_config)

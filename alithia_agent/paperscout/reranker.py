@@ -13,10 +13,11 @@ import logging
 import os
 from datetime import datetime
 from pathlib import Path
+from typing import Any
 
 import numpy as np
 
-from alithia_agent.models import ArxivPaper, ZoteroPaper, ScoredPaper
+from alithia_agent.models import ArxivPaper, ScoredPaper, ZoteroPaper
 
 logger = logging.getLogger(__name__)
 
@@ -92,8 +93,11 @@ def load_encoder(model_name: str, cache_dir: Path) -> tuple[Any, str]:
     if model_path and model_path.exists():
         try:
             from sentence_transformers import SentenceTransformer
+
             encoder = SentenceTransformer(str(model_path))
-            logger.info(f"Loaded encoder from ModelScope (max_seq_length: {encoder.max_seq_length})")
+            logger.info(
+                f"Loaded encoder from ModelScope (max_seq_length: {encoder.max_seq_length})"
+            )
             return encoder, "modelscope"
         except Exception as e:
             logger.warning(f"Failed to load ModelScope model: {e}")
@@ -229,10 +233,10 @@ class PaperReranker:
             # Extract paper summaries
             paper_texts: list[str] = []
             valid_papers: list[ArxivPaper] = []
-            for paper in self.papers:
-                if paper.summary and len(paper.summary.strip()) > 50:
-                    paper_texts.append(paper.get_searchable_text())
-                    valid_papers.append(paper)
+            for arxiv_paper in self.papers:
+                if arxiv_paper.summary and len(arxiv_paper.summary.strip()) > 50:
+                    paper_texts.append(arxiv_paper.get_searchable_text())
+                    valid_papers.append(arxiv_paper)
 
             if not paper_texts:
                 logger.warning("No valid paper summaries")
@@ -256,9 +260,9 @@ class PaperReranker:
 
             # Create scored papers
             scored_papers: list[ScoredPaper] = []
-            for paper, score, sim_row in zip(valid_papers, scores, similarities):
+            for arxiv_paper, score, sim_row in zip(valid_papers, scores, similarities):
                 scored = ScoredPaper(
-                    paper=paper,
+                    paper=arxiv_paper,
                     score=float(score),
                     relevance_factors={
                         "corpus_similarity": float(score),
@@ -288,40 +292,42 @@ class PaperReranker:
 
         # Get keywords from corpus titles
         corpus_keywords: set[str] = set()
-        for paper in self.corpus:
-            if paper.title:
+        for zotero_paper in self.corpus:
+            if zotero_paper.title:
                 # Extract significant words from title
-                words = paper.title.lower().split()
+                words = zotero_paper.title.lower().split()
                 for w in words:
                     if len(w) > 4 and w not in {"the", "for", "with", "from", "this", "that"}:
                         corpus_keywords.add(w)
 
         scored: list[ScoredPaper] = []
-        for paper in self.papers:
+        for arxiv_paper in self.papers:
             # Count keyword overlap
-            title_words = set(paper.title.lower().split()) if paper.title else set()
+            title_words = set(arxiv_paper.title.lower().split()) if arxiv_paper.title else set()
             overlap = len(title_words & corpus_keywords)
 
             # Base score with keyword bonus
             score = 5.0 + min(overlap * 0.5, 3.0)
 
             # Recency bonus
-            if paper.published_date:
-                days_old = (datetime.now() - paper.published_date.replace(tzinfo=None)).days
+            if arxiv_paper.published_date:
+                days_old = (datetime.now() - arxiv_paper.published_date.replace(tzinfo=None)).days
                 if days_old < 7:
                     score += 1.0
                 elif days_old < 30:
                     score += 0.5
 
-            scored.append(ScoredPaper(
-                paper=paper,
-                score=score,
-                relevance_factors={
-                    "keyword_overlap": overlap,
-                    "recency_bonus": paper.published_date is not None,
-                    "fallback": True,
-                },
-            ))
+            scored.append(
+                ScoredPaper(
+                    paper=arxiv_paper,
+                    score=score,
+                    relevance_factors={
+                        "keyword_overlap": overlap,
+                        "recency_bonus": arxiv_paper.published_date is not None,
+                        "fallback": True,
+                    },
+                )
+            )
 
         scored.sort(key=lambda x: x.score, reverse=True)
         return scored
