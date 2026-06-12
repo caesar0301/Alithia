@@ -19,7 +19,7 @@ from __future__ import annotations
 import os
 from pathlib import Path
 
-__version__ = "1.0.0"
+__version__ = "0.3.0"
 
 # Set SOOTHE_HOME to ~/.alithia/soothe/ before any soothe imports
 # This ensures soothe framework uses our dedicated directory

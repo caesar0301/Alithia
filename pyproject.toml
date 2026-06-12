@@ -1,6 +1,6 @@
 [project]
 name = "alithia-agent"
-version = "0.1.0"
+version = "0.3.0"
 description = "CLI research assistant for paper discovery and analysis"
 readme = "README.md"
 requires-python = ">=3.11"

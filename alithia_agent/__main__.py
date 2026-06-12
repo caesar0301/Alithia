@@ -132,7 +132,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--version",
         action="version",
-        version="alithia-agent 1.0.0",
+        version="alithia-agent 0.3.0",
     )
 
     # Legacy compatibility: --user-id for storage
