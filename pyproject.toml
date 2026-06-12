@@ -1,5 +1,5 @@
 [project]
-name = "alithia-agent"
+name = "alithia"
 version = "0.3.0"
 description = "CLI research assistant for paper discovery and analysis"
 readme = "README.md"

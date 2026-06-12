@@ -1,20 +1,28 @@
-name: Release alithia-agent
+name: Release
 
 on:
   release:
     types: [published]
+  push:
+    tags:
+      - "[0-9]+.[0-9]+.[0-9]+"
+      - "v[0-9]+.[0-9]+.[0-9]+"
   workflow_dispatch:
 
 permissions:
   contents: read
   id-token: write  # IMPORTANT: this permission is mandatory for trusted publishing
 
+concurrency:
+  group: pypi-release-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false
+
 jobs:
   deploy:
     runs-on: ubuntu-latest
     environment:
       name: pypi
-      url: https://pypi.org/p/alithia-agent
+      url: https://pypi.org/p/alithia
 
     steps:
       - uses: actions/checkout@v5
@@ -30,22 +38,48 @@ jobs:
       - name: Sync dependencies
         run: uv sync --all-extras
 
+      - name: Resolve release tag
+        id: release-tag
+        run: |
+          if [ "${{ github.event_name }}" = "release" ]; then
+            TAG="${{ github.event.release.tag_name }}"
+          elif [ "${{ github.event_name }}" = "push" ]; then
+            TAG="${GITHUB_REF#refs/tags/}"
+          else
+            TAG=""
+          fi
+          echo "tag=${TAG}" >> "$GITHUB_OUTPUT"
+          echo "Resolved tag: ${TAG}"
+
       - name: Get package version
         id: version
         run: |
-          VERSION=$(grep '^version' pyproject.toml | sed 's/version = "//' | sed 's/"//')
-          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          VERSION=$(grep '^version = ' pyproject.toml | cut -d'"' -f2)
+          echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
+          echo "Package version: ${VERSION}"
+
+      - name: Verify version matches tag
+        if: steps.release-tag.outputs.tag != ''
+        run: |
+          PROJECT_VERSION="${{ steps.version.outputs.version }}"
+          RELEASE_TAG="${{ steps.release-tag.outputs.tag }}"
+          if [[ "$RELEASE_TAG" == "v$PROJECT_VERSION"* ]] || [[ "$RELEASE_TAG" == "$PROJECT_VERSION"* ]]; then
+            echo "✅ Version match: tag '$RELEASE_TAG' matches pyproject '$PROJECT_VERSION'"
+          else
+            echo "❌ Version mismatch: tag '$RELEASE_TAG' vs pyproject '$PROJECT_VERSION'"
+            exit 1
+          fi
 
       - name: Check if version exists on PyPI
         id: pypi-check
         run: |
           VERSION="${{ steps.version.outputs.version }}"
-          echo "Checking if alithia-agent $VERSION exists on PyPI..."
-          if pip index versions alithia-agent 2>/dev/null | grep -q "$VERSION"; then
-            echo "exists=true" >> $GITHUB_OUTPUT
+          echo "Checking if alithia $VERSION exists on PyPI..."
+          if pip index versions alithia 2>/dev/null | grep -qF "$VERSION"; then
+            echo "exists=true" >> "$GITHUB_OUTPUT"
             echo "⚠️ Version $VERSION already exists on PyPI, skipping publish"
           else
-            echo "exists=false" >> $GITHUB_OUTPUT
+            echo "exists=false" >> "$GITHUB_OUTPUT"
             echo "✓ Version $VERSION not found on PyPI, will publish"
           fi
 
@@ -60,16 +94,14 @@ jobs:
       - name: Verify dist directory
         if: steps.pypi-check.outputs.exists == 'false'
         run: |
-          if [ ! -d "dist" ]; then
-            echo "❌ Error: dist directory not found"
+          WHL_COUNT=$(ls -1 dist/*.whl 2>/dev/null | wc -l)
+          TAR_COUNT=$(ls -1 dist/*.tar.gz 2>/dev/null | wc -l)
+          if [ "$WHL_COUNT" -eq 0 ] || [ "$TAR_COUNT" -eq 0 ]; then
+            echo "❌ Missing build artifacts (found $WHL_COUNT .whl and $TAR_COUNT .tar.gz files)"
             exit 1
           fi
-          if [ -z "$(ls -A dist | grep -E 'alithia')" ]; then
-            echo "❌ Error: dist directory doesn't contain alithia-agent packages"
-            exit 1
-          fi
-          echo "✓ dist directory exists and contains alithia-agent packages"
-          ls -la dist/ | grep -E 'alithia'
+          echo "✅ Found $WHL_COUNT .whl and $TAR_COUNT .tar.gz files"
+          ls -la dist/
 
       - name: Publish to PyPI
         if: steps.pypi-check.outputs.exists == 'false'

@@ -10,7 +10,7 @@ CLI research assistant for paper discovery and analysis.
 ## Installation
 
 ```bash
-pip install alithia-agent
+pip install alithia
 ```
 
 ## Usage
