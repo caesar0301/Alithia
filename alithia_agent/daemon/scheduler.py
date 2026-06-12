@@ -1,9 +1,9 @@
-"""Background scheduler: runs PaperScout on a daily schedule with gap retry.
+"""Background scheduler: runs PaperScout daily with unretrieved-day retry.
 
 Configurable async loop that:
 - Runs daily at configured hour/minute UTC
 - Scans for papers from yesterday
-- Retries gaps within retry_window_days
+- Retries unretrieved days up to configured age/cap limits
 - Respects big_bang date constraint
 """
 
@@ -21,14 +21,8 @@ from alithia_agent.storage.sqlite import SQLiteStorage
 
 logger = logging.getLogger(__name__)
 
-# Default values
-DEFAULT_HOUR = 23
-DEFAULT_MINUTE = 0
-DEFAULT_RETRY_WINDOW_DAYS = 3
-
-
 class PaperScoutScheduler:
-    """Configurable background scheduler for daily paper discovery with gap retry."""
+    """Configurable scheduler for daily discovery with bounded backlog retry."""
 
     def __init__(
         self,
@@ -125,7 +119,8 @@ class PaperScoutScheduler:
         logger.info(
             f"Scheduler started — daily run at "
             f"{self._config.hour:02d}:{self._config.minute:02d} UTC, "
-            f"retry window {self._config.retry_window_days}d"
+            f"max retry age {self._config.max_retry_age_days}d, "
+            f"max retries/run {self._config.max_retries_per_run}"
         )
 
     def stop(self) -> None:
@@ -197,31 +192,40 @@ class PaperScoutScheduler:
         except Exception:
             logger.exception(f"Scheduler: failed to dispatch paperscout for {yesterday_iso}")
 
-        # Retry gaps
-        await self._retry_gaps()
+        # Retry backlog days, excluding dates already processed in this cycle.
+        await self._retry_gaps(excluded_dates={yesterday})
 
-    async def _retry_gaps(self) -> None:
-        """Retry dates within retry_window_days that have no sent notification."""
+    async def _retry_gaps(self, excluded_dates: set[date] | None = None) -> None:
+        """Retry unretrieved dates within bounded retry-age window."""
         if not self._dispatcher:
             return
+        excluded_dates = excluded_dates or set()
 
-        # Get missing dates from gap scanner
-        missing = self._gap_scanner.scan(self._config.retry_window_days)
+        # Get unretrieved dates from gap scanner.
+        missing = self._gap_scanner.scan(self._config.max_retry_age_days)
 
         if not missing:
-            logger.info("No gaps to retry")
+            logger.info("No unretrieved backlog days to retry")
             return
 
-        # Filter out yesterday (already handled in _execute_daily)
+        # Skip dates already handled in this cycle and never retry today.
         today = date.today()
-        yesterday = today - timedelta(days=1)
-        gaps = [d for d in missing if d != yesterday]
+        gaps = [d for d in missing if d not in excluded_dates and d != today]
 
-        logger.info(f"Scheduler: found {len(gaps)} gap(s) to retry")
+        if not gaps:
+            logger.info("No eligible backlog days after exclusions")
+            return
+
+        # Prioritize oldest first and enforce retry cap per run.
+        gaps = sorted(gaps)[: self._config.max_retries_per_run]
+        logger.info(
+            f"Scheduler: retrying {len(gaps)} backlog day(s) "
+            f"(cap={self._config.max_retries_per_run})"
+        )
 
         for gap_date in gaps:
             gap_iso = gap_date.isoformat()
-            logger.info(f"Scheduler: retrying gap date {gap_iso}")
+            logger.info(f"Scheduler: retrying unretrieved date {gap_iso}")
 
             try:
                 await self._dispatcher(
@@ -248,6 +252,8 @@ class PaperScoutScheduler:
             "run_count": self._run_count,
             "schedule": f"{self._config.hour:02d}:{self._config.minute:02d} UTC",
             "retry_window_days": self._config.retry_window_days,
+            "max_retry_age_days": self._config.max_retry_age_days,
+            "max_retries_per_run": self._config.max_retries_per_run,
             "big_bang": self._big_bang.isoformat() if self._big_bang else None,
         }
 

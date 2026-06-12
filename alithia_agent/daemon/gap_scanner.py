@@ -1,8 +1,8 @@
-"""Gap Scanner: detects and fills missing notification slots.
+"""Gap Scanner: detects unretrieved notification days.
 
 Implements RFC-0002 PS-002: Gap detection bounded by configurable window.
-Detects dates within a window that have no successful notification and
-returns them for retry.
+Detects dates within a bounded window that are not terminally retrieved
+(`status != sent`) and returns them for retry.
 """
 
 from __future__ import annotations
@@ -20,7 +20,7 @@ logger = logging.getLogger(__name__)
 
 
 class GapScanner:
-    """Detects missing notification slots within a time window."""
+    """Detects unretrieved notification days within a time window."""
 
     def __init__(
         self,
@@ -42,22 +42,22 @@ class GapScanner:
         self._query_categories = query_categories
         self._big_bang = big_bang
 
-    def scan(self, window_days: int = 7) -> list[date]:
-        """Return dates with missing notifications within the window.
+    def scan(self, max_retry_age_days: int = 30) -> list[date]:
+        """Return unretrieved dates within retry-age window.
 
         Args:
-            window_days: Number of days to look back from today.
+            max_retry_age_days: Number of days to look back from today.
 
         Returns:
-            List of dates missing notifications, respecting big_bang constraint.
+            List of unretrieved dates, respecting big_bang constraint.
         """
-        missing_strs = self._storage.get_missing_notification_dates(
+        unretrieved_strs = self._storage.get_unretrieved_notification_dates(
             self._user_id,
             self._query_categories,
-            window_days,
+            max_retry_age_days,
         )
 
-        missing_dates = [date.fromisoformat(d) for d in missing_strs]
+        missing_dates = [date.fromisoformat(d) for d in unretrieved_strs]
 
         # Filter by big_bang if configured
         if self._big_bang:
@@ -65,10 +65,11 @@ class GapScanner:
 
         if missing_dates:
             logger.info(
-                f"Found {len(missing_dates)} gap(s): {[d.isoformat() for d in missing_dates]}"
+                f"Found {len(missing_dates)} unretrieved day(s): "
+                f"{[d.isoformat() for d in missing_dates]}"
             )
         else:
-            logger.info("No gaps found in notification window")
+            logger.info("No unretrieved days found in retry window")
 
         return missing_dates
 

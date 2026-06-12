@@ -6,7 +6,6 @@ Merge precedence: CLI > file > defaults.
 
 from __future__ import annotations
 
-import json
 import logging
 import os
 import re
@@ -172,19 +171,15 @@ class ConfigLoader:
                 raise ConfigError(f"Config file not found: {path}")
             return path
 
-        # Prefer YAML config, fallback to JSON for backward compatibility
+        # YAML-only configuration path
         yaml_path = ALITHIA_HOME / "config.yml"
         if yaml_path.exists():
             return yaml_path
 
-        json_path = ALITHIA_HOME / "config.json"
-        if json_path.exists():
-            return json_path
-
         return None
 
     def load_file(self, path: Path) -> dict[str, Any]:
-        """Load YAML or JSON configuration file.
+        """Load YAML configuration file.
 
         Args:
             path: Path to config file.
@@ -196,19 +191,25 @@ class ConfigLoader:
             ConfigError: If file cannot be parsed.
         """
         try:
-            with open(path) as f:
-                content = f.read()
+            if path.suffix not in (".yml", ".yaml"):
+                raise ConfigError(
+                    f"Unsupported config format: {path.suffix or '<none>'}. "
+                    "Use a YAML config file (.yml or .yaml)."
+                )
 
-            # Detect format from file extension
-            if path.suffix in (".yml", ".yaml"):
-                return yaml.safe_load(content)  # type: ignore[no-any-return]
-            else:
-                return json.loads(content)  # type: ignore[no-any-return]
+            with open(path) as f:
+                loaded = yaml.safe_load(f)
+
+            if loaded is None:
+                return {}
+            if not isinstance(loaded, dict):
+                raise ConfigError(
+                    "Invalid YAML config: root must be a mapping/object."
+                )
+            return loaded  # type: ignore[no-any-return]
 
         except yaml.YAMLError as e:
             raise ConfigError(f"Invalid YAML in config file: {e}")
-        except json.JSONDecodeError as e:
-            raise ConfigError(f"Invalid JSON in config file: {e}")
 
     def load(
         self,

@@ -225,6 +225,18 @@ class DaemonSchedulerConfig(BaseModel):
     retry_window_days: int = Field(
         default=3, ge=1, le=7, description="Days to retry failed notifications"
     )
+    max_retry_age_days: int = Field(
+        default=30,
+        ge=1,
+        le=90,
+        description="Max age (days) to keep retrying unretrieved dates",
+    )
+    max_retries_per_run: int = Field(
+        default=3,
+        ge=1,
+        le=20,
+        description="Maximum unretrieved dates retried in each scheduler cycle",
+    )
 
 
 class DaemonConfig(BaseModel):

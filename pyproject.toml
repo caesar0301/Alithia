@@ -18,7 +18,8 @@ dependencies = [
     "numpy>=1.20.0",
     "docling>=2.0.0",
     # soothe framework from PyPI
-    "soothe>=0.5.29",
+    "soothe>=0.6.6",
+    "browser-use",
 ]
 
 [project.optional-dependencies]

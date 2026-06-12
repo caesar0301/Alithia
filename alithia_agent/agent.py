@@ -20,7 +20,7 @@ from alithia_agent.config import Config, load_config
 # Soothe imports - handle gracefully if not fully available
 try:
     from soothe.config.settings import SootheConfig
-    from soothe.core import SootheRunner
+    from soothe.runner import SootheRunner
 
     HAS_SOOTHE = True
 except ImportError:
@@ -81,7 +81,7 @@ class AlithiaAgent:
         # Load soothe config (from SOOTHE_HOME/config/config.yml)
         soothe_config_path = SOOTHE_HOME / "config" / "config.yml"
         if soothe_config_path.exists():
-            self._soothe_config = SootheConfig.from_file(soothe_config_path)
+            self._soothe_config = SootheConfig.from_yaml_file(str(soothe_config_path))
         else:
             # Create default soothe config
             self._soothe_config = self._create_default_soothe_config()

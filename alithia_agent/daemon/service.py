@@ -215,18 +215,24 @@ class DaemonService:
                         if "paper_count" in chunk:
                             papers_count = chunk["paper_count"]
 
-                # Update notification record to sent
+                # Update notification record:
+                # - sent: successful run with papers
+                # - empty: successful run with 0 papers (retriable)
+                status = "sent" if papers_count > 0 else "empty"
                 self._storage.save_notification_record(
                     {
                         "user_id": self._user_id,
                         "query_categories": self._query_categories,
                         "notification_date": from_date,
-                        "status": "sent",
+                        "status": status,
                         "paper_count": papers_count,
                     }
                 )
 
-                logger.info(f"Paperscout completed for {from_date}: {papers_count} papers")
+                logger.info(
+                    f"Paperscout completed for {from_date}: "
+                    f"{papers_count} papers (status={status})"
+                )
 
             except Exception as e:
                 logger.exception(f"Paperscout failed for {from_date}")

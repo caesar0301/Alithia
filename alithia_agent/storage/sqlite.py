@@ -220,7 +220,7 @@ class SQLiteStorage:
                 - query_categories: ArXiv query string
                 - notification_date: Date string (YYYY-MM-DD)
                 - paper_count: Number of papers in notification
-                - status: "pending" | "sent" | "failed" | "queried"
+                - status: "pending" | "empty" | "sent" | "failed"
                 - retry_count: Number of retry attempts
                 - sent_at: Timestamp when sent
                 - error_message: Error if failed
@@ -307,7 +307,24 @@ class SQLiteStorage:
         query_categories: str,
         window_days: int = 7,
     ) -> list[str]:
-        """Get dates within window that have no successful notification.
+        """Backward-compatible alias for unretrieved date lookup.
+
+        A day is considered unretrieved when it does not have terminal
+        `sent` status in notification records.
+        """
+        return self.get_unretrieved_notification_dates(
+            user_id=user_id,
+            query_categories=query_categories,
+            window_days=window_days,
+        )
+
+    def get_unretrieved_notification_dates(
+        self,
+        user_id: str,
+        query_categories: str,
+        window_days: int = 7,
+    ) -> list[str]:
+        """Get dates within window that are still unretrieved.
 
         Args:
             user_id: User identifier
@@ -315,7 +332,7 @@ class SQLiteStorage:
             window_days: Number of days to look back
 
         Returns:
-            List of date strings (YYYY-MM-DD) missing notifications.
+            List of date strings (YYYY-MM-DD) without terminal `sent` status.
         """
         self._ensure_notification_table()
         conn = self._get_connection()
@@ -493,8 +510,19 @@ class AlithiaStore:
         query_categories: str,
         window_days: int = 7,
     ) -> list[str]:
-        """Get missing notification dates for user."""
-        return self._storage.get_missing_notification_dates(
+        """Backward-compatible alias for unretrieved dates for user."""
+        return self.get_unretrieved_notification_dates(
+            query_categories=query_categories,
+            window_days=window_days,
+        )
+
+    def get_unretrieved_notification_dates(
+        self,
+        query_categories: str,
+        window_days: int = 7,
+    ) -> list[str]:
+        """Get unretrieved notification dates for user."""
+        return self._storage.get_unretrieved_notification_dates(
             self._user_id, query_categories, window_days
         )
 
