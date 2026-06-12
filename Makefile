@@ -1,7 +1,7 @@
 # Makefile for alithia-agent
 # Common commands for development and usage
 
-.PHONY: help install sync run daemon status test lint lint-fix format clean build publish
+.PHONY: help install sync run daemon daemon-stop status test lint lint-fix format clean build publish
 
 # Network-safe defaults for constrained regions/networks.
 # Override when needed, e.g.:
@@ -23,8 +23,9 @@ help:
 	@echo "  make run-prompt PROMPT='...'  Run with custom prompt"
 	@echo "  make paperscout Run paperscout subagent"
 	@echo "  make paperlens  Run paperlens subagent"
-	@echo "  make daemon     Start background daemon process"
-	@echo "  make status     Show daemon/scheduler status"
+	@echo "  make daemon       Start background daemon process"
+	@echo "  make daemon-stop  Stop background daemon process"
+	@echo "  make status       Show daemon/scheduler status"
 	@echo ""
 	@echo "Development:"
 	@echo "  make test       Run tests"
@@ -62,16 +63,52 @@ paperlens:
 	uv run alithia-agent --subagent paperlens "Analyze papers"
 
 # Daemon commands
+ALITHIA_HOME ?= $(HOME)/.alithia
+DAEMON_PID_FILE = $(ALITHIA_HOME)/daemon.pid
+DAEMON_LOG_DIR = $(ALITHIA_HOME)/logs
+
 daemon:
-	uv run alithia-agent daemon
+	@if [ -f $(DAEMON_PID_FILE) ] && kill -0 $$(cat $(DAEMON_PID_FILE)) 2>/dev/null; then \
+		echo "Daemon already running (PID $$(cat $(DAEMON_PID_FILE)))"; \
+		exit 1; \
+	fi
+	@mkdir -p $(DAEMON_LOG_DIR)
+	@nohup uv run alithia-agent daemon > $(DAEMON_LOG_DIR)/daemon.out 2>&1 &
+	@i=0; \
+	while [ $$i -lt 30 ]; do \
+		if [ -f $(DAEMON_PID_FILE) ] && kill -0 $$(cat $(DAEMON_PID_FILE)) 2>/dev/null; then \
+			echo "Daemon started (PID $$(cat $(DAEMON_PID_FILE)))"; \
+			echo "Logs: $(DAEMON_LOG_DIR)/daemon.log"; \
+			exit 0; \
+		fi; \
+		i=$$((i + 1)); \
+		sleep 1; \
+	done; \
+	echo "Failed to start daemon. Check $(DAEMON_LOG_DIR)/daemon.out"; \
+	exit 1
 
 daemon-stop:
-	@if [ -f ~/.alithia/daemon.pid ]; then \
-		kill $(cat ~/.alithia/daemon.pid) 2>/dev/null || echo "Daemon not running"; \
-		rm -f ~/.alithia/daemon.pid; \
-	else \
-		echo "No PID file found"; \
+	@if [ ! -f $(DAEMON_PID_FILE) ]; then \
+		echo "No PID file found — daemon not running"; \
+		exit 0; \
 	fi
+	@PID=$$(cat $(DAEMON_PID_FILE)); \
+	if kill -0 $$PID 2>/dev/null; then \
+		echo "Stopping daemon (PID $$PID)..."; \
+		kill -TERM $$PID; \
+		for i in 1 2 3 4 5; do \
+			kill -0 $$PID 2>/dev/null || break; \
+			sleep 1; \
+		done; \
+		if kill -0 $$PID 2>/dev/null; then \
+			echo "Daemon did not stop gracefully, forcing..."; \
+			kill -KILL $$PID 2>/dev/null || true; \
+		fi; \
+	else \
+		echo "Daemon not running (stale PID file)"; \
+	fi
+	@rm -f $(DAEMON_PID_FILE)
+	@echo "Daemon stopped"
 
 status:
 	uv run alithia-agent status
