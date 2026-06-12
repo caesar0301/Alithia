@@ -6,7 +6,11 @@ from unittest.mock import MagicMock
 import pytest
 
 from alithia_agent.models import ArxivPaper, ZoteroPaper
-from alithia_agent.paperscout.state import PaperScoutRuntimeConfig, SmtpRuntimeConfig, ZoteroRuntimeConfig
+from alithia_agent.plugins.paperscout.state import (
+    PaperScoutRuntimeConfig,
+    SmtpRuntimeConfig,
+    ZoteroRuntimeConfig,
+)
 
 
 @pytest.fixture

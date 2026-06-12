@@ -11,8 +11,8 @@ from typing import Any
 
 from soothe_sdk.plugin import plugin, subagent
 
-from alithia_agent.paperlens.implementation import create_paperlens_subagent
-from alithia_agent.paperlens.state import PaperLensRuntimeConfig
+from alithia_agent.plugins.paperlens.implementation import create_paperlens_subagent
+from alithia_agent.plugins.paperlens.state import PaperLensRuntimeConfig
 
 logger = logging.getLogger(__name__)
 

@@ -11,8 +11,8 @@ from typing import Any
 
 from soothe_sdk.plugin import plugin, subagent
 
-from alithia_agent.paperscout.implementation import create_paperscout_subagent
-from alithia_agent.paperscout.state import PaperScoutRuntimeConfig
+from alithia_agent.plugins.paperscout.implementation import create_paperscout_subagent
+from alithia_agent.plugins.paperscout.state import PaperScoutRuntimeConfig
 
 logger = logging.getLogger(__name__)
 

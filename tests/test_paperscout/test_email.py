@@ -1,6 +1,6 @@
 """Tests for PaperScout email formatting."""
 
-from alithia_agent.paperscout.email import (
+from alithia_agent.plugins.paperscout.email import (
     construct_email_content,
     create_empty_email_html,
     create_paper_html,

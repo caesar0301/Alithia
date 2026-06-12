@@ -1,7 +1,13 @@
 # Makefile for alithia-agent
 # Common commands for development and usage
 
-.PHONY: help install sync run daemon status test lint format clean
+.PHONY: help install sync run daemon status test lint lint-fix format clean build publish
+
+# Network-safe defaults for constrained regions/networks.
+# Override when needed, e.g.:
+#   make build UV_INDEX_URL=https://pypi.org/simple UV_HTTP_TIMEOUT=180
+UV_INDEX_URL ?= https://pypi.tuna.tsinghua.edu.cn/simple
+UV_HTTP_TIMEOUT ?= 120
 
 # Default target
 help:
@@ -23,8 +29,13 @@ help:
 	@echo "Development:"
 	@echo "  make test       Run tests"
 	@echo "  make lint       Run ruff linter"
+	@echo "  make lint-fix   Auto-fix lint issues with ruff"
 	@echo "  make format     Run ruff formatter"
 	@echo "  make check      Run lint + format check"
+	@echo ""
+	@echo "Release:"
+	@echo "  make build      Build sdist/wheel into dist/"
+	@echo "  make publish    Upload dist/* to PyPI (needs TWINE_PASSWORD)"
 	@echo ""
 	@echo "Maintenance:"
 	@echo "  make clean      Clean cache and temp files"
@@ -76,10 +87,13 @@ test-coverage:
 	uv run pytest tests/ -v --cov=alithia_agent --cov-report=term-missing
 
 lint:
-	uv run ruff check alithia_agent/
+	uv run ruff check .
+
+lint-fix:
+	uv run ruff check . --fix
 
 format:
-	uv run ruff format alithia_agent/
+	uv run ruff format .
 
 format-check:
 	uv run ruff format --check alithia_agent/
@@ -88,6 +102,24 @@ check: lint format-check
 
 typecheck:
 	uv run mypy alithia_agent/
+
+# Release commands
+build:
+	UV_HTTP_TIMEOUT=$(UV_HTTP_TIMEOUT) \
+		uv run --index-url $(UV_INDEX_URL) --with build python -m build
+
+publish:
+	@TOKEN="$(PYPI_TOKEN)"; \
+	if [ -z "$$TOKEN" ]; then TOKEN="$(TWINE_PASSWORD)"; fi; \
+	if [ -z "$$TOKEN" ]; then \
+		echo "PyPI token required. Set PYPI_TOKEN (preferred) or TWINE_PASSWORD."; \
+		echo "Example: make publish PYPI_TOKEN=pypi-xxxx"; \
+		exit 1; \
+	fi; \
+	TWINE_USERNAME=$${TWINE_USERNAME:-__token__} \
+	TWINE_PASSWORD="$$TOKEN" \
+	UV_HTTP_TIMEOUT=$(UV_HTTP_TIMEOUT) \
+	uv run --index-url $(UV_INDEX_URL) --with twine python -m twine upload dist/*
 
 # Maintenance commands
 clean:

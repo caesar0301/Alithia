@@ -135,6 +135,8 @@ def make_nodes(store: Any, user_id: str) -> dict[str, Any]:
             arxiv_papers: list[ArxivPaper] = []
             papers_per_category = config.max_papers_queried // len(config.arxiv_categories)
 
+            arxiv_client = arxiv.Client()
+
             for category in config.arxiv_categories:
                 search = arxiv.Search(
                     query=f"cat:{category}",
@@ -142,7 +144,7 @@ def make_nodes(store: Any, user_id: str) -> dict[str, Any]:
                     sort_by=arxiv.SortCriterion.SubmittedDate,
                 )
 
-                for result in search.results():
+                for result in arxiv_client.results(search):
                     if result.published.date() < start_date:
                         continue
 
