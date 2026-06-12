@@ -230,8 +230,7 @@ class DaemonService:
                 )
 
                 logger.info(
-                    f"Paperscout completed for {from_date}: "
-                    f"{papers_count} papers (status={status})"
+                    f"Paperscout completed for {from_date}: {papers_count} papers (status={status})"
                 )
 
             except Exception as e:

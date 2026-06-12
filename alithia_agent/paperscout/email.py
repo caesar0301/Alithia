@@ -6,10 +6,12 @@ Generates HTML email digests from scored papers and sends via SMTP.
 from __future__ import annotations
 
 import logging
+import math
 import smtplib
 from datetime import datetime
-from email.mime.multipart import MIMEMultipart
+from email.header import Header
 from email.mime.text import MIMEText
+from email.utils import formataddr, parseaddr
 
 from alithia_agent.models import ArxivPaper, EmailContent, ScoredPaper
 from alithia_agent.paperscout.state import SmtpRuntimeConfig
@@ -31,42 +33,15 @@ EMAIL_TEMPLATE = """
       display: inline-flex;
       align-items: center;
     }}
-    .paper-card {{
-      border: 1px solid #ddd;
-      border-radius: 8px;
-      padding: 16px;
-      margin-bottom: 16px;
-      background-color: #f9f9f9;
-    }}
-    .paper-title {{
-      font-size: 18px;
-      font-weight: bold;
-      color: #333;
-    }}
-    .paper-authors {{
-      color: #666;
-      margin-top: 8px;
-    }}
-    .paper-tldr {{
-      margin-top: 12px;
-      color: #444;
-    }}
-    .paper-links {{
-      margin-top: 12px;
-    }}
-    .link-button {{
+    .half-star {{
       display: inline-block;
-      padding: 8px 16px;
-      border-radius: 4px;
-      font-weight: bold;
-      color: #fff;
-      margin-right: 8px;
+      width: 0.5em;
+      overflow: hidden;
+      white-space: nowrap;
+      vertical-align: middle;
     }}
-    .pdf-link {{
-      background-color: #d9534f;
-    }}
-    .code-link {{
-      background-color: #5bc0de;
+    .full-star {{
+      vertical-align: middle;
     }}
   </style>
 </head>
@@ -74,7 +49,9 @@ EMAIL_TEMPLATE = """
 
 <h2>PaperScout Digest {digest_date}</h2>
 
-{content}
+<div>
+    {content}
+</div>
 
 <br><br>
 <div style="color: #999;">
@@ -88,69 +65,139 @@ EMAIL_TEMPLATE = """
 
 
 def get_stars_html(score: float) -> str:
-    """Generate star rating HTML."""
-    if score <= 6:
-        return ""
-    if score >= 8:
-        return "⭐" * 5
+    """Generate star rating HTML based on score."""
+    full_star = '<span class="full-star">⭐</span>'
+    half_star = '<span class="half-star">⭐</span>'
 
-    star_count = int((score - 6) / 0.4) + 1
-    return "⭐" * min(star_count, 5)
+    low = 6
+    high = 8
+
+    if score <= low:
+        return ""
+    if score >= high:
+        return full_star * 5
+
+    interval = (high - low) / 10
+    star_num = math.ceil((score - low) / interval)
+    full_star_num = int(star_num / 2)
+    half_star_num = star_num - full_star_num * 2
+    return (
+        '<div class="star-wrapper">'
+        + full_star * full_star_num
+        + half_star * half_star_num
+        + "</div>"
+    )
+
+
+def _format_affiliations(paper: ArxivPaper) -> str:
+    """Format affiliations for display."""
+    if not paper.affiliations:
+        return "Unknown Affiliation"
+
+    affiliations = paper.affiliations[:5]
+    affiliations_str = ", ".join(affiliations)
+    if len(paper.affiliations) > 5:
+        affiliations_str += ", ..."
+    return affiliations_str
+
+
+def _get_tldr(paper: ScoredPaper) -> str:
+    """Get TLDR text for a scored paper."""
+    if isinstance(paper.paper, ArxivPaper):
+        return paper.paper.tldr or paper.paper.summary[:200] + "..."
+    if paper.paper.abstract:
+        return paper.paper.abstract[:200] + "..."
+    return "No summary available"
 
 
 def create_paper_html(paper: ScoredPaper) -> str:
     """Create HTML block for a single paper."""
-    stars = get_stars_html(paper.score)
+    stars_html = get_stars_html(paper.score)
 
     authors = paper.paper.authors[:5]
     authors_str = ", ".join(authors)
     if len(paper.paper.authors) > 5:
         authors_str += ", ..."
 
-    # Get TLDR - handle union type properly
-    tldr = None
-    if isinstance(paper.paper, ArxivPaper):
-        tldr = paper.paper.tldr or paper.paper.summary[:200] + "..."
-    else:
-        # AcademicPaper - use abstract
-        tldr = paper.paper.abstract[:200] + "..." if paper.paper.abstract else "..."
+    affiliations_str = (
+        _format_affiliations(paper.paper)
+        if isinstance(paper.paper, ArxivPaper)
+        else "Unknown Affiliation"
+    )
 
     code_link = ""
     if isinstance(paper.paper, ArxivPaper) and paper.paper.code_url:
-        code_link = f'<a href="{paper.paper.code_url}" class="link-button code-link">Code</a>'
+        code_link = (
+            f'<a href="{paper.paper.code_url}" '
+            'style="display: inline-block; text-decoration: none; font-size: 14px; '
+            "font-weight: bold; color: #fff; background-color: #5bc0de; padding: 8px 16px; "
+            'border-radius: 4px; margin-left: 8px;">Code</a>'
+        )
 
-    # Get PDF URL - handle union type
     pdf_url = ""
+    arxiv_id = ""
     if isinstance(paper.paper, ArxivPaper):
         pdf_url = paper.paper.pdf_url
+        arxiv_id = paper.paper.arxiv_id
     elif paper.paper.source_url:
         pdf_url = paper.paper.source_url
 
+    tldr = _get_tldr(paper)
+
+    arxiv_row = ""
+    if arxiv_id:
+        arxiv_row = f"""
+    <tr>
+        <td style="font-size: 14px; color: #333; padding: 8px 0;">
+            <strong>arXiv ID:</strong> {arxiv_id}
+        </td>
+    </tr>"""
+
     return f"""
-<div class="paper-card">
-  <div class="paper-title">{paper.paper.title}</div>
-  <div class="paper-authors">{authors_str}</div>
-  <div style="margin-top: 8px;">
-    <strong>Relevance:</strong> {stars} ({paper.score:.1f})
-  </div>
-  <div class="paper-tldr">
-    <strong>TLDR:</strong> {tldr}
-  </div>
-  <div class="paper-links">
-    <a href="{pdf_url}" class="link-button pdf-link">PDF</a>
-    {code_link}
-  </div>
-</div>
-"""
+    <table border="0" cellpadding="0" cellspacing="0" width="100%" style="font-family: Arial, sans-serif; border: 1px solid #ddd; border-radius: 8px; padding: 16px; background-color: #f9f9f9;">
+    <tr>
+        <td style="font-size: 20px; font-weight: bold; color: #333;">
+            {paper.paper.title}
+        </td>
+    </tr>
+    <tr>
+        <td style="font-size: 14px; color: #666; padding: 8px 0;">
+            {authors_str}
+            <br>
+            <i>{affiliations_str}</i>
+        </td>
+    </tr>
+    <tr>
+        <td style="font-size: 14px; color: #333; padding: 8px 0;">
+            <strong>Relevance:</strong> {stars_html}
+        </td>
+    </tr>{arxiv_row}
+    <tr>
+        <td style="font-size: 14px; color: #333; padding: 8px 0;">
+            <strong>TLDR:</strong> {tldr}
+        </td>
+    </tr>
+    <tr>
+        <td style="padding: 8px 0;">
+            <a href="{pdf_url}" style="display: inline-block; text-decoration: none; font-size: 14px; font-weight: bold; color: #fff; background-color: #d9534f; padding: 8px 16px; border-radius: 4px;">PDF</a>
+            {code_link}
+        </td>
+    </tr>
+    </table>
+    """
 
 
 def create_empty_email_html() -> str:
     """Create HTML for empty digest."""
     return """
-<div class="paper-card">
-  <div class="paper-title">No Papers Today. Take a Rest!</div>
-</div>
-"""
+    <table border="0" cellpadding="0" cellspacing="0" width="100%" style="font-family: Arial, sans-serif; border: 1px solid #ddd; border-radius: 8px; padding: 16px; background-color: #f9f9f9;">
+    <tr>
+        <td style="font-size: 20px; font-weight: bold; color: #333;">
+            No Papers Today. Take a Rest!
+        </td>
+    </tr>
+    </table>
+    """
 
 
 def get_digest_date(papers: list[ScoredPaper]) -> str:
@@ -190,14 +237,13 @@ def construct_email_content(papers: list[ScoredPaper]) -> EmailContent:
         )
 
     paper_blocks = [create_paper_html(p) for p in papers]
-    content = "".join(paper_blocks)
+    content = "<br>".join(paper_blocks)
 
     html = EMAIL_TEMPLATE.format(
         digest_date=digest_date,
         content=content,
     )
 
-    # Extract ArxivPaper from ScoredPaper
     arxiv_papers = []
     for sp in papers:
         if hasattr(sp.paper, "arxiv_id"):
@@ -208,6 +254,12 @@ def construct_email_content(papers: list[ScoredPaper]) -> EmailContent:
         html_body=html,
         papers=arxiv_papers,
     )
+
+
+def _format_addr(address: str) -> str:
+    """Format email address with UTF-8 encoded display name."""
+    name, addr = parseaddr(address)
+    return formataddr((Header(name, "utf-8").encode(), addr))
 
 
 def send_email(
@@ -228,28 +280,18 @@ def send_email(
     recipient = recipient or smtp_config.user
 
     try:
-        msg = MIMEMultipart("alternative")
-        msg["Subject"] = email_content.subject
-        msg["From"] = smtp_config.user
-        msg["To"] = recipient
-
-        html_part = MIMEText(email_content.html_body, "html")
-        msg.attach(html_part)
-
-        if email_content.text_body:
-            text_part = MIMEText(email_content.text_body, "plain")
-            msg.attach(text_part)
+        msg = MIMEText(email_content.html_body, "html", "utf-8")
+        msg["From"] = _format_addr(f"PaperScout <{smtp_config.user}>")
+        msg["To"] = _format_addr(f"You <{recipient}>")
+        msg["Subject"] = Header(email_content.subject, "utf-8").encode()
 
         logger.info(f"Connecting to SMTP: {smtp_config.host}:{smtp_config.port}")
 
-        # Port 465 uses implicit SSL (SMTP_SSL), port 587 uses starttls
         if smtp_config.port == 465:
-            # Implicit SSL connection
             with smtplib.SMTP_SSL(smtp_config.host, smtp_config.port) as server:
                 server.login(smtp_config.user, smtp_config.password)
                 server.sendmail(smtp_config.user, recipient, msg.as_string())
         else:
-            # Standard SMTP with optional starttls
             with smtplib.SMTP(smtp_config.host, smtp_config.port) as server:
                 if smtp_config.use_tls:
                     server.starttls()

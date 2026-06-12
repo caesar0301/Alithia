@@ -21,6 +21,7 @@ from alithia_agent.storage.sqlite import SQLiteStorage
 
 logger = logging.getLogger(__name__)
 
+
 class PaperScoutScheduler:
     """Configurable scheduler for daily discovery with bounded backlog retry."""
 

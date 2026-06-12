@@ -1,12 +1,12 @@
 """Tests for PaperScout email formatting."""
 
+from alithia_agent.models import ScoredPaper
 from alithia_agent.plugins.paperscout.email import (
     construct_email_content,
     create_empty_email_html,
     create_paper_html,
     get_stars_html,
 )
-from alithia_agent.models import ScoredPaper
 
 
 def test_get_stars_html_low_score():

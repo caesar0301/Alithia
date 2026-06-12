@@ -4,4 +4,3 @@ Compatibility shim re-exporting canonical implementation.
 """
 
 from alithia_agent.paperlens.state import *  # noqa: F403
-

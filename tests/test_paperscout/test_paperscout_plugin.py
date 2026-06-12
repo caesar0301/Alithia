@@ -1,7 +1,8 @@
 """Tests for PaperScout plugin registration."""
 
-import pytest
 from unittest.mock import MagicMock
+
+import pytest
 
 from alithia_agent.plugins.paperscout import PaperScoutPlugin
 
@@ -52,7 +53,9 @@ async def test_create_paperscout_subagent(sample_config, mock_persist_store):
     # Create subagent
     subagent_dict = await plugin.create_subagent(
         model=None,  # Not used in basic implementation
-        config=MagicMock(subagents={"paperscout": MagicMock(enabled=True, config=sample_config.model_dump())}),
+        config=MagicMock(
+            subagents={"paperscout": MagicMock(enabled=True, config=sample_config.model_dump())}
+        ),
         context=context,
         store=mock_persist_store,
         user_id="test_user",

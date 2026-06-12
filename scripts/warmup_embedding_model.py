@@ -32,7 +32,9 @@ def get_cache_dir() -> Path:
     return Path.home() / ".cache" / "alithia" / "models" / "huggingface"
 
 
-def download_from_modelscope(model_name: str, cache_dir: Path, verbose: bool = False) -> Path | None:
+def download_from_modelscope(
+    model_name: str, cache_dir: Path, verbose: bool = False
+) -> Path | None:
     """Download model from ModelScope.
 
     Args:
@@ -90,7 +92,7 @@ def download_from_hf_mirror(model_name: str, cache_dir: Path, verbose: bool = Fa
         from sentence_transformers import SentenceTransformer
 
         if verbose:
-            print(f"Downloading from HF mirror: https://hf-mirror.com")
+            print("Downloading from HF mirror: https://hf-mirror.com")
 
         model = SentenceTransformer(model_name, cache_folder=str(cache_dir))
 
@@ -132,9 +134,10 @@ def warmup_model(model_name: str = "all-MiniLM-L6-v2", verbose: bool = False) ->
         # Verify by loading
         try:
             from sentence_transformers import SentenceTransformer
+
             model = SentenceTransformer(str(model_path))
             if verbose:
-                print(f"Model loaded successfully from ModelScope")
+                print("Model loaded successfully from ModelScope")
                 print(f"Max sequence length: {model.max_seq_length}")
             return True
         except Exception as e:
@@ -150,7 +153,8 @@ def main() -> int:
         description="Pre-download embedding model for Alithia Agent",
     )
     parser.add_argument(
-        "--verbose", "-v",
+        "--verbose",
+        "-v",
         action="store_true",
         help="Show detailed progress",
     )

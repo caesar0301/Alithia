@@ -203,9 +203,7 @@ class ConfigLoader:
             if loaded is None:
                 return {}
             if not isinstance(loaded, dict):
-                raise ConfigError(
-                    "Invalid YAML config: root must be a mapping/object."
-                )
+                raise ConfigError("Invalid YAML config: root must be a mapping/object.")
             return loaded  # type: ignore[no-any-return]
 
         except yaml.YAMLError as e:
