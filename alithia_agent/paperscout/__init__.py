@@ -4,7 +4,7 @@ A soothe framework subagent that:
 1. Validates Zotero/SMTP configuration
 2. Fetches papers from ArXiv API
 3. Analyzes user's Zotero library for relevance profiling
-4. Ranks papers using sentence embeddings
+4. Ranks papers using FastEmbed embeddings
 5. Sends email digest notifications
 """
 

@@ -2,7 +2,7 @@
 
 import pytest
 
-from alithia_agent.plugins.paperscout.reranker import PaperReranker
+from alithia_agent.paperscout.reranker import PaperReranker
 
 
 def test_reranker_initialization(sample_arxiv_paper, sample_zotero_paper):
@@ -40,7 +40,7 @@ def test_reranker_empty_corpus(sample_arxiv_paper):
     assert scored[0].score == 5.0  # Default fallback score
 
 
-@pytest.mark.skip(reason="Requires sentence-transformers model download")
+@pytest.mark.skip(reason="Requires fastembed model download")
 def test_reranker_basic_scoring(sample_arxiv_paper, sample_zotero_paper):
     """Test basic paper scoring (integration test, requires model)."""
     reranker = PaperReranker(

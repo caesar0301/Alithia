@@ -18,7 +18,10 @@ def sample_arxiv_paper():
     """Sample ArXiv paper for testing."""
     return ArxivPaper(
         title="Attention Is All You Need",
-        summary="The dominant sequence transduction models are based on complex recurrent or convolutional neural networks...",
+        summary=(
+            "The dominant sequence transduction models are based on complex "
+            "recurrent or convolutional neural networks..."
+        ),
         authors=["Ashish Vaswani", "Noam Shazeer", "Niki Parmar"],
         arxiv_id="1706.03762",
         pdf_url="https://arxiv.org/pdf/1706.03762.pdf",

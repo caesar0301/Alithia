@@ -32,7 +32,7 @@ __all__ = [
     dependencies=[
         "langgraph>=0.2.0",
         "docling>=2.0.0",
-        "sentence-transformers>=2.2.0",
+        "fastembed>=0.6.0",
     ],
     trust_level="standard",
 )
@@ -63,14 +63,11 @@ class PaperLensPlugin:
             context.logger.warning("docling not installed. Install with: pip install docling")
 
         try:
-            import sentence_transformers  # noqa: F401
+            import fastembed  # noqa: F401
 
-            context.logger.debug("sentence-transformers available")
+            context.logger.debug("fastembed available")
         except ImportError:
-            context.logger.warning(
-                "sentence-transformers not installed. "
-                "Install with: pip install sentence-transformers"
-            )
+            context.logger.warning("fastembed not installed. Install with: pip install fastembed")
 
         context.logger.info("PaperLens plugin loaded successfully")
 

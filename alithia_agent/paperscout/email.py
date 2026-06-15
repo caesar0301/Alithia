@@ -154,7 +154,9 @@ def create_paper_html(paper: ScoredPaper) -> str:
     </tr>"""
 
     return f"""
-    <table border="0" cellpadding="0" cellspacing="0" width="100%" style="font-family: Arial, sans-serif; border: 1px solid #ddd; border-radius: 8px; padding: 16px; background-color: #f9f9f9;">
+    <table border="0" cellpadding="0" cellspacing="0" width="100%"
+        style="font-family: Arial, sans-serif; border: 1px solid #ddd;
+               border-radius: 8px; padding: 16px; background-color: #f9f9f9;">
     <tr>
         <td style="font-size: 20px; font-weight: bold; color: #333;">
             {paper.paper.title}
@@ -179,7 +181,10 @@ def create_paper_html(paper: ScoredPaper) -> str:
     </tr>
     <tr>
         <td style="padding: 8px 0;">
-            <a href="{pdf_url}" style="display: inline-block; text-decoration: none; font-size: 14px; font-weight: bold; color: #fff; background-color: #d9534f; padding: 8px 16px; border-radius: 4px;">PDF</a>
+            <a href="{pdf_url}"
+                style="display: inline-block; text-decoration: none; font-size: 14px;
+                       font-weight: bold; color: #fff; background-color: #d9534f;
+                       padding: 8px 16px; border-radius: 4px;">PDF</a>
             {code_link}
         </td>
     </tr>
@@ -190,7 +195,9 @@ def create_paper_html(paper: ScoredPaper) -> str:
 def create_empty_email_html() -> str:
     """Create HTML for empty digest."""
     return """
-    <table border="0" cellpadding="0" cellspacing="0" width="100%" style="font-family: Arial, sans-serif; border: 1px solid #ddd; border-radius: 8px; padding: 16px; background-color: #f9f9f9;">
+    <table border="0" cellpadding="0" cellspacing="0" width="100%"
+        style="font-family: Arial, sans-serif; border: 1px solid #ddd;
+               border-radius: 8px; padding: 16px; background-color: #f9f9f9;">
     <tr>
         <td style="font-size: 20px; font-weight: bold; color: #333;">
             No Papers Today. Take a Rest!

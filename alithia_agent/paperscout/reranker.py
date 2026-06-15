@@ -1,10 +1,9 @@
-"""Paper reranking using sentence embeddings.
+"""Paper reranking using FastEmbed embeddings.
 
 Ranks ArXiv papers by relevance to user's Zotero library
-using sentence transformer embeddings and time-decay weighting.
+using FastEmbed ONNX embeddings and time-decay weighting.
 
 Model cache is isolated from Soothe framework.
-Download priority: ModelScope → HF mirror → fallback.
 """
 
 from __future__ import annotations
@@ -21,64 +20,25 @@ from alithia_agent.models import ArxivPaper, ScoredPaper, ZoteroPaper
 
 logger = logging.getLogger(__name__)
 
+# Default embedding model (same as soothe for consistency)
+EMBEDDING_MODEL_NAME = "sentence-transformers/all-MiniLM-L6-v2"
+
 
 def get_model_cache_dir() -> Path:
     """Get Alithia's own model cache directory (isolated from Soothe).
 
     Priority:
-    1. ALITHIA_HF_CACHE env var (for Docker builds)
-    2. SENTENCE_TRANSFORMERS_HOME env var
-    3. Default: ~/.cache/alithia/models/huggingface
+    1. ALITHIA_EMBEDDING_CACHE env var (for Docker builds)
+    2. Default: ~/.cache/alithia/models/embeddings
     """
-    # Priority 1: Alithia-specific cache env var
-    env_cache = os.environ.get("ALITHIA_HF_CACHE")
+    env_cache = os.environ.get("ALITHIA_EMBEDDING_CACHE")
     if env_cache:
         return Path(env_cache)
-
-    # Priority 2: Sentence transformers default env var
-    st_cache = os.environ.get("SENTENCE_TRANSFORMERS_HOME")
-    if st_cache:
-        return Path(st_cache)
-
-    # Priority 3: Alithia's own cache (isolated from Soothe)
-    return Path.home() / ".cache" / "alithia" / "models" / "huggingface"
+    return Path.home() / ".cache" / "alithia" / "models" / "embeddings"
 
 
-def download_from_modelscope(model_name: str, cache_dir: Path) -> Path | None:
-    """Download model from ModelScope.
-
-    Args:
-        model_name: Model name.
-        cache_dir: Cache directory.
-
-    Returns:
-        Path to model, or None if failed.
-    """
-    try:
-        from modelscope.hub.snapshot_download import snapshot_download
-
-        modelscope_model = f"sentence-transformers/{model_name}"
-        logger.info(f"Downloading from ModelScope: {modelscope_model}")
-
-        model_path = snapshot_download(
-            modelscope_model,
-            cache_dir=str(cache_dir),
-        )
-        logger.info(f"ModelScope download complete: {model_path}")
-        return Path(model_path)
-
-    except ImportError:
-        logger.debug("ModelScope SDK not installed")
-        return None
-    except Exception as e:
-        logger.warning(f"ModelScope download failed: {e}")
-        return None
-
-
-def load_encoder(model_name: str, cache_dir: Path) -> tuple[Any, str]:
-    """Load sentence transformer encoder.
-
-    Priority: ModelScope → HF mirror → fallback
+def load_encoder(model_name: str, cache_dir: Path) -> tuple[Any | None, str]:
+    """Load FastEmbed encoder.
 
     Args:
         model_name: Model name to load.
@@ -87,45 +47,50 @@ def load_encoder(model_name: str, cache_dir: Path) -> tuple[Any, str]:
     Returns:
         Tuple of (encoder, source) or (None, "fallback").
     """
-    # Try ModelScope first
-    model_path = download_from_modelscope(model_name, cache_dir)
-
-    if model_path and model_path.exists():
-        try:
-            from sentence_transformers import SentenceTransformer
-
-            encoder = SentenceTransformer(str(model_path))
-            logger.info(
-                f"Loaded encoder from ModelScope (max_seq_length: {encoder.max_seq_length})"
-            )
-            return encoder, "modelscope"
-        except Exception as e:
-            logger.warning(f"Failed to load ModelScope model: {e}")
-
-    # Fallback to HF mirror
-    os.environ["HF_ENDPOINT"] = "https://hf-mirror.com"
+    # Set HF mirror for reliable downloads (especially in China)
+    if "HF_ENDPOINT" not in os.environ:
+        os.environ["HF_ENDPOINT"] = "https://hf-mirror.com"
 
     try:
-        from sentence_transformers import SentenceTransformer
+        from fastembed import TextEmbedding
 
-        logger.info(f"Loading encoder from HF mirror: {model_name}")
+        logger.info(f"Loading FastEmbed encoder: {model_name}")
         logger.info(f"Cache directory: {cache_dir}")
 
-        encoder = SentenceTransformer(model_name, cache_folder=str(cache_dir))
-        logger.info(f"Encoder loaded from HF mirror (max_seq_length: {encoder.max_seq_length})")
-        return encoder, "hf_mirror"
+        encoder = TextEmbedding(model_name=model_name, cache_dir=str(cache_dir))
+        logger.info("FastEmbed encoder loaded successfully")
+        return encoder, "fastembed"
 
+    except ImportError:
+        logger.warning("fastembed not installed, using fallback scoring")
+        return None, "fallback"
     except Exception as e:
         logger.error(f"Failed to load encoder: {e}")
         logger.warning("Will use fallback scoring instead")
         return None, "fallback"
 
 
+def encode_texts(encoder: Any, texts: list[str]) -> list[np.ndarray]:
+    """Encode texts to embedding vectors using FastEmbed.
+
+    Args:
+        encoder: Loaded TextEmbedding instance.
+        texts: Input strings to embed.
+
+    Returns:
+        List of embedding vectors as numpy arrays.
+    """
+    if not texts:
+        return []
+    embeddings = list(encoder.embed(texts))
+    return [np.array(emb) for emb in embeddings]
+
+
 class PaperReranker:
-    """Paper reranking with sentence transformer embeddings.
+    """Paper reranking with FastEmbed embeddings.
 
     Features:
-    - Sentence Transformer embeddings (all-MiniLM-L6-v2)
+    - FastEmbed ONNX embeddings (all-MiniLM-L6-v2)
     - Time-decay weighting for corpus recency
     - Fallback scoring for edge cases
     """
@@ -154,14 +119,14 @@ class PaperReranker:
 
     def rerank(
         self,
-        model_name: str = "all-MiniLM-L6-v2",
+        model_name: str = EMBEDDING_MODEL_NAME,
         batch_size: int = 32,
     ) -> list[ScoredPaper]:
-        """Rerank papers using sentence transformers.
+        """Rerank papers using FastEmbed.
 
         Args:
-            model_name: Sentence transformer model.
-            batch_size: Batch size for encoding.
+            model_name: FastEmbed model.
+            batch_size: Batch size for encoding (not used in fastembed, kept for API compat).
 
         Returns:
             List of ScoredPaper sorted by relevance (highest first).
@@ -224,11 +189,8 @@ class PaperReranker:
 
             # Encode corpus
             logger.info(f"Encoding {len(corpus_texts)} corpus abstracts")
-            corpus_embeddings = encoder.encode(
-                corpus_texts,
-                batch_size=batch_size,
-                normalize_embeddings=True,
-            )
+            corpus_embeddings = encode_texts(encoder, corpus_texts)
+            corpus_matrix = np.array(corpus_embeddings)
 
             # Extract paper summaries
             paper_texts: list[str] = []
@@ -244,16 +206,15 @@ class PaperReranker:
 
             # Encode papers
             logger.info(f"Encoding {len(paper_texts)} paper summaries")
-            paper_embeddings = encoder.encode(
-                paper_texts,
-                batch_size=batch_size,
-                normalize_embeddings=True,
-            )
+            paper_embeddings = encode_texts(encoder, paper_texts)
+            paper_matrix = np.array(paper_embeddings)
+
+            # Normalize embeddings for cosine similarity
+            corpus_norm = corpus_matrix / np.linalg.norm(corpus_matrix, axis=1, keepdims=True)
+            paper_norm = paper_matrix / np.linalg.norm(paper_matrix, axis=1, keepdims=True)
 
             # Calculate cosine similarity
-            from sklearn.metrics.pairwise import cosine_similarity
-
-            similarities = cosine_similarity(paper_embeddings, corpus_embeddings)
+            similarities = np.dot(paper_norm, corpus_norm.T)
 
             # Weighted scores
             scores = (similarities * time_decay_weight).sum(axis=1) * 10
@@ -333,4 +294,4 @@ class PaperReranker:
         return scored
 
 
-__all__ = ["PaperReranker", "load_encoder", "get_model_cache_dir"]
+__all__ = ["PaperReranker", "load_encoder", "get_model_cache_dir", "EMBEDDING_MODEL_NAME"]

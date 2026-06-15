@@ -3,7 +3,7 @@
 A soothe framework subagent that:
 1. Parses PDFs using Docling with IBM Granite VLM
 2. Enhances metadata using LLM when needed
-3. Calculates semantic similarity using sentence embeddings
+3. Calculates semantic similarity using FastEmbed embeddings
 4. Returns ranked results with relevance scores
 """
 
