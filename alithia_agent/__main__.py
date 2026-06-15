@@ -9,12 +9,11 @@ Usage:
     python -m alithia_agent --subagent paperscout "Check for new papers"
     python -m alithia_agent --subagent paperlens "Analyze ~/papers directory"
 
-    # Daemon mode (background process):
-    python -m alithia_agent daemon
-    python -m alithia_agent daemon --config /path/to/config.yml
-
-    # Status check:
-    python -m alithia_agent status
+    # Daemon management:
+    python -m alithia_agent start     # Start daemon (background)
+    python -m alithia_agent stop      # Stop daemon
+    python -m alithia_agent restart   # Restart daemon
+    python -m alithia_agent status    # Show daemon status
 
 Exit codes:
     0: Success
@@ -28,6 +27,9 @@ import argparse
 import asyncio
 import json
 import logging
+import os
+import signal
+import subprocess
 import sys
 from pathlib import Path
 from typing import Any
@@ -41,6 +43,9 @@ logger = logging.getLogger(__name__)
 EXIT_SUCCESS = 0
 EXIT_ARG_ERROR = 1
 EXIT_EXEC_ERROR = 2
+
+# Daemon PID file path
+DAEMON_PID_FILE = ALITHIA_HOME / "daemon.pid"
 
 
 def setup_logging(verbose: bool, quiet: bool) -> None:
@@ -76,13 +81,13 @@ def parse_args() -> argparse.Namespace:
         description="CLI research assistant powered by soothe framework",
     )
 
-    # Positional argument: command or prompt
+    # Positional argument: command
     parser.add_argument(
         "command",
         type=str,
         nargs="?",
         default="run",
-        help="Command: 'run' (default with prompt), 'daemon', or 'status'",
+        help="Command: 'run' (default), 'start', 'stop', 'restart', 'status', 'daemon'",
     )
 
     # Optional second positional for prompt (when command is 'run')
@@ -132,7 +137,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--version",
         action="version",
-        version="alithia-agent 0.3.0",
+        version="alithia-agent 0.3.1",
     )
 
     # Legacy compatibility: --user-id for storage
@@ -204,6 +209,229 @@ async def run_agent(args: argparse.Namespace) -> int:
     return EXIT_SUCCESS
 
 
+def get_daemon_pid() -> int | None:
+    """Get daemon PID from PID file.
+
+    Returns:
+        PID if running, None if not running or no PID file.
+    """
+    if not DAEMON_PID_FILE.exists():
+        return None
+
+    try:
+        pid = int(DAEMON_PID_FILE.read_text().strip())
+        # Check if process is still running
+        os.kill(pid, 0)  # Signal 0 just checks if process exists
+        return pid
+    except (ValueError, OSError):
+        # Invalid PID or process not running
+        return None
+
+
+def is_daemon_running() -> bool:
+    """Check if daemon is running.
+
+    Returns:
+        True if daemon is running, False otherwise.
+    """
+    return get_daemon_pid() is not None
+
+
+def stop_daemon(args: argparse.Namespace) -> int:
+    """Stop daemon by sending SIGTERM.
+
+    Args:
+        args: Parsed CLI arguments.
+
+    Returns:
+        Exit code.
+    """
+    pid = get_daemon_pid()
+
+    if pid is None:
+        print("Daemon is not running")
+        return EXIT_SUCCESS
+
+    print(f"Stopping daemon (PID: {pid})...")
+
+    try:
+        # Send SIGTERM for graceful shutdown
+        os.kill(pid, signal.SIGTERM)
+
+        # Wait for process to terminate (up to 10 seconds)
+        import time
+
+        for _ in range(10):
+            try:
+                os.kill(pid, 0)  # Check if still running
+                time.sleep(1)
+            except OSError:
+                # Process terminated
+                print("Daemon stopped")
+                return EXIT_SUCCESS
+
+        # Force kill if still running
+        print("Daemon not responding, sending SIGKILL...")
+        os.kill(pid, signal.SIGKILL)
+        time.sleep(1)
+        print("Daemon killed")
+        return EXIT_SUCCESS
+
+    except OSError as e:
+        print(f"Error stopping daemon: {e}")
+        return EXIT_EXEC_ERROR
+
+
+def start_daemon(args: argparse.Namespace) -> int:
+    """Start daemon in background.
+
+    Args:
+        args: Parsed CLI arguments.
+
+    Returns:
+        Exit code.
+    """
+    # Check if already running
+    if is_daemon_running():
+        pid = get_daemon_pid()
+        print(f"Daemon already running (PID: {pid})")
+        return EXIT_SUCCESS
+
+    # Build command
+    cmd = [sys.executable, "-m", "alithia_agent", "daemon"]
+    if args.config:
+        cmd.extend(["--config", args.config])
+    if args.verbose:
+        cmd.append("--verbose")
+
+    print("Starting alithia-agent daemon...")
+
+    # Start daemon in background
+    try:
+        # Use subprocess to start daemon detached
+        subprocess.Popen(
+            cmd,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            start_new_session=True,  # Detach from parent process
+        )
+
+        # Wait a moment and check if started
+        import time
+
+        time.sleep(2)
+
+        pid = get_daemon_pid()
+        if pid:
+            print(f"Daemon started (PID: {pid})")
+            return EXIT_SUCCESS
+        else:
+            print("Daemon failed to start. Check logs at ~/.alithia/logs/daemon.log")
+            return EXIT_EXEC_ERROR
+
+    except Exception as e:
+        print(f"Error starting daemon: {e}")
+        return EXIT_EXEC_ERROR
+
+
+def restart_daemon(args: argparse.Namespace) -> int:
+    """Restart daemon (stop then start).
+
+    Args:
+        args: Parsed CLI arguments.
+
+    Returns:
+        Exit code.
+    """
+    print("Restarting alithia-agent daemon...")
+
+    # Stop if running
+    if is_daemon_running():
+        stop_result = stop_daemon(args)
+        if stop_result != EXIT_SUCCESS:
+            return stop_result
+
+    # Start
+    return start_daemon(args)
+
+
+async def run_daemon_command_async(args: argparse.Namespace) -> int:
+    """Run daemon service from async context (direct daemon command).
+
+    Args:
+        args: Parsed CLI arguments.
+
+    Returns:
+        Exit code.
+    """
+    from alithia_agent.daemon.service import DaemonService
+
+    config_path = Path(args.config) if args.config else None
+
+    logger.info("Daemon command invoked")
+
+    try:
+        service = DaemonService(config_path=config_path)
+        return await service.run()
+    except Exception as e:
+        logger.exception(f"Daemon failed: {e}")
+        return EXIT_EXEC_ERROR
+
+
+def run_status_command(args: argparse.Namespace) -> int:
+    """Show daemon/scheduler status.
+
+    Args:
+        args: Parsed CLI arguments.
+
+    Returns:
+        Exit code.
+    """
+    from alithia_agent.daemon.service import get_daemon_status
+
+    config_path = Path(args.config) if args.config else None
+
+    # Check running status from PID file
+    pid = get_daemon_pid()
+    running = pid is not None
+
+    # Get config-based status
+    config_status = get_daemon_status(config_path=config_path)
+
+    status = {
+        "running": running,
+        "pid": pid,
+        "pid_file": str(DAEMON_PID_FILE),
+        "config": config_status.get("config", {}),
+    }
+
+    if args.output == "json":
+        print(json.dumps(status, indent=2, default=str))
+    else:
+        print("Alithia-Agent Daemon Status")
+        print("=" * 40)
+
+        if running:
+            print(f"Status: RUNNING (PID: {pid})")
+        else:
+            print("Status: NOT RUNNING")
+
+        config = status.get("config", {})
+        print("\nConfiguration:")
+        print(f"  Scheduler enabled: {config.get('scheduler_enabled', False)}")
+        print(f"  Schedule: {config.get('schedule', 'N/A')}")
+        print(f"  Retry window: {config.get('retry_window_days', 'N/A')} days")
+        print(f"  Big bang: {config.get('big_bang', 'N/A')}")
+
+        print()
+        print("Commands:")
+        print("  alithia-agent start    # Start daemon")
+        print("  alithia-agent stop     # Stop daemon")
+        print("  alithia-agent restart  # Restart daemon")
+
+    return EXIT_SUCCESS
+
+
 async def main_async() -> int:
     """Async main entry point."""
     args = parse_args()
@@ -215,11 +443,23 @@ async def main_async() -> int:
     command = args.command
 
     if command == "daemon":
-        # Run daemon service (async)
+        # Run daemon service directly (foreground, async)
         return await run_daemon_command_async(args)
 
+    elif command == "start":
+        # Start daemon in background
+        return start_daemon(args)
+
+    elif command == "stop":
+        # Stop daemon
+        return stop_daemon(args)
+
+    elif command == "restart":
+        # Restart daemon
+        return restart_daemon(args)
+
     elif command == "status":
-        # Show daemon status (sync, no event loop needed)
+        # Show daemon status
         return run_status_command(args)
 
     elif command == "run":
@@ -231,8 +471,10 @@ async def main_async() -> int:
             print("  alithia-agent 'Rank my PDFs by relevance'")
             print("  alithia-agent --subagent paperscout 'Check for new papers'")
             print("\nDaemon commands:")
-            print("  alithia-agent daemon    # Start background paper scanner")
-            print("  alithia-agent status    # Show daemon/scheduler status")
+            print("  alithia-agent start    # Start background daemon")
+            print("  alithia-agent stop     # Stop daemon")
+            print("  alithia-agent restart  # Restart daemon")
+            print("  alithia-agent status   # Show daemon status")
             return EXIT_ARG_ERROR
 
         # Run agent
@@ -270,98 +512,6 @@ async def main_async() -> int:
 
                 traceback.print_exc()
             return EXIT_EXEC_ERROR
-
-
-def run_daemon_command(args: argparse.Namespace) -> int:
-    """Run daemon service (standalone entry point, not from main_async).
-
-    Args:
-        args: Parsed CLI arguments.
-
-    Returns:
-        Exit code.
-    """
-    from alithia_agent.daemon.service import run_daemon
-
-    config_path = Path(args.config) if args.config else None
-
-    print("Starting alithia-agent daemon...")
-    logger.info("Daemon command invoked")
-
-    try:
-        return run_daemon(config_path=config_path)
-    except Exception as e:
-        logger.exception(f"Daemon failed: {e}")
-        return EXIT_EXEC_ERROR
-
-
-async def run_daemon_command_async(args: argparse.Namespace) -> int:
-    """Run daemon service from async context (main_async).
-
-    Args:
-        args: Parsed CLI arguments.
-
-    Returns:
-        Exit code.
-    """
-    from alithia_agent.daemon.service import DaemonService
-
-    config_path = Path(args.config) if args.config else None
-
-    print("Starting alithia-agent daemon...")
-    logger.info("Daemon command invoked")
-
-    try:
-        service = DaemonService(config_path=config_path)
-        return await service.run()
-    except Exception as e:
-        logger.exception(f"Daemon failed: {e}")
-        return EXIT_EXEC_ERROR
-
-
-def run_status_command(args: argparse.Namespace) -> int:
-    """Show daemon/scheduler status.
-
-    Args:
-        args: Parsed CLI arguments.
-
-    Returns:
-        Exit code.
-    """
-    from alithia_agent.daemon.service import get_daemon_status
-
-    config_path = Path(args.config) if args.config else None
-
-    status = get_daemon_status(config_path=config_path)
-
-    if args.output == "json":
-        print(json.dumps(status, indent=2, default=str))
-    else:
-        print("Alithia-Agent Daemon Status")
-        print("=" * 40)
-
-        if status.get("running"):
-            print(f"Status: RUNNING (PID: {status['pid']})")
-        else:
-            print("Status: NOT RUNNING")
-
-        config = status.get("config", {})
-        print("\nConfiguration:")
-        print(f"  Scheduler enabled: {config.get('scheduler_enabled', False)}")
-        print(f"  Schedule: {config.get('schedule', 'N/A')}")
-        print(f"  Retry window: {config.get('retry_window_days', 'N/A')} days")
-        print(f"  Big bang: {config.get('big_bang', 'N/A')}")
-
-        scheduler = status.get("scheduler", {})
-        if scheduler:
-            print("\nScheduler:")
-            print(f"  Next run: {scheduler.get('next_run', 'N/A')}")
-            print(f"  Last run: {scheduler.get('last_run', 'N/A')}")
-            print(f"  Run count: {scheduler.get('run_count', 0)}")
-
-        print()
-
-    return EXIT_SUCCESS
 
 
 def main() -> None:
