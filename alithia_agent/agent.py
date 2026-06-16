@@ -90,6 +90,12 @@ class AlithiaAgent:
                 "Using defaults. Create config.yml for customization."
             )
 
+        # Ensure alithia subagents are enabled in the config
+        # This is critical because SootheConfig._merge_subagents() validator
+        # may run before plugin registry is fully populated via entry points.
+        # We explicitly inject paperscout/paperlens here to guarantee availability.
+        self._ensure_alithia_subagents_enabled()
+
         # Create soothe SootheRunner (Layer 2 with protocol orchestration)
         self._runner = self._create_runner()
 
@@ -108,16 +114,46 @@ class AlithiaAgent:
         register_alithia_plugins()
         logger.debug("Alithia plugins registered in soothe global registry")
 
+    def _ensure_alithia_subagents_enabled(self) -> None:
+        """Ensure paperscout and paperlens subagents are enabled in soothe config.
+
+        The SootheConfig._merge_subagents validator adds plugin-discovered subagents
+        only if `is_plugins_loaded()` returns True at validation time. However,
+        the validator runs during config construction BEFORE plugins are fully
+        loaded via entry points. This method explicitly injects alithia subagents
+        to guarantee they are available for task tool routing.
+        """
+        from soothe.config.models import SubagentConfig
+
+        # Get or create alithia subagent entries
+        alithia_subagents = ["paperscout", "paperlens"]
+
+        for name in alithia_subagents:
+            if name not in self._soothe_config.subagents:
+                self._soothe_config.subagents[name] = SubagentConfig(enabled=True)
+                logger.info(f"Injected subagent '{name}' into soothe config")
+            elif not self._soothe_config.subagents[name].enabled:
+                # Ensure it's enabled even if user config disabled it
+                self._soothe_config.subagents[name].enabled = True
+                logger.info(f"Enabled subagent '{name}' in soothe config")
+
     def _create_default_soothe_config(self) -> Any:
-        """Create default soothe configuration.
+        """Create default soothe configuration with alithia subagents enabled.
 
         Returns:
-            SootheConfig with minimal defaults for alithia.
+            SootheConfig with minimal defaults for alithia, including paperscout
+            and paperlens subagents enabled by default.
         """
         # Create default config matching SootheConfig structure
         # providers: list of ModelProviderConfig
         # tools: ToolsConfig with enabled tool categories
         # subagents: dict of SubagentConfig
+        # NOTE: paperscout and paperlens are added explicitly here because
+        # the SootheConfig._merge_subagents validator runs BEFORE plugins
+        # are loaded via entry points. By pre-registering them here, they
+        # survive the config validation pass and are available for resolution.
+        from soothe.config.models import SubagentConfig
+
         default_config = {
             "providers": [
                 {
@@ -127,12 +163,9 @@ class AlithiaAgent:
             ],
             "router": {"default": "openai:gpt-4o-mini"},
             "subagents": {
-                "paperscout": {
-                    "enabled": True,
-                },
-                "paperlens": {
-                    "enabled": True,
-                },
+                # Alithia custom subagents - enabled by default
+                "paperscout": SubagentConfig(enabled=True),
+                "paperlens": SubagentConfig(enabled=True),
             },
             "tools": {
                 "file_ops": {"enabled": True},
