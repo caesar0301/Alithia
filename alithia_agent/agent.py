@@ -96,6 +96,9 @@ class AlithiaAgent:
         # We explicitly inject paperscout/paperlens here to guarantee availability.
         self._ensure_alithia_subagents_enabled()
 
+        # Ensure DeepXiv academic paper tools are enabled (core feature for alithia)
+        self._ensure_deepxiv_tools_enabled()
+
         # Create soothe SootheRunner (Layer 2 with protocol orchestration)
         self._runner = self._create_runner()
 
@@ -109,7 +112,7 @@ class AlithiaAgent:
 
     def _register_plugins(self) -> None:
         """Register alithia plugins in soothe's global registry."""
-        from alithia_agent.plugins import register_alithia_plugins
+        from alithia_agent.plugin_registration import register_alithia_plugins
 
         register_alithia_plugins()
         logger.debug("Alithia plugins registered in soothe global registry")
@@ -136,6 +139,21 @@ class AlithiaAgent:
                 # Ensure it's enabled even if user config disabled it
                 self._soothe_config.subagents[name].enabled = True
                 logger.info(f"Enabled subagent '{name}' in soothe config")
+
+    def _ensure_deepxiv_tools_enabled(self) -> None:
+        """Ensure DeepXiv academic paper tools are enabled in soothe config.
+
+        DeepXiv tools are disabled by default in soothe. This method enables them
+        for alithia since academic paper search is a core feature.
+        """
+        if not hasattr(self._soothe_config, "tools"):
+            return
+
+        tools_config = self._soothe_config.tools
+        if hasattr(tools_config, "deepxiv"):
+            if not tools_config.deepxiv.enabled:
+                tools_config.deepxiv.enabled = True
+                logger.info("Enabled DeepXiv tools in soothe config")
 
     def _create_default_soothe_config(self) -> Any:
         """Create default soothe configuration with alithia subagents enabled.
@@ -170,6 +188,7 @@ class AlithiaAgent:
             "tools": {
                 "file_ops": {"enabled": True},
                 "wizsearch": {"enabled": True},
+                "deepxiv": {"enabled": True},
             },
             "memory": [],  # No memory plugins by default
             "debug": False,

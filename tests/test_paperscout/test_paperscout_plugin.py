@@ -4,7 +4,7 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from alithia_agent.plugins.paperscout import PaperScoutPlugin
+from alithia_agent.paperscout import PaperScoutPlugin
 
 
 @pytest.mark.asyncio

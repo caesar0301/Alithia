@@ -1,6 +1,6 @@
 """Tests for PaperScout event system."""
 
-from alithia_agent.plugins.paperscout.events import (
+from alithia_agent.paperscout.events import (
     PAPERSCOUT_EMAIL_SENT,
     PAPERSCOUT_ERROR,
     PAPERSCOUT_PAPER_FOUND,

@@ -124,21 +124,21 @@ test-coverage:
 	uv run pytest tests/ -v --cov=alithia_agent --cov-report=term-missing
 
 lint:
-	uv run ruff check .
+	uv run --with ruff ruff check .
 
 lint-fix:
-	uv run ruff check . --fix
+	uv run --with ruff ruff check . --fix
 
 format:
-	uv run ruff format .
+	uv run --with ruff ruff format .
 
 format-check:
-	uv run ruff format --check alithia_agent/
+	uv run --with ruff ruff format --check alithia_agent/
 
 check: lint format-check
 
 typecheck:
-	uv run mypy alithia_agent/
+	uv run --with mypy mypy alithia_agent/
 
 # Release commands
 build:

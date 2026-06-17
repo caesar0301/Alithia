@@ -1,4 +1,4 @@
-"""Alithia plugins for soothe framework integration.
+"""Alithia plugin registration for soothe framework.
 
 Provides plugin registration for paperscout and paperlens subagents.
 Plugins are registered via:
@@ -61,7 +61,7 @@ def register_alithia_plugins() -> None:
         registry = gr_module._global_registry
 
         # Import and register paperscout plugin
-        from alithia_agent.plugins.paperscout import PaperScoutPlugin
+        from alithia_agent.paperscout import PaperScoutPlugin
 
         registry.register(
             getattr(PaperScoutPlugin, "_plugin_manifest"),
@@ -71,7 +71,7 @@ def register_alithia_plugins() -> None:
         logger.info("Manually registered paperscout plugin")
 
         # Import and register paperlens plugin
-        from alithia_agent.plugins.paperlens import PaperLensPlugin
+        from alithia_agent.paperlens import PaperLensPlugin
 
         registry.register(
             getattr(PaperLensPlugin, "_plugin_manifest"),
