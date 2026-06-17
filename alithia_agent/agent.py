@@ -16,6 +16,7 @@ from typing import Any, Literal
 
 from alithia_agent import ALITHIA_HOME, SOOTHE_HOME
 from alithia_agent.config import Config, load_config
+from alithia_agent.soothe_defaults import apply_soothe_home_defaults
 
 # Soothe imports - handle gracefully if not fully available
 try:
@@ -90,6 +91,9 @@ class AlithiaAgent:
                 "Using defaults. Create config.yml for customization."
             )
 
+        # Keep soothe runtime paths (memory, etc.) under ~/.alithia/soothe.
+        apply_soothe_home_defaults(self._soothe_config, SOOTHE_HOME)
+
         # Ensure alithia subagents are enabled in the config
         # This is critical because SootheConfig._merge_subagents() validator
         # may run before plugin registry is fully populated via entry points.
@@ -108,6 +112,7 @@ class AlithiaAgent:
         """Ensure soothe directory structure exists."""
         (SOOTHE_HOME / "config").mkdir(parents=True, exist_ok=True)
         (SOOTHE_HOME / "logs").mkdir(parents=True, exist_ok=True)
+        (SOOTHE_HOME / "memory").mkdir(parents=True, exist_ok=True)
         (ALITHIA_HOME / "data").mkdir(parents=True, exist_ok=True)
 
     def _register_plugins(self) -> None:
