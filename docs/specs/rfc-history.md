@@ -21,6 +21,7 @@ This document tracks all RFC lifecycle events in chronological order (newest fir
 
 | Date | Event | RFC | Description |
 |------|-------|-----|-------------|
+| 2026-06-17 | Created | RFC-010-omni-research-subagent | OmniResearch soothe subagent architecture (pattern routing, skill tree, core pipeline) |
 | 2026-06-06 | Created | RFC-008-data-models | Shared data model contracts (paper types, metadata, notifications) |
 | 2026-06-06 | Created | RFC-007-plugin-integration | Soothe framework integration contracts (@plugin, @subagent, AsyncPersistStore) |
 | 2026-06-06 | Created | RFC-006-configuration | Configuration management architecture (JSON + env substitution) |
@@ -43,11 +44,11 @@ _No versioned RFC updates yet._
 
 | Metric | Value |
 |--------|-------|
-| Total RFCs created | 8 |
+| Total RFCs created | 10 |
 | Conceptual Design | 1 |
-| Architecture Design | 4 |
+| Architecture Design | 5 |
 | Implementation Interface Design | 3 |
-| Total lines | ~3,500 |
+| Total lines | ~5,000 |
 
 ---
 

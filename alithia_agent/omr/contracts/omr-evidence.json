@@ -1,0 +1,23 @@
+{
+  "skill": "omr-evidence",
+  "requires": [
+    {
+      "artifact": "materials in raw/",
+      "optional": false,
+      "description": "Collected materials (papers, web, github, datasets) in markdown format"
+    }
+  ],
+  "produces": [
+    {
+      "artifact": "research-brief.md",
+      "schema": "schemas/research-brief.schema.json",
+      "description": "Research question definition with scope and context"
+    },
+    {
+      "artifact": "evidence-map.md",
+      "schema": "schemas/evidence-map.schema.json",
+      "description": "Primary evidence mapping with gaps and confidence levels"
+    }
+  ],
+  "gates": []
+}

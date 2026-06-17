@@ -1,6 +1,6 @@
 [project]
 name = "alithia"
-version = "0.3.1"
+version = "0.3.2"
 description = "CLI research assistant for paper discovery and analysis"
 readme = "README.md"
 requires-python = ">=3.11"
@@ -17,8 +17,12 @@ dependencies = [
     "scikit-learn>=1.0.0",
     "numpy>=1.20.0",
     "docling>=2.0.0",
-    "soothe>=0.6.9",
-    "browser-use>=0.11.13",
+    "soothe>=0.6.10",
+    "soothe-sdk>=0.6.10",
+    # OMR plugin dependencies
+    "httpx>=0.25.0",
+    "html2text>=2020.1.16",
+    "pdfplumber>=0.10.0",
 ]
 
 [project.optional-dependencies]
@@ -36,6 +40,7 @@ alithia-agent = "alithia_agent.__main__:main"
 [project.entry-points."soothe.plugins"]
 paperscout = "alithia_agent.paperscout:PaperScoutPlugin"
 paperlens = "alithia_agent.paperlens:PaperLensPlugin"
+omr = "alithia_agent.omr:OmniResearchPlugin"
 
 [build-system]
 requires = ["hatchling"]

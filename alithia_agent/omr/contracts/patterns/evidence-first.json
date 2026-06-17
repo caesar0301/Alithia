@@ -1,0 +1,29 @@
+{
+  "name": "Evidence-First",
+  "description": "Rigorous research starting from literature collection. Systematic review with strong evidence foundation before decisions.",
+  "graph": {
+    "entry_points": ["omr-collection"],
+    "nodes": ["omr-evidence", "omr-research-plan", "omr-decision", "omr-evaluation", "omr-synthesis", "omr-wiki"],
+    "edges": [
+      "omr-collection → omr-evidence",
+      "omr-evidence → omr-research-plan",
+      "omr-research-plan → omr-decision",
+      "omr-decision → omr-evaluation",
+      "omr-evaluation → omr-synthesis",
+      "omr-synthesis → omr-wiki"
+    ]
+  },
+  "skill_gates": {
+    "omr-research-plan": "gate_a",
+    "omr-decision": "gate_b",
+    "omr-evaluation": "gate_c",
+    "omr-synthesis": "gate_d"
+  },
+  "contract_overrides": {},
+  "recommendations": {
+    "agency": "semi-automated",
+    "estimated_time": "3-5 days",
+    "synthesis_mode": "survey",
+    "description": "Best for academic research, literature surveys, systematic reviews. Strong evidence foundation required before decisions."
+  }
+}

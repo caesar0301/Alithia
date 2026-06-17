@@ -1,0 +1,21 @@
+{
+  "skill": "omr-collection",
+  "requires": [
+    {
+      "artifact": "workspace",
+      "optional": false,
+      "description": "Initialized workspace with raw/ and docs/index/ directories"
+    }
+  ],
+  "produces": [
+    {
+      "artifact": "raw/*",
+      "description": "Collected materials organized by source type (paper/web/github/dataset/search/)"
+    },
+    {
+      "artifact": "docs/index/*",
+      "description": "Metadata indexes for each source type"
+    }
+  ],
+  "gates": []
+}

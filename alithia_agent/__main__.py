@@ -4,10 +4,12 @@ Usage:
     # Intent-based routing (automatic):
     python -m alithia_agent "Find new papers about transformers"
     python -m alithia_agent "Rank my PDFs in ~/research by relevance"
+    python -m alithia_agent "Start research about agent memory"
 
     # Explicit subagent invocation:
     python -m alithia_agent --subagent paperscout "Check for new papers"
     python -m alithia_agent --subagent paperlens "Analyze ~/papers directory"
+    python -m alithia_agent --subagent omr "agent memory mechanisms"
 
     # Daemon management:
     python -m alithia_agent daemon start    # Start daemon (background)
@@ -105,105 +107,64 @@ def parse_args() -> argparse.Namespace:
         action="version",
         version="alithia-agent 0.3.1",
     )
-
-    # Create subparsers for commands
-    subparsers = parser.add_subparsers(
-        dest="command",
-        title="commands",
-        description="Available commands",
-    )
-
-    # 'run' command (default) - for running agent with prompt
-    run_parser = subparsers.add_parser(
-        "run",
-        help="Run agent with a prompt (default command)",
-    )
-    run_parser.add_argument(
-        "prompt",
-        type=str,
-        nargs="?",
-        default=None,
-        help="Natural language prompt for the research assistant",
-    )
-    run_parser.add_argument(
+    parser.add_argument(
         "--subagent",
-        choices=["paperscout", "paperlens"],
+        choices=["paperscout", "paperlens", "omr"],
         default=None,
         help="Explicitly invoke a specific subagent (bypasses intent routing)",
     )
-    run_parser.add_argument(
+    parser.add_argument(
         "--thread-id",
         type=str,
         default=None,
         help="Thread identifier for persistence",
     )
-    run_parser.add_argument(
+    parser.add_argument(
         "--user-id",
         type=str,
         default=None,
         help="Override user identifier for storage",
     )
 
-    # 'daemon' command with subcommands
-    daemon_parser = subparsers.add_parser(
-        "daemon",
-        help="Daemon management commands",
-    )
-    daemon_subparsers = daemon_parser.add_subparsers(
-        dest="daemon_command",
-        title="daemon commands",
-        description="Daemon management operations",
+    # Use positional for daemon command detection
+    parser.add_argument(
+        "command_or_prompt",
+        type=str,
+        nargs="?",
+        default=None,
+        help="Either a command ('daemon') or a prompt for the agent",
     )
 
-    # daemon start
-    daemon_subparsers.add_parser(
-        "start",
-        help="Start daemon in background",
+    # Daemon subcommand (only parsed if command_or_prompt == 'daemon')
+    parser.add_argument(
+        "daemon_subcommand",
+        type=str,
+        nargs="?",
+        default=None,
+        help="Daemon subcommand (start/stop/restart/status/run)",
     )
 
-    # daemon stop
-    daemon_subparsers.add_parser(
-        "stop",
-        help="Stop daemon gracefully",
-    )
-
-    # daemon restart
-    daemon_subparsers.add_parser(
-        "restart",
-        help="Restart daemon",
-    )
-
-    # daemon status
-    daemon_subparsers.add_parser(
-        "status",
-        help="Show daemon status",
-    )
-
-    # daemon run (foreground mode for debugging)
-    daemon_subparsers.add_parser(
-        "run",
-        help="Run daemon in foreground (for debugging)",
-    )
-
-    # If no command provided, default to 'run'
+    # Parse args
     args = parser.parse_args()
 
-    if args.command is None:
-        # No command provided, treat positional args as prompt for 'run'
+    # Determine if this is daemon command or agent run
+    if args.command_or_prompt == "daemon":
+        args.command = "daemon"
+        args.prompt = None
+        # Validate daemon subcommand
+        valid_daemon_cmds = ["start", "stop", "restart", "status", "run"]
+        if args.daemon_subcommand not in valid_daemon_cmds:
+            args.daemon_subcommand = None  # Will show error in main_async
+    elif args.command_or_prompt == "run":
+        # Explicit 'run' command - treat remaining as prompt
         args.command = "run"
-        # Re-parse to get prompt from remaining args
-        remaining = parser.parse_known_args()[1]
-        if remaining:
-            args.prompt = remaining[0]
-        else:
-            args.prompt = None
-        # Add missing run command attributes
-        if not hasattr(args, "subagent"):
-            args.subagent = None
-        if not hasattr(args, "thread_id"):
-            args.thread_id = None
-        if not hasattr(args, "user_id"):
-            args.user_id = None
+        args.prompt = args.daemon_subcommand  # Next positional is the prompt
+        args.daemon_subcommand = None
+    else:
+        # Default: treat as agent run with prompt
+        args.command = "run"
+        args.prompt = args.command_or_prompt
+        args.daemon_subcommand = None
 
     return args
 
@@ -511,7 +472,7 @@ async def main_async() -> int:
 
     if command == "daemon":
         # Daemon subcommands
-        daemon_cmd = args.daemon_command
+        daemon_cmd = args.daemon_subcommand
 
         if daemon_cmd == "start":
             return start_daemon(args)
@@ -547,6 +508,7 @@ async def main_async() -> int:
             print("  alithia-agent 'Find new papers about transformers'")
             print("  alithia-agent 'Rank my PDFs by relevance'")
             print("  alithia-agent --subagent paperscout 'Check for new papers'")
+            print("  alithia-agent --subagent omr 'agent memory'")
             print("\nDaemon commands:")
             print("  alithia-agent daemon start    # Start daemon")
             print("  alithia-agent daemon stop     # Stop daemon")
@@ -569,27 +531,8 @@ async def main_async() -> int:
                 traceback.print_exc()
             return EXIT_EXEC_ERROR
 
-    else:
-        # Treat as prompt for run command
-        args.prompt = command
-        args.subagent = None
-        args.thread_id = None
-        args.user_id = None
-
-        try:
-            return await run_agent(args)
-
-        except KeyboardInterrupt:
-            logger.info("Execution interrupted by user")
-            return EXIT_EXEC_ERROR
-
-        except Exception as e:
-            logger.error(f"Execution error: {e}")
-            if args.verbose:
-                import traceback
-
-                traceback.print_exc()
-            return EXIT_EXEC_ERROR
+    # Should not reach here
+    return EXIT_ARG_ERROR
 
 
 def main() -> None:

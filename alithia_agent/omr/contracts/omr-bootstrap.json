@@ -1,0 +1,15 @@
+{
+  "skill": "omr-bootstrap",
+  "requires": [],
+  "produces": [
+    {
+      "artifact": "workspace structure",
+      "description": "Complete project directory layout (raw/, docs/, wiki/, src/, skills/)"
+    },
+    {
+      "artifact": "CLAUDE.md",
+      "description": "Project instructions with skill tree state"
+    }
+  ],
+  "gates": []
+}

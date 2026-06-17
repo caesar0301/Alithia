@@ -118,7 +118,7 @@ class AlithiaAgent:
         logger.debug("Alithia plugins registered in soothe global registry")
 
     def _ensure_alithia_subagents_enabled(self) -> None:
-        """Ensure paperscout and paperlens subagents are enabled in soothe config.
+        """Ensure paperscout, paperlens, and omni-research subagents are enabled in soothe config.
 
         The SootheConfig._merge_subagents validator adds plugin-discovered subagents
         only if `is_plugins_loaded()` returns True at validation time. However,
@@ -129,7 +129,7 @@ class AlithiaAgent:
         from soothe.config.models import SubagentConfig
 
         # Get or create alithia subagent entries
-        alithia_subagents = ["paperscout", "paperlens"]
+        alithia_subagents = ["paperscout", "paperlens", "omr"]
 
         for name in alithia_subagents:
             if name not in self._soothe_config.subagents:
@@ -184,6 +184,7 @@ class AlithiaAgent:
                 # Alithia custom subagents - enabled by default
                 "paperscout": SubagentConfig(enabled=True),
                 "paperlens": SubagentConfig(enabled=True),
+                "omr": SubagentConfig(enabled=True),
             },
             "tools": {
                 "file_ops": {"enabled": True},
