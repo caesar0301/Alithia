@@ -22,7 +22,7 @@ from alithia_agent.paperscout.events import (
     PaperScoutStepEvent,
 )
 from alithia_agent.paperscout.reranker import PaperReranker
-from alithia_agent.paperscout.state import AgentState
+from alithia_agent.paperscout.state import AgentState, PaperScoutRuntimeConfig
 
 logger = logging.getLogger(__name__)
 
@@ -66,12 +66,17 @@ def _arxiv_ids_from_store(raw: Any) -> set[str]:
     return set()
 
 
-def make_nodes(store: Any, user_id: str) -> dict[str, Any]:
+def make_nodes(
+    store: Any,
+    user_id: str,
+    config: PaperScoutRuntimeConfig,
+) -> dict[str, Any]:
     """Create workflow node functions.
 
     Args:
         store: AsyncPersistStore for caching.
         user_id: User identifier.
+        config: PaperScout runtime configuration (injected at graph build time).
 
     Returns:
         Dict mapping node names to functions.
@@ -80,8 +85,6 @@ def make_nodes(store: Any, user_id: str) -> dict[str, Any]:
     def profile_analysis_node(state: AgentState) -> dict[str, Any]:
         """Validate configuration."""
         _emit_step("profile_analysis", "Validating configuration")
-
-        config = state["config"]
         errors: list[str] = []
 
         # Validate Zotero
@@ -109,7 +112,6 @@ def make_nodes(store: Any, user_id: str) -> dict[str, Any]:
         """Fetch papers from ArXiv and Zotero."""
         _emit_step("data_collection", "Fetching papers")
 
-        config = state["config"]
         errors: list[str] = []
         metrics = state.get("metrics", {})
 
@@ -260,7 +262,6 @@ def make_nodes(store: Any, user_id: str) -> dict[str, Any]:
         """Rank papers by relevance."""
         _emit_step("relevance_assessment", "Ranking papers")
 
-        config = state["config"]
         papers = state["discovered_papers"]
         corpus = state["zotero_papers"]
         metrics = state.get("metrics", {})
@@ -312,7 +313,6 @@ def make_nodes(store: Any, user_id: str) -> dict[str, Any]:
         """Generate email content."""
         _emit_step("content_generation", "Generating content")
 
-        config = state["config"]
         scored = state["scored_papers"]
 
         if not scored:
@@ -346,7 +346,6 @@ def make_nodes(store: Any, user_id: str) -> dict[str, Any]:
         """Send email notification."""
         _emit_step("communication", "Sending notification")
 
-        config = state["config"]
         email_content = state.get("email_content")
         metrics = state.get("metrics", {})
 

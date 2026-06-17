@@ -58,7 +58,7 @@ class SQLiteStorage:
         """)
 
         conn.commit()
-        logger.info(f"SQLite storage initialized at {self.db_path}")
+        logger.debug(f"SQLite storage initialized at {self.db_path}")
 
     def _get_connection(self) -> sqlite3.Connection:
         """Get thread-local connection.

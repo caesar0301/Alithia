@@ -100,7 +100,7 @@ async def run_paperscout_digest():
 
     # Create workflow graph
     store = MockStore()
-    graph = create_paperscout_graph(store, user_id="example_user")
+    graph = create_paperscout_graph(store, user_id="example_user", config=runtime_config)
     compiled = graph.compile()
 
     # Initialize workflow state

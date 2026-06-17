@@ -23,6 +23,7 @@ from alithia_agent import ALITHIA_HOME
 from alithia_agent.config.loader import load_config
 from alithia_agent.config.schema import Config
 from alithia_agent.daemon.scheduler import PaperScoutScheduler
+from alithia_agent.logging_config import configure_logging
 from alithia_agent.storage.sqlite import SQLiteStorage
 
 logger = logging.getLogger(__name__)
@@ -73,28 +74,12 @@ class DaemonService:
     def _setup_logging(self) -> None:
         """Configure daemon logging."""
         log_file = ALITHIA_HOME / self._daemon_config.log_file
-        log_file.parent.mkdir(parents=True, exist_ok=True)
-
-        # Configure root logger
-        root_logger = logging.getLogger()
-        root_logger.setLevel(logging.INFO)
-
-        # File handler for daemon log
-        file_handler = logging.FileHandler(log_file)
-        file_handler.setLevel(logging.INFO)
-        file_formatter = logging.Formatter(
-            "[%(asctime)s] [%(levelname)s] [%(name)s] %(message)s", datefmt="%Y-%m-%d %H:%M:%S"
+        configure_logging(
+            level=logging.INFO,
+            log_file=log_file,
+            console=True,
+            console_stream=sys.stdout,
         )
-        file_handler.setFormatter(file_formatter)
-        root_logger.addHandler(file_handler)
-
-        # Console handler for stdout
-        console_handler = logging.StreamHandler(sys.stdout)
-        console_handler.setLevel(logging.INFO)
-        console_formatter = logging.Formatter("[%(levelname)s] %(message)s")
-        console_handler.setFormatter(console_formatter)
-        root_logger.addHandler(console_handler)
-
         logger.info(f"Daemon logging configured: {log_file}")
 
     def _acquire_pid_lock(self) -> bool:
@@ -358,14 +343,32 @@ def run_daemon(config_path: Path | None = None) -> int:
 def get_daemon_status(config_path: Path | None = None) -> dict[str, Any]:
     """Get daemon status without running.
 
+    Loads config only — does not initialize storage or acquire locks.
+
     Args:
         config_path: Optional config file path.
 
     Returns:
         Status dict.
     """
-    service = DaemonService(config_path=config_path)
-    return service.get_status()
+    config_path_str = str(config_path) if config_path else None
+    config = load_config(config_path_str)
+    daemon_config = config.daemon
+    big_bang = config.paperscout_agent.big_bang or daemon_config.big_bang
+
+    return {
+        "pid": None,
+        "pid_file": str(ALITHIA_HOME / daemon_config.pid_file),
+        "running": False,
+        "config": {
+            "scheduler_enabled": daemon_config.scheduler.enabled,
+            "schedule": (
+                f"{daemon_config.scheduler.hour:02d}:{daemon_config.scheduler.minute:02d} UTC"
+            ),
+            "retry_window_days": daemon_config.scheduler.retry_window_days,
+            "big_bang": big_bang.isoformat() if big_bang else None,
+        },
+    }
 
 
 __all__ = ["DaemonService", "run_daemon", "get_daemon_status"]

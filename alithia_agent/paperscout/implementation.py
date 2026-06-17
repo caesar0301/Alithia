@@ -19,18 +19,21 @@ logger = logging.getLogger(__name__)
 def create_paperscout_graph(
     store: Any,
     user_id: str,
+    config: PaperScoutRuntimeConfig,
 ) -> StateGraph:
     """Create the PaperScout workflow graph.
 
     Args:
         store: AsyncPersistStore for persistence.
         user_id: User identifier.
+        config: PaperScout runtime configuration.
 
     Returns:
         LangGraph StateGraph (compile before execution).
     """
-    # Create nodes (config injected via state)
-    nodes = make_nodes(store, user_id)
+    # Config is injected via closure so soothe task invocations work without
+    # pre-populating state["config"].
+    nodes = make_nodes(store, user_id, config)
 
     # Create graph
     graph = StateGraph(AgentState)
@@ -71,7 +74,7 @@ def create_paperscout_subagent(
         Subagent dict with name, description, runnable, config.
     """
     # Create graph
-    graph = create_paperscout_graph(store, user_id)
+    graph = create_paperscout_graph(store, user_id, config)
 
     # Compile
     compiled = graph.compile()

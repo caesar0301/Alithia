@@ -37,6 +37,8 @@ from typing import Any
 
 from alithia_agent import ALITHIA_HOME, SOOTHE_HOME
 from alithia_agent.agent import AlithiaAgent
+from alithia_agent.cli_colors import bold, cyan, dim, green, red, supports_color, yellow
+from alithia_agent.logging_config import configure_logging
 
 logger = logging.getLogger(__name__)
 
@@ -49,30 +51,23 @@ EXIT_EXEC_ERROR = 2
 DAEMON_PID_FILE = ALITHIA_HOME / "daemon.pid"
 
 
-def setup_logging(verbose: bool, quiet: bool) -> None:
-    """Configure logging based on verbosity."""
+def setup_logging(verbose: bool, quiet: bool, *, lightweight: bool = False) -> None:
+    """Configure logging based on verbosity and command type."""
     if quiet:
         level = logging.ERROR
     elif verbose:
         level = logging.DEBUG
+    elif lightweight:
+        level = logging.WARNING
     else:
         level = logging.INFO
 
-    # Log to ALITHIA_HOME/logs/alithia.log
-    log_dir = ALITHIA_HOME / "logs"
-    log_dir.mkdir(parents=True, exist_ok=True)
-    log_file = log_dir / "alithia.log"
+    log_file = None if lightweight and not verbose else ALITHIA_HOME / "logs" / "alithia.log"
+    configure_logging(level=level, log_file=log_file, console=True)
 
-    logging.basicConfig(
-        level=level,
-        format="[%(levelname)s] %(message)s",
-        handlers=[
-            logging.StreamHandler(),
-            logging.FileHandler(log_file),
-        ],
-    )
-    logger.info(f"ALITHIA_HOME: {ALITHIA_HOME}")
-    logger.info(f"SOOTHE_HOME: {SOOTHE_HOME}")
+    if verbose:
+        logger.debug(f"ALITHIA_HOME: {ALITHIA_HOME}")
+        logger.debug(f"SOOTHE_HOME: {SOOTHE_HOME}")
 
 
 def parse_args() -> argparse.Namespace:
@@ -408,27 +403,35 @@ def run_daemon_status(args: argparse.Namespace) -> int:
     if args.output == "json":
         print(json.dumps(status, indent=2, default=str))
     else:
-        print("Alithia-Agent Daemon Status")
-        print("=" * 40)
+        color = supports_color()
+        print(bold(cyan("Alithia-Agent Daemon Status", enabled=color)))
+        print(dim("=" * 40, enabled=color))
 
         if running:
-            print(f"Status: RUNNING (PID: {pid})")
+            status_text = green("RUNNING", enabled=color)
+            pid_text = yellow(str(pid), enabled=color)
+            print(f"Status: {status_text} (PID: {pid_text})")
         else:
-            print("Status: NOT RUNNING")
+            print(f"Status: {red('NOT RUNNING', enabled=color)}")
 
         config = status.get("config", {})
-        print("\nConfiguration:")
-        print(f"  Scheduler enabled: {config.get('scheduler_enabled', False)}")
-        print(f"  Schedule: {config.get('schedule', 'N/A')}")
-        print(f"  Retry window: {config.get('retry_window_days', 'N/A')} days")
-        print(f"  Big bang: {config.get('big_bang', 'N/A')}")
-
         print()
-        print("Commands:")
-        print("  alithia-agent daemon start    # Start daemon")
-        print("  alithia-agent daemon stop     # Stop daemon")
-        print("  alithia-agent daemon restart  # Restart daemon")
-        print("  alithia-agent daemon status   # Show status")
+        print(bold("Configuration:", enabled=color))
+
+        scheduler_enabled = config.get("scheduler_enabled", False)
+        enabled_text = (
+            green("True", enabled=color) if scheduler_enabled else red("False", enabled=color)
+        )
+        schedule = config.get("schedule", "N/A")
+        retry_days = config.get("retry_window_days", "N/A")
+        big_bang = config.get("big_bang", "N/A")
+
+        print(f"  {dim('Scheduler enabled:', enabled=color)} {enabled_text}")
+        print(f"  {dim('Schedule:', enabled=color)} {cyan(str(schedule), enabled=color)}")
+        print(
+            f"  {dim('Retry window:', enabled=color)} {cyan(f'{retry_days} days', enabled=color)}"
+        )
+        print(f"  {dim('Big bang:', enabled=color)} {cyan(str(big_bang), enabled=color)}")
 
     return EXIT_SUCCESS
 
@@ -495,8 +498,13 @@ async def main_async() -> int:
     """Async main entry point."""
     args = parse_args()
 
-    # Setup logging
-    setup_logging(args.verbose, args.quiet)
+    lightweight_daemon = args.command == "daemon" and getattr(args, "daemon_command", None) in (
+        "start",
+        "stop",
+        "restart",
+        "status",
+    )
+    setup_logging(args.verbose, args.quiet, lightweight=lightweight_daemon)
 
     # Handle different commands
     command = args.command
