@@ -12,7 +12,7 @@ from __future__ import annotations
 import logging
 import os
 from collections.abc import AsyncIterator
-from typing import Any
+from typing import Any, Literal
 
 from alithia_agent import ALITHIA_HOME, SOOTHE_HOME
 from alithia_agent.config import Config, load_config
@@ -223,6 +223,43 @@ class AlithiaAgent:
             user_input,
             thread_id=thread_id,
             preferred_subagent=subagent,  # Explicit routing when provided
+        )
+
+    async def run_paperscout(
+        self,
+        *,
+        from_date: str,
+        to_date: str | None = None,
+        source: Literal["manual", "scheduler", "scheduler_retry", "gap_fill"] = "manual",
+    ) -> Any:
+        """Run PaperScout directly for an explicit date range.
+
+        Bypasses soothe StrangeLoop and executes the LangGraph workflow with
+        configured from_date/to_date parameters.
+
+        Args:
+            from_date: Start date (YYYY-MM-DD).
+            to_date: End date (YYYY-MM-DD). Defaults to from_date.
+            source: Run source tag (manual, scheduler, scheduler_retry, gap_fill).
+
+        Returns:
+            PaperScoutRunResult from the workflow execution.
+        """
+        from alithia_agent.paperscout.runner import run_paperscout_for_dates
+        from alithia_agent.storage.sqlite import AlithiaStore
+
+        resolved_to_date = to_date or from_date
+        store = AlithiaStore(
+            user_id=self._alithia_config.storage.user_id,
+        )
+
+        return await run_paperscout_for_dates(
+            self._alithia_config,
+            store,
+            self._alithia_config.storage.user_id,
+            from_date=from_date,
+            to_date=resolved_to_date,
+            source=source,
         )
 
     @property

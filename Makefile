@@ -78,7 +78,7 @@ daemon:
 	while [ $$i -lt 30 ]; do \
 		if [ -f $(DAEMON_PID_FILE) ] && kill -0 $$(cat $(DAEMON_PID_FILE)) 2>/dev/null; then \
 			echo "Daemon started (PID $$(cat $(DAEMON_PID_FILE)))"; \
-			echo "Logs: $(DAEMON_LOG_DIR)/daemon.log"; \
+			echo "Logs: $(DAEMON_LOG_DIR)/alithia.log"; \
 			exit 0; \
 		fi; \
 		i=$$((i + 1)); \

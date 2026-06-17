@@ -11,6 +11,8 @@ from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
+from alithia_agent.logging_config import DEFAULT_LOG_FILE
+
 
 class ConfigError(Exception):
     """Configuration validation error."""
@@ -237,6 +239,19 @@ class DaemonSchedulerConfig(BaseModel):
         le=20,
         description="Maximum unretrieved dates retried in each scheduler cycle",
     )
+    backfill_on_startup: bool = Field(
+        default=True,
+        description="Retry unretrieved backlog days when the daemon starts",
+    )
+    startup_backfill_cap: int | None = Field(
+        default=None,
+        ge=0,
+        le=90,
+        description=(
+            "Max backlog days to retry on startup. "
+            "Defaults to max_retry_age_days when backfill_on_startup is enabled."
+        ),
+    )
 
 
 class DaemonConfig(BaseModel):
@@ -246,7 +261,7 @@ class DaemonConfig(BaseModel):
 
     scheduler: DaemonSchedulerConfig = Field(default_factory=DaemonSchedulerConfig)
     pid_file: str = "daemon.pid"
-    log_file: str = "logs/daemon.log"
+    log_file: str = DEFAULT_LOG_FILE
     big_bang: date | None = Field(
         default=None, description="Tracking start date, no scans before this"
     )

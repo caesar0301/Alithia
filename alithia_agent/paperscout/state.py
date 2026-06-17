@@ -107,6 +107,22 @@ class PaperScoutRuntimeConfig(BaseModel):
     tldr_max_tokens: int = Field(default=150, ge=50, le=300)
     tldr_language: str = "English"
 
+    def with_scheduler_params(
+        self,
+        *,
+        from_date: str,
+        to_date: str,
+        source: Literal["manual", "scheduler", "scheduler_retry", "gap_fill"],
+    ) -> PaperScoutRuntimeConfig:
+        """Return a copy configured for scheduler/daemon date-range execution."""
+        return self.model_copy(
+            update={
+                "from_date": from_date,
+                "to_date": to_date,
+                "source": source,
+            }
+        )
+
     @classmethod
     def build_runtime_config(cls, global_config: Config) -> PaperScoutRuntimeConfig:
         """Build runtime config from global alithia config.

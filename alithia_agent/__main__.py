@@ -38,7 +38,7 @@ from typing import Any
 from alithia_agent import ALITHIA_HOME, SOOTHE_HOME
 from alithia_agent.agent import AlithiaAgent
 from alithia_agent.cli_colors import bold, cyan, dim, green, red, supports_color, yellow
-from alithia_agent.logging_config import configure_logging
+from alithia_agent.logging_config import DEFAULT_LOG_FILE, configure_logging
 
 logger = logging.getLogger(__name__)
 
@@ -62,7 +62,7 @@ def setup_logging(verbose: bool, quiet: bool, *, lightweight: bool = False) -> N
     else:
         level = logging.INFO
 
-    log_file = None if lightweight and not verbose else ALITHIA_HOME / "logs" / "alithia.log"
+    log_file = None if lightweight and not verbose else ALITHIA_HOME / DEFAULT_LOG_FILE
     configure_logging(level=level, log_file=log_file, console=True)
 
     if verbose:
@@ -321,7 +321,7 @@ def start_daemon(args: argparse.Namespace) -> int:
             print(f"Daemon started (PID: {pid})")
             return EXIT_SUCCESS
         else:
-            print("Daemon failed to start. Check logs at ~/.alithia/logs/daemon.log")
+            print(f"Daemon failed to start. Check logs at ~/.alithia/{DEFAULT_LOG_FILE}")
             return EXIT_EXEC_ERROR
 
     except Exception as e:

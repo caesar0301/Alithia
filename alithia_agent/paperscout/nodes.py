@@ -55,6 +55,13 @@ def _emit_error(error_message: str, step: str) -> None:
     logger.error(f"Error in {step}: {error_message}")
 
 
+def _build_arxiv_category_query(category: str, start_date: date, end_date: date) -> str:
+    """Build ArXiv API query scoped to category and submission date range."""
+    start_ts = start_date.strftime("%Y%m%d") + "0000"
+    end_ts = end_date.strftime("%Y%m%d") + "2359"
+    return f"cat:{category} AND submittedDate:[{start_ts} TO {end_ts}]"
+
+
 def _arxiv_ids_from_store(raw: Any) -> set[str]:
     """Normalize stored emailed-paper IDs."""
     if raw is None:
@@ -141,13 +148,14 @@ def make_nodes(
 
             for category in config.arxiv_categories:
                 search = arxiv.Search(
-                    query=f"cat:{category}",
+                    query=_build_arxiv_category_query(category, start_date, end_date),
                     max_results=papers_per_category,
                     sort_by=arxiv.SortCriterion.SubmittedDate,
                 )
 
                 for result in arxiv_client.results(search):
-                    if result.published.date() < start_date:
+                    published = result.published.date()
+                    if published < start_date or published > end_date:
                         continue
 
                     paper = ArxivPaper(

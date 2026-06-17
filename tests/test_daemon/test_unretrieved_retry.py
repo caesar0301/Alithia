@@ -15,6 +15,8 @@ def test_daemon_scheduler_config_defaults() -> None:
     cfg = DaemonSchedulerConfig()
     assert cfg.max_retry_age_days == 30
     assert cfg.max_retries_per_run == 3
+    assert cfg.backfill_on_startup is True
+    assert cfg.startup_backfill_cap is None
 
 
 def test_gap_scanner_returns_unretrieved_days(tmp_path: Path) -> None:

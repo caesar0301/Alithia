@@ -9,6 +9,7 @@ A soothe framework subagent that:
 """
 
 from alithia_agent.paperscout.implementation import create_paperscout_subagent
+from alithia_agent.paperscout.runner import PaperScoutRunResult, run_paperscout_for_dates
 from alithia_agent.paperscout.state import (
     AgentState,
     PaperScoutConfig,  # Legacy alias
@@ -22,6 +23,8 @@ from alithia_agent.paperscout.state import (
 
 __all__ = [
     "create_paperscout_subagent",
+    "PaperScoutRunResult",
+    "run_paperscout_for_dates",
     "PaperScoutRuntimeConfig",
     "PaperScoutConfig",
     "SmtpRuntimeConfig",

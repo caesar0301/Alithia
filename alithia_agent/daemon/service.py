@@ -156,9 +156,7 @@ class DaemonService:
         Returns:
             Async callable that runs paperscout for given date.
         """
-        from alithia_agent.agent import AlithiaAgent
-
-        agent = AlithiaAgent.create()
+        from alithia_agent.paperscout.runner import run_paperscout_for_dates
 
         async def dispatch(params: dict[str, Any]) -> None:
             """Run paperscout for a date.
@@ -172,11 +170,7 @@ class DaemonService:
 
             logger.info(f"Dispatching paperscout: {from_date} to {to_date} (source={source})")
 
-            # Build prompt for paperscout with date range
-            prompt = f"Check for papers from {from_date} to {to_date}"
-
             try:
-                # Record pending notification before run
                 self._storage.save_notification_record(
                     {
                         "user_id": self._user_id,
@@ -187,41 +181,34 @@ class DaemonService:
                     }
                 )
 
-                # Run agent
-                result_stream = await agent.run(
-                    user_input=prompt,
-                    subagent="paperscout",
+                result = await run_paperscout_for_dates(
+                    self._config,
+                    self._storage,
+                    self._user_id,
+                    from_date=from_date,
+                    to_date=to_date,
+                    source=source,
                 )
 
-                # Process stream
-                papers_count = 0
-                async for chunk in result_stream:
-                    if isinstance(chunk, dict):
-                        if "paper_count" in chunk:
-                            papers_count = chunk["paper_count"]
-
-                # Update notification record:
-                # - sent: successful run with papers
-                # - empty: successful run with 0 papers (retriable)
-                status = "sent" if papers_count > 0 else "empty"
                 self._storage.save_notification_record(
                     {
                         "user_id": self._user_id,
                         "query_categories": self._query_categories,
                         "notification_date": from_date,
-                        "status": status,
-                        "paper_count": papers_count,
+                        "status": result.status,
+                        "paper_count": result.paper_count,
+                        "error_message": "; ".join(result.errors) if result.errors else None,
                     }
                 )
 
                 logger.info(
-                    f"Paperscout completed for {from_date}: {papers_count} papers (status={status})"
+                    f"Paperscout completed for {from_date}: "
+                    f"{result.paper_count} papers (status={result.status})"
                 )
 
             except Exception as e:
                 logger.exception(f"Paperscout failed for {from_date}")
 
-                # Update notification record to failed
                 self._storage.save_notification_record(
                     {
                         "user_id": self._user_id,

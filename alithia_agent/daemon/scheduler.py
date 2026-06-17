@@ -115,7 +115,6 @@ class PaperScoutScheduler:
             return
 
         self._is_running = True
-        self._task = asyncio.create_task(self._loop())
 
         logger.info(
             f"Scheduler started — daily run at "
@@ -123,6 +122,24 @@ class PaperScoutScheduler:
             f"max retry age {self._config.max_retry_age_days}d, "
             f"max retries/run {self._config.max_retries_per_run}"
         )
+
+        if self._config.backfill_on_startup:
+            await self._backfill_on_startup()
+
+        self._task = asyncio.create_task(self._loop())
+
+    async def _backfill_on_startup(self) -> None:
+        """Retry unretrieved backlog days once when the daemon starts."""
+        cap = self._config.startup_backfill_cap
+        if cap is None:
+            cap = self._config.max_retry_age_days
+
+        if cap <= 0:
+            logger.info("Scheduler: startup backfill disabled (cap=0)")
+            return
+
+        logger.info(f"Scheduler: running startup backlog backfill (cap={cap})")
+        await self._retry_gaps(excluded_dates=set(), max_retries=cap)
 
     def stop(self) -> None:
         """Stop the scheduler loop."""
@@ -196,11 +213,17 @@ class PaperScoutScheduler:
         # Retry backlog days, excluding dates already processed in this cycle.
         await self._retry_gaps(excluded_dates={yesterday})
 
-    async def _retry_gaps(self, excluded_dates: set[date] | None = None) -> None:
+    async def _retry_gaps(
+        self,
+        excluded_dates: set[date] | None = None,
+        *,
+        max_retries: int | None = None,
+    ) -> None:
         """Retry unretrieved dates within bounded retry-age window."""
         if not self._dispatcher:
             return
         excluded_dates = excluded_dates or set()
+        retry_cap = max_retries if max_retries is not None else self._config.max_retries_per_run
 
         # Get unretrieved dates from gap scanner.
         missing = self._gap_scanner.scan(self._config.max_retry_age_days)
@@ -218,11 +241,8 @@ class PaperScoutScheduler:
             return
 
         # Prioritize oldest first and enforce retry cap per run.
-        gaps = sorted(gaps)[: self._config.max_retries_per_run]
-        logger.info(
-            f"Scheduler: retrying {len(gaps)} backlog day(s) "
-            f"(cap={self._config.max_retries_per_run})"
-        )
+        gaps = sorted(gaps)[:retry_cap]
+        logger.info(f"Scheduler: retrying {len(gaps)} backlog day(s) (cap={retry_cap})")
 
         for gap_date in gaps:
             gap_iso = gap_date.isoformat()
@@ -255,6 +275,8 @@ class PaperScoutScheduler:
             "retry_window_days": self._config.retry_window_days,
             "max_retry_age_days": self._config.max_retry_age_days,
             "max_retries_per_run": self._config.max_retries_per_run,
+            "backfill_on_startup": self._config.backfill_on_startup,
+            "startup_backfill_cap": self._config.startup_backfill_cap,
             "big_bang": self._big_bang.isoformat() if self._big_bang else None,
         }
 

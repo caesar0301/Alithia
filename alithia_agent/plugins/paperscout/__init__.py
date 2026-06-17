@@ -121,6 +121,16 @@ class PaperScoutPlugin:
         else:
             runtime_config = PaperScoutRuntimeConfig()
 
+        from_date = kwargs.get("from_date")
+        to_date = kwargs.get("to_date")
+        source = kwargs.get("source", "manual")
+        if from_date:
+            runtime_config = runtime_config.with_scheduler_params(
+                from_date=from_date,
+                to_date=to_date or from_date,
+                source=source,
+            )
+
         logger.info(f"Creating PaperScout subagent for user {user_id}")
 
         return create_paperscout_subagent(

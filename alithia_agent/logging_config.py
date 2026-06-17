@@ -9,6 +9,7 @@ from pathlib import Path
 FILE_LOG_FORMAT = "[%(asctime)s] [%(levelname)s] [%(name)s] %(message)s"
 FILE_LOG_DATEFMT = "%Y-%m-%d %H:%M:%S"
 CONSOLE_LOG_FORMAT = "[%(levelname)s] %(message)s"
+DEFAULT_LOG_FILE = "logs/alithia.log"
 
 
 def configure_logging(
@@ -21,7 +22,7 @@ def configure_logging(
 ) -> Path | None:
     """Configure root logger with consistent file and console formats.
 
-    File logs include timestamp, level, and logger name (matches daemon.log).
+    File logs include timestamp, level, and logger name.
     Console logs stay compact for interactive use.
 
     Args:
@@ -59,6 +60,7 @@ def configure_logging(
 
 __all__ = [
     "CONSOLE_LOG_FORMAT",
+    "DEFAULT_LOG_FILE",
     "FILE_LOG_DATEFMT",
     "FILE_LOG_FORMAT",
     "configure_logging",
