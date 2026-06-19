@@ -21,6 +21,8 @@ This document tracks all RFC lifecycle events in chronological order (newest fir
 
 | Date | Event | RFC | Description |
 |------|-------|-----|-------------|
+| 2026-06-18 | Reference Updated | RFC-007, RFC-009 | Added DeepXiv plugin documentation (migrated from soothe.toolkits) |
+| 2026-06-18 | Created | Migration Doc | DeepXiv migration documentation: moved from soothe.toolkits to alithia_agent.plugins.deepxiv |
 | 2026-06-06 | Created | RFC-008-data-models | Shared data model contracts (paper types, metadata, notifications) |
 | 2026-06-06 | Created | RFC-007-plugin-integration | Soothe framework integration contracts (@plugin, @subagent, AsyncPersistStore) |
 | 2026-06-06 | Created | RFC-006-configuration | Configuration management architecture (JSON + env substitution) |

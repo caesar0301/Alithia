@@ -3,7 +3,7 @@
 **Status**: Draft
 **Authors**: Claude, Xiaming Chen
 **Created**: 2026-06-07
-**Last Updated**: 2026-06-07
+**Last Updated**: 2026-06-18
 **Depends on**: RFC-002-world-view, RFC-007-plugin-integration
 **Supersedes**: ---
 **Stage**: Core
@@ -159,10 +159,13 @@ Alithia-agent should:
 │       │    │    ├── @plugin, @subagent decorators            │
 │       │    │    ├── implementation.py (LangGraph workflow)   │
 │       │    │    └── events.py (SubagentEvent classes)        │
-│       │    └─── paperlens/                                    │
-│       │         ├── @plugin, @subagent decorators            │
-│       │         ├── implementation.py (LangGraph workflow)   │
-│       │         └── events.py (SubagentEvent classes)        │
+│       │    ├─── paperlens/                                    │
+│       │    │    ├── @plugin, @subagent decorators            │
+│       │    │    ├── implementation.py (LangGraph workflow)   │
+│       │    │    └── events.py (SubagentEvent classes)        │
+│       │    └─── deepxiv/                                      │
+│       │         ├── @plugin decorator (tool provider)         │
+│       │         └── toolkit.py (LangChain tools)             │
 │       │                                                       │
 │       └─── storage/__init__.py                                │
 │            └── AlithiaStore (AsyncPersistStore impl)         │
@@ -206,7 +209,7 @@ class AlithiaAgent:
 
 ### 5.2 Plugin Registration
 
-**Responsibility**: Register paperscout/paperlens in soothe's global registry for goal engine discovery.
+**Responsibility**: Register alithia plugins (paperscout, paperlens, deepxiv) in soothe's global registry for goal engine discovery.
 
 Alithia uses explicit in-app registration via soothe's global registry:
 
@@ -217,9 +220,12 @@ def register_alithia_plugins() -> None:
 
     registry.register(PaperScoutPlugin._plugin_manifest, source="config", priority=30)
     registry.register(PaperLensPlugin._plugin_manifest, source="config", priority=30)
+    registry.register(DeepxivPlugin._plugin_manifest, source="config", priority=30)
 ```
 
 The global registry is used by soothe's `AgentBuilder._load_plugins()`, so plugins registered here are automatically discovered when `create_soothe_agent()` is called.
+
+**Note**: DeepXiv plugin was migrated from `soothe.toolkits` to `alithia_agent.plugins.deepxiv` on 2026-06-18. See the [migration documentation](../migration-deepxiv-to-alithia.md) for details.
 
 ### 5.3 Plugin Classes (paperscout/paperlens)
 

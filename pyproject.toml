@@ -17,7 +17,8 @@ dependencies = [
     "scikit-learn>=1.0.0",
     "numpy>=1.20.0",
     "docling>=2.0.0",
-    "soothe>=0.6.11",
+    "deepxiv-sdk>=0.1.0",
+    "httpx>=0.25.0",
 ]
 
 [project.optional-dependencies]
@@ -72,5 +73,7 @@ module = [
     "modelscope.*",
     "soothe.*",
     "soothe_sdk.*",
+    "deepxiv_sdk.*",
+    "httpx",
 ]
 ignore_missing_imports = true

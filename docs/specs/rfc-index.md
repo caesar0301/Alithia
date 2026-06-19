@@ -53,6 +53,7 @@ RFC-002-world-view (Conceptual — foundation, no dependencies)
 | [rfc-namings.md](rfc-namings.md) | Terminology reference |
 | [rfc-history.md](rfc-history.md) | Change history |
 | [rfc-index.md](rfc-index.md) | This document |
+| [../migration-deepxiv-to-alithia.md](../migration-deepxiv-to-alithia.md) | DeepXiv migration guide (from soothe.toolkits to alithia) |
 
 ---
 

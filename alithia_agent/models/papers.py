@@ -123,7 +123,7 @@ class ArxivPaper(BaseModel):
     # PaperScout processing fields
     score: float = Field(default=0.0, ge=0.0, le=10.0)
     code_url: str | None = None  # PapersWithCode link
-    affiliations: list[str] | None = None
+    affiliations: list[str] | None = None  # Author affiliations (if available)
     tldr: str | None = None  # Generated summary
     tex: str | None = None  # LaTeX content
 

@@ -6,6 +6,17 @@ CLI research assistant for paper discovery and analysis.
 
 - **PaperScout**: ArXiv paper discovery with email notifications
 - **PaperLens**: Local PDF analysis with similarity ranking
+- **DeepXiv**: Academic paper search and progressive reading toolkit (arXiv, bioRxiv, medRxiv, PMC)
+
+## Available Plugins
+
+Alithia provides the following integrated plugins:
+
+| Plugin | Type | Description | Source |
+|--------|------|-------------|--------|
+| paperscout | Subagent | Daily ArXiv paper recommendations based on Zotero library | Built-in |
+| paperlens | Subagent | Local PDF analysis and similarity ranking | Built-in |
+| deepxiv | Tools | Academic paper search with TLDRs and section-level access | [Migrated from soothe.toolkits](docs/migration-deepxiv-to-alithia.md) |
 
 ## Installation
 

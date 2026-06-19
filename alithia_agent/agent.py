@@ -3,7 +3,7 @@
 Provides branded CLI entry point that:
 - Sets SOOTHE_HOME to ~/.alithia/soothe/
 - Loads alithia domain config from ~/.alithia/config.yml
-- Registers paperscout/paperlens plugins in soothe's global registry
+- Registers paperscout/paperlens/deepxiv plugins in soothe's global registry
 - Creates and manages soothe SootheRunner for protocol-orchestrated execution
 """
 
@@ -38,7 +38,7 @@ class AlithiaAgent:
     Wraps soothe's SootheRunner with alithia-specific initialization:
     - Uses SOOTHE_HOME=~/.alithia/soothe/ (set in __init__.py)
     - Loads alithia domain config from ~/.alithia/config.yml
-    - Registers paperscout/paperlens plugins in soothe's global registry
+    - Registers paperscout/paperlens/deepxiv plugins in soothe's global registry
     - Provides branded execution interface with alithia defaults
 
     Example:
@@ -134,7 +134,7 @@ class AlithiaAgent:
         from soothe.config.models import SubagentConfig
 
         # Get or create alithia subagent entries
-        alithia_subagents = ["paperscout", "paperlens"]
+        alithia_subagents = ["paperscout", "paperlens", "deepxiv"]
 
         for name in alithia_subagents:
             if name not in self._soothe_config.subagents:
@@ -189,6 +189,7 @@ class AlithiaAgent:
                 # Alithia custom subagents - enabled by default
                 "paperscout": SubagentConfig(enabled=True),
                 "paperlens": SubagentConfig(enabled=True),
+                "deepxiv": SubagentConfig(enabled=True),
             },
             "tools": {
                 "file_ops": {"enabled": True},

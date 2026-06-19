@@ -14,6 +14,7 @@ import arxiv
 from pyzotero import zotero
 
 from alithia_agent.models import ArxivPaper, ScoredPaper, ZoteroPaper
+from alithia_agent.paperscout.affiliation_extractor import AffiliationExtractor
 from alithia_agent.paperscout.email import construct_email_content, send_email
 from alithia_agent.paperscout.events import (
     PaperScoutEmailSentEvent,
@@ -181,6 +182,24 @@ def make_nodes(
                 f"{len(new_papers)} new papers "
                 f"(filtered {len(arxiv_papers) - len(new_papers)} already sent)",
             )
+
+            # Extract affiliations from ArXiv LaTeX source (for new papers)
+            if new_papers:
+                _emit_step("data_collection", "Extracting affiliations from LaTeX source")
+                try:
+                    extractor = AffiliationExtractor()
+                    new_papers = await extractor.enrich_papers(new_papers)
+                    enriched_count = sum(1 for p in new_papers if p.affiliations)
+                    _emit_step(
+                        "data_collection",
+                        f"Extracted affiliations for {enriched_count}/{len(new_papers)} papers",
+                    )
+                    metrics["affiliations_extracted"] = enriched_count
+                    await extractor.close()
+                except Exception as e:
+                    _emit_error(f"Affiliation extraction error: {e}", "data_collection")
+                    # Continue without affiliations - extraction is optional
+                    logger.warning(f"Affiliation extraction failed, continuing without: {e}")
 
             # Fetch Zotero corpus
             _emit_step("data_collection", "Fetching Zotero library")

@@ -23,7 +23,7 @@ def _check_entry_points_registered() -> bool:
     try:
         entry_points = importlib.metadata.entry_points(group="soothe.plugins")
         for ep in entry_points:
-            if ep.name in ("paperscout", "paperlens"):
+            if ep.name in ("paperscout", "paperlens", "deepxiv"):
                 logger.debug(f"Found {ep.name} in soothe.plugins entry points")
                 return True
     except Exception:
@@ -79,6 +79,16 @@ def register_alithia_plugins() -> None:
             priority=30,
         )
         logger.info("Manually registered paperlens plugin")
+
+        # Import and register deepxiv plugin
+        from alithia_agent.plugins.deepxiv import DeepxivPlugin
+
+        registry.register(
+            getattr(DeepxivPlugin, "_plugin_manifest"),
+            source="config",
+            priority=30,
+        )
+        logger.info("Manually registered deepxiv plugin")
 
     except ImportError as e:
         logger.warning(f"Could not register alithia plugins: {e}")

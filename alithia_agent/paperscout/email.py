@@ -93,7 +93,6 @@ def _format_affiliations(paper: ArxivPaper) -> str:
     """Format affiliations for display."""
     if not paper.affiliations:
         return "Unknown Affiliation"
-
     affiliations = paper.affiliations[:5]
     affiliations_str = ", ".join(affiliations)
     if len(paper.affiliations) > 5:

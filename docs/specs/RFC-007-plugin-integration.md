@@ -3,7 +3,7 @@
 **Status**: Draft
 **Authors**: Claude
 **Created**: 2026-06-06
-**Last Updated**: 2026-06-06
+**Last Updated**: 2026-06-18
 **Depends on**: RFC-002-world-view
 **Supersedes**: ---
 **Stage**: Core
@@ -158,6 +158,66 @@ class PaperLensPlugin:
     def get_subagents(self) -> list[Callable]:
         return [self.create_paperlens]
 ```
+
+### 4.4 DeepXiv Plugin Registration
+
+The DeepXiv plugin was migrated from `soothe.toolkits` to `alithia_agent.plugins.deepxiv` on 2026-06-18. See the [migration documentation](../migration-deepxiv-to-alithia.md) for details.
+
+```python
+# Located at: alithia_agent/plugins/deepxiv/__init__.py
+
+class DeepxivPlugin:
+    """DeepXiv plugin for academic paper operations.
+    
+    Provides tools for:
+    - Semantic paper search across arXiv, bioRxiv, medRxiv, PMC
+    - AI-generated TLDRs and summaries
+    - Section-level paper reading for token efficiency
+    - Trending papers based on social signals
+    """
+    
+    _plugin_manifest = type(
+        "PluginManifest",
+        (),
+        {
+            "name": "deepxiv",
+            "version": "1.0.0",
+            "description": "Academic paper search and progressive reading toolkit",
+            "dependencies": ["langchain-core>=0.1.0", "deepxiv-sdk>=0.1.0"],
+            "trust_level": "standard",
+        },
+    )()
+    
+    async def on_load(self, context: Any) -> None:
+        """Initialize the DeepXiv toolkit."""
+        context.logger.info("Loading DeepXiv plugin v1.0.0")
+        
+        # Get config from context if available
+        token = None
+        timeout = 60
+        max_retries = 3
+        
+        config = getattr(context, "config", None)
+        if config and hasattr(config, "deepxiv"):
+            deepxiv_config = config.deepxiv
+            if deepxiv_config:
+                token = getattr(deepxiv_config, "token", None)
+                timeout = getattr(deepxiv_config, "timeout", 60)
+                max_retries = getattr(deepxiv_config, "max_retries", 3)
+        
+        toolkit = DeepxivToolkit(
+            token=token,
+            timeout=timeout,
+            max_retries=max_retries,
+        )
+        self._tools = toolkit.get_tools()
+    
+    def get_tools(self) -> list[BaseTool]:
+        """Get LangChain BaseTool instances."""
+        return self._tools
+```
+
+**Note**: DeepXiv is a tool plugin (not a subagent plugin) that provides tools to other subagents. It does not implement `get_subagents()` but instead provides `get_tools()`.
 
 ---
 
