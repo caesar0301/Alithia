@@ -99,12 +99,16 @@ class GemsConfig(BaseModel):
 
 
 class ResearcherProfileConfig(BaseModel):
-    """Researcher profile configuration."""
+    """Researcher profile configuration.
+
+    Research interests are NOT declared here anymore (RFC-010): they live as
+    Markdown files under ``~/.alithia/research_interests/`` and are loaded by
+    the PaperScout data-collection node. A legacy ``research_interests`` list
+    key in a user config is tolerated via ``extra="allow"`` and ignored.
+    """
 
     model_config = ConfigDict(extra="allow")
 
-    research_interests: list[str] = Field(default=["AI", "Machine Learning"])
-    expertise_level: Literal["beginner", "intermediate", "advanced", "expert"] = "intermediate"
     language: str = "English"
     email: str | None = None
     llm: LlmProfileConfig | None = None

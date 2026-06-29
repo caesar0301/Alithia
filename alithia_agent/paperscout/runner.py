@@ -54,7 +54,7 @@ def _initial_state(
         "config": runtime_config,
         "user_id": user_id,
         "discovered_papers": [],
-        "zotero_papers": [],
+        "research_interests": [],
         "scored_papers": [],
         "email_content": None,
         "errors": [],

@@ -3,8 +3,8 @@
 **Status**: Draft
 **Authors**: Claude (recovered from existing implementation)
 **Created**: 2026-06-06
-**Last Updated**: 2026-06-06
-**Depends on**: RFC-002-world-view
+**Last Updated**: 2026-06-29
+**Depends on**: RFC-002-world-view, RFC-010-research-interests-knowledge
 **Supersedes**: ---
 **Stage**: DataCollection, Relevance, Notification
 **Kind**: Architecture Design
@@ -160,8 +160,10 @@ class AgentState(TypedDict):
     # Discovered papers (from ArXiv)
     discovered_papers: list[ArxivPaper]
 
-    # User corpus (from Zotero)
-    zotero_papers: list[ZoteroPaper]
+    # Research-interest knowledge units (RFC-010) — the SOLE knowledge corpus
+    # the reranker scores against. Hand-written interests + Zotero items synced
+    # into zotero/*.md (source: zotero). The legacy zotero_papers slot was removed.
+    research_interests: list[ResearchInterest]
 
     # Ranked papers
     scored_papers: list[ScoredPaper]
@@ -180,8 +182,8 @@ class AgentState(TypedDict):
 | Stage | Input | Transform | Output |
 |-------|-------|-----------|--------|
 | `data_collection` | ArXiv categories + date range | ArXiv API query → filter by date → dedupe vs emailed | `list[ArxivPaper]` |
-| `data_collection` | Zotero config | Zotero API fetch → cache check → parse items | `list[ZoteroPaper]` |
-| `relevance_assessment` | Papers + corpus | Encode corpus + papers → cosine similarity → time-decay weighting | `list[ScoredPaper]` |
+| `data_collection` | Zotero config (optional) + `research_interests_dir` | Zotero → Markdown sync → prune stale → scan all `*.md` (RFC-010 §8) | `list[ResearchInterest]` |
+| `relevance_assessment` | Papers + research_interests | Encode interest units + papers → cosine similarity → time-decay × per-unit weight (RFC-010 §9) | `list[ScoredPaper]` |
 | `content_generation` | Scored papers + max_papers | Slice top N → generate TLDR → build HTML | `EmailContent` |
 | `communication` | Email + SMTP config | Connect SMTP → send → record notification | Storage record |
 
@@ -212,7 +214,8 @@ class AgentState(TypedDict):
 | `gap_window_days` | `int` | `7` | 1-30 | Window for gap detection |
 | `emailed_papers_retention_days` | `int` | `30` | 7-90 | Dedupe list TTL |
 | `smtp` | `SmtpConfig` | None | — | SMTP server config |
-| `zotero` | `ZoteroConfig` | None | — | Zotero API config |
+| `zotero` | `ZoteroConfig` | None | optional | Zotero API config. **Optional** (RFC-010): when absent, the run proceeds with research-interests markdown alone. |
+| `research_interests_dir` | `str` | None | — | Path to the research-interests Markdown directory (RFC-010). Set by `build_runtime_config` to `ALITHIA_HOME/research_interests`. |
 | `tldr_max_tokens` | `int` | `150` | 50-300 | TLDR generation limit |
 | `tldr_language` | `str` | `"English"` | — | TLDR language |
 
@@ -327,9 +330,10 @@ class GapScanner:
 
 | Category | Example | Handling |
 |----------|---------|----------|
-| **Config validation** | Missing Zotero API key | Emit error, return early from `profile_analysis` |
+| **Config validation** | No knowledge source (no zotero AND no interests) | Emit error, return early from `profile_analysis` (RFC-010 §10) |
 | **ArXiv API failure** | Rate limit, network error | Log error, return empty `discovered_papers` |
-| **Zotero API failure** | Invalid credentials, timeout | Log error, continue with ArXiv only |
+| **Zotero API failure** | Invalid credentials, timeout | Log error, continue with interests-only (sync non-fatal) |
+| **Zotero sync failure** | pyzotero missing, network error | Non-fatal: continue with existing on-disk interest files |
 | **Reranking failure** | Model load error, OOM | Use fallback scores (5.0 default) |
 | **SMTP failure** | Auth error, connection refused | Log error, mark notification as failed |
 | **Storage failure** | SQLite locked, disk full | Log error, continue without cache |
@@ -338,7 +342,7 @@ class GapScanner:
 
 | Invariant | Rule |
 |-----------|------|
-| Zotero unavailable | MUST continue with ArXiv-only (no corpus ranking) |
+| Zotero unavailable | MUST continue with ArXiv-only against the research-interests corpus (RFC-010 §10). Honored by `profile_analysis`: zotero is optional; the run fails fast only when *neither* zotero nor interests exist. |
 | Reranker unavailable | MUST use default score 5.0 for all papers |
 | SMTP unavailable | MUST record failure in notification record |
 | Storage unavailable | MUST continue without caching |
@@ -387,17 +391,17 @@ class GapScanner:
 
 ## 13. Dependencies
 
-### 13.1 Required Dependencies
+### 13.1 Dependencies
 
-| Package | Purpose | Minimum Version |
-|---------|---------|-----------------|
-| `langgraph` | Workflow orchestration | 0.2.0 |
-| `pydantic` | Data models | 2.0 |
-| `arxiv` | ArXiv API client | 2.0.0 |
-| `pyzotero` | Zotero API client | 1.5.0 |
-| `sentence-transformers` | Similarity embeddings | 2.2.0 |
-| `scikit-learn` | Cosine similarity | 1.0.0 |
-| `numpy` | Array operations | 1.20.0 |
+| Package | Purpose | Minimum Version | Required? |
+|---------|---------|-----------------|-----------|
+| `langgraph` | Workflow orchestration | 0.2.0 | Required |
+| `pydantic` | Data models | 2.0 | Required |
+| `arxiv` | ArXiv API client | 2.0.0 | Required |
+| `pyzotero` | Zotero API client (lazy import; only for Zotero sync) | 1.5.0 | **Optional** (RFC-010 §8.3): the module imports and the run proceeds without it. |
+| `sentence-transformers` / `fastembed` | Similarity embeddings | 2.2.0 / 0.6.0 | Optional (fallback scoring when absent) |
+| `scikit-learn` | Cosine similarity | 1.0.0 | Optional |
+| `numpy` | Array operations | 1.20.0 | Required |
 
 ### 13.2 Framework Integration
 

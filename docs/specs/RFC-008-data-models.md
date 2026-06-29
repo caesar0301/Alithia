@@ -3,8 +3,8 @@
 **Status**: Draft
 **Authors**: Claude
 **Created**: 2026-06-06
-**Last Updated**: 2026-06-06
-**Depends on**: RFC-002-world-view
+**Last Updated**: 2026-06-29
+**Depends on**: RFC-002-world-view, RFC-010-research-interests-knowledge
 **Supersedes**: ---
 **Stage**: Core
 **Kind**: Implementation Interface Design
@@ -23,7 +23,7 @@ Alithia-agent subagents share common data models for papers, scores, and related
 
 This RFC defines:
 
-* Shared paper models (AcademicPaper, ArxivPaper, ZoteroPaper)
+* Shared paper models (AcademicPaper, ArxivPaper, ZoteroPaper, ResearchInterest)
 * Score model (ScoredPaper)
 * Metadata models (FileMetadata, PaperMetadata, PaperContent)
 * Email/notification models (EmailContent, NotificationRecord)
@@ -252,6 +252,43 @@ class ZoteroPaper(BaseModel):
         if self.tags:
             parts.append(" ".join(self.tags))
         
+        return " ".join(parts)
+```
+
+### 5.4 ResearchInterest (Knowledge Unit)
+
+> Defined in full in [RFC-010-research-interests-knowledge](RFC-010-research-interests-knowledge.md) §6.1. Summarized here as a shared data-model contract.
+
+```python
+class ResearchInterest(BaseModel):
+    """One knowledge unit parsed from a research_interests/*.md file.
+
+    Used by PaperScout as a primary relevance-corpus unit. May be hand-written
+    (source="manual") or Zotero-synced (source="zotero"). Both origins are
+    treated uniformly by the matcher.
+    """
+
+    model_config = ConfigDict(extra="allow")
+
+    title: str
+    source: Literal["manual", "zotero"] = "manual"
+    weight: float = Field(default=1.0, ge=0.0)  # multiplier on this unit's similarity
+    arxiv_categories: list[str] = Field(default_factory=list)  # informational, not fetch
+    tags: list[str] = Field(default_factory=list)
+    notes: str = ""
+    date_added: date | None = None  # recency key for time-decay
+    zotero_item_key: str | None = None  # provenance for zotero-synced units
+    body: str = ""  # raw markdown body (frontmatter stripped), set by loader
+
+    def get_searchable_text(self) -> str:
+        """Text fed to the embedder: notes + body + tags (RFC-010 §5.4)."""
+        parts: list[str] = []
+        if self.notes:
+            parts.append(self.notes)
+        if self.body:
+            parts.append(self.body)
+        if self.tags:
+            parts.append(" ".join(self.tags))
         return " ".join(parts)
 ```
 
@@ -628,8 +665,9 @@ __all__ = [
 |-----|--------------|
 | RFC-002-world-view | Implements Paper/Score abstractions |
 | RFC-001-paperlens-workflow | Uses AcademicPaper, FileMetadata, PaperMetadata, PaperContent |
-| RFC-003-paperscout-workflow | Uses ArxivPaper, ZoteroPaper, EmailContent, NotificationRecord |
+| RFC-003-paperscout-workflow | Uses ArxivPaper, ZoteroPaper, ResearchInterest, EmailContent, NotificationRecord |
 | RFC-004-storage-layer | Defines serialization to_dict/from_dict |
+| RFC-010-research-interests-knowledge | Defines the full ResearchInterest model and its Markdown format (§5.4 cross-references it) |
 
 ---
 

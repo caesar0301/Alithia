@@ -98,8 +98,8 @@ def deep_merge(base: dict, override: dict) -> dict:
 # Default configuration values (aligned with existing alithia config)
 DEFAULT_CONFIG = {
     "researcher_profile": {
-        "research_interests": ["AI", "Machine Learning", "Computer Vision"],
-        "expertise_level": "intermediate",
+        # research_interests are now Markdown files under
+        # ~/.alithia/research_interests/ (RFC-010); not a config list.
         "language": "English",
     },
     "storage": {

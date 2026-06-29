@@ -19,11 +19,8 @@ from alithia_agent.paperscout.implementation import create_paperscout_subagent
 from alithia_agent.paperscout.runner import PaperScoutRunResult, run_paperscout_for_dates
 from alithia_agent.paperscout.state import (
     AgentState,
-    PaperScoutConfig,  # Legacy alias
     PaperScoutRuntimeConfig,
-    SmtpConfig,  # Legacy alias
     SmtpRuntimeConfig,
-    ZoteroConfig,  # Legacy alias
     ZoteroRuntimeConfig,
     build_runtime_config,
 )
@@ -39,11 +36,8 @@ __all__ = [
     "PaperScoutRunResult",
     "run_paperscout_for_dates",
     "PaperScoutRuntimeConfig",
-    "PaperScoutConfig",
     "SmtpRuntimeConfig",
-    "SmtpConfig",
     "ZoteroRuntimeConfig",
-    "ZoteroConfig",
     "AgentState",
     "build_runtime_config",
 ]
@@ -56,8 +50,8 @@ __all__ = [
     dependencies=[
         "langgraph>=0.2.0",
         "arxiv>=2.0.0",
-        "fastembed>=0.6.0",
-        "pyzotero>=1.5.0",
+        "fastembed>=0.6.0",  # optional at runtime; fallback scoring if absent
+        "pyzotero>=1.5.0",  # optional: only needed for Zotero sync (RFC-010 §8.3)
         "scikit-learn>=1.0.0",
     ],
     trust_level="standard",

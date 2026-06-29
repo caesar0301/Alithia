@@ -3,12 +3,13 @@ name = "alithia"
 version = "0.3.1"
 description = "CLI research assistant for paper discovery and analysis"
 readme = "README.md"
-requires-python = ">=3.11"
+requires-python = ">=3.11,<3.15"
 license = {text = "MIT"}
 authors = [{name = "Alithia Team"}]
 
 dependencies = [
     "langgraph>=0.2.0",
+    "langchain-core>=0.1.0",
     "pydantic>=2.0",
     "pyyaml>=6.0",
     "arxiv>=2.0.0",
@@ -19,6 +20,8 @@ dependencies = [
     "docling>=2.0.0",
     "deepxiv-sdk>=0.1.0",
     "httpx>=0.25.0",
+    "soothe-sdk>=0.6.16,<1.0.0",
+    "soothe>=0.6.16,<1.0.0",
 ]
 
 [project.optional-dependencies]
@@ -71,6 +74,7 @@ module = [
     "sklearn.*",
     "docling.*",
     "modelscope.*",
+    "langchain_core.*",
     "soothe.*",
     "soothe_sdk.*",
     "deepxiv_sdk.*",

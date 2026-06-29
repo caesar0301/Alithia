@@ -3,8 +3,8 @@
 **Status**: Draft
 **Authors**: Claude
 **Created**: 2026-06-06
-**Last Updated**: 2026-06-06
-**Depends on**: RFC-002-world-view
+**Last Updated**: 2026-06-29
+**Depends on**: RFC-002-world-view, RFC-010-research-interests-knowledge
 **Supersedes**: ---
 **Stage**: Core
 **Kind**: Architecture Design
@@ -144,7 +144,13 @@ config/
 | `path` | `str` | No | `~/.alithia/alithia.db` | Database path |
 | `user_id` | `str` | No | `"default"` | User identifier |
 
-### 6.3 Zotero Config
+### 6.3 Zotero Config (Optional)
+
+> **RFC-010 change**: Zotero is now **optional** at every layer (schema, runtime
+> config, `profile_analysis`, validator). When configured, the library is synced
+> into `~/.alithia/research_interests/zotero/*.md` at run time and unified with
+> hand-written interest files. When absent, PaperScout ranks against the
+> hand-written interests alone. See [RFC-010-research-interests-knowledge](RFC-010-research-interests-knowledge.md).
 
 ```json
 {
@@ -158,9 +164,21 @@ config/
 
 | Field | Type | Required | Default | Description |
 |-------|------|----------|---------|-------------|
-| `api_key` | `str` | Yes | — | Zotero API key (env injected) |
-| `library_id` | `str` | Yes | — | Library ID (env injected) |
+| `api_key` | `str` | No (optional) | — | Zotero API key (env injected). Omit to run interests-only. |
+| `library_id` | `str` | No (optional) | — | Library ID (env injected). |
 | `library_type` | `str` | No | `user` | `user` or `group` |
+
+### 6.3.1 Research Interests (Markdown, not a config field)
+
+> **RFC-010 change**: The `research_interests: list[str]` config field was
+> **removed** from `ResearcherProfileConfig`. Interests are read exclusively
+> from the `~/.alithia/research_interests/` Markdown directory (one file per
+> knowledge unit, YAML frontmatter + body). A config that still carries a
+> legacy `research_interests` list key is tolerated via `extra="allow"` and
+> ignored. Run `python scripts/migrate_research_interests.py` to seed Markdown
+> files. See [RFC-010](RFC-010-research-interests-knowledge.md) §5, §11.
+>
+> The `expertise_level` field was also removed (it was never read at runtime).
 
 ### 6.4 SMTP Config
 
@@ -305,8 +323,8 @@ def process_config_env(config: dict) -> dict:
 
 | Variable | Required By | Use Case |
 |----------|-------------|----------|
-| `ZOTERO_API_KEY` | PaperScout | Zotero library access |
-| `ZOTERO_LIBRARY_ID` | PaperScout | Library identification |
+| `ZOTERO_API_KEY` | PaperScout (optional) | Zotero library access — only if zotero configured (RFC-010) |
+| `ZOTERO_LIBRARY_ID` | PaperScout (optional) | Library identification — only if zotero configured |
 | `SMTP_HOST` | PaperScout | Email delivery |
 | `SMTP_USER` | PaperScout | Email auth |
 | `SMTP_PASSWORD` | PaperScout | Email auth |
@@ -343,12 +361,14 @@ class Config(BaseModel):
     
     @model_validator(mode="after")
     def validate_paperscout_dependencies(self):
-        """PaperScout requires zotero and smtp if send_email=True."""
+        """PaperScout requires smtp if send_email=True. Zotero is OPTIONAL
+        (RFC-010): the run succeeds with research-interests markdown alone,
+        with zotero alone, or with both. The "no knowledge source" check is
+        enforced at runtime in profile_analysis_node, not here, because it
+        depends on the on-disk interests directory."""
         if self.paperscout.send_email:
             if not self.smtp:
                 raise ValueError("smtp config required when paperscout.send_email=True")
-        if not self.zotero:
-            raise ValueError("zotero config required for paperscout")
         return self
 
 def validate_config(config_dict: dict) -> Config:

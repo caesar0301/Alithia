@@ -10,13 +10,14 @@ Master index of all RFC specifications.
 |-----|-------|------|--------|---------|--------------|
 | [RFC-001-paperlens-workflow](RFC-001-paperlens-workflow.md) | PaperLens Subagent Architecture | Architecture Design | Draft | 2026-06-06 | 2026-06-06 |
 | [RFC-002-world-view](RFC-002-world-view.md) | Alithia Agent System Vision | Conceptual Design | Draft | 2026-06-06 | 2026-06-06 |
-| [RFC-003-paperscout-workflow](RFC-003-paperscout-workflow.md) | PaperScout Subagent Architecture | Architecture Design | Draft | 2026-06-06 | 2026-06-06 |
+| [RFC-003-paperscout-workflow](RFC-003-paperscout-workflow.md) | PaperScout Subagent Architecture | Architecture Design | Draft | 2026-06-06 | 2026-06-29 |
 | [RFC-004-storage-layer](RFC-004-storage-layer.md) | SQLite Storage Architecture | Architecture Design | Draft | 2026-06-06 | 2026-06-06 |
 | [RFC-005-cli-interface](RFC-005-cli-interface.md) | Command Line Interface | Implementation Interface Design | Draft | 2026-06-06 | 2026-06-06 |
-| [RFC-006-configuration](RFC-006-configuration.md) | Configuration Management | Architecture Design | Draft | 2026-06-06 | 2026-06-06 |
+| [RFC-006-configuration](RFC-006-configuration.md) | Configuration Management | Architecture Design | Draft | 2026-06-06 | 2026-06-29 |
 | [RFC-007-plugin-integration](RFC-007-plugin-integration.md) | Soothe Framework Integration | Implementation Interface Design | Draft | 2026-06-06 | 2026-06-06 |
-| [RFC-008-data-models](RFC-008-data-models.md) | Shared Data Model Contracts | Implementation Interface Design | Draft | 2026-06-06 | 2026-06-06 |
+| [RFC-008-data-models](RFC-008-data-models.md) | Shared Data Model Contracts | Implementation Interface Design | Draft | 2026-06-06 | 2026-06-29 |
 | [RFC-009-soothe-integration](RFC-009-soothe-integration.md) | Soothe Framework Integration Architecture | Architecture Design | Draft | 2026-06-07 | 2026-06-07 |
+| [RFC-010-research-interests-knowledge](RFC-010-research-interests-knowledge.md) | Research Interests Knowledge Base | Architecture Design | Draft | 2026-06-29 | 2026-06-29 |
 
 ---
 
@@ -39,8 +40,9 @@ RFC-002-world-view (Conceptual — foundation, no dependencies)
     │                                            │
     ├── RFC-008-data-models ─────────────────────┤
     │                                            │
-    └── RFC-009-soothe-integration ──────────────┘
-        (depends on RFC-002, RFC-007)
+    ├── RFC-009-soothe-integration ──────────────┤  (depends on RFC-002, RFC-007)
+    │                                            │
+    └── RFC-010-research-interests-knowledge ────┘  (depends on RFC-002, RFC-003, RFC-006, RFC-008)
 ```
 
 ---
@@ -73,20 +75,20 @@ RFC-002-world-view (Conceptual — foundation, no dependencies)
 ### By Kind
 
 - **Conceptual Design**: [RFC-002-world-view](RFC-002-world-view.md)
-- **Architecture Design**: [RFC-001-paperlens-workflow](RFC-001-paperlens-workflow.md), [RFC-003-paperscout-workflow](RFC-003-paperscout-workflow.md), [RFC-004-storage-layer](RFC-004-storage-layer.md), [RFC-006-configuration](RFC-006-configuration.md)
+- **Architecture Design**: [RFC-001-paperlens-workflow](RFC-001-paperlens-workflow.md), [RFC-003-paperscout-workflow](RFC-003-paperscout-workflow.md), [RFC-004-storage-layer](RFC-004-storage-layer.md), [RFC-006-configuration](RFC-006-configuration.md), [RFC-009-soothe-integration](RFC-009-soothe-integration.md), [RFC-010-research-interests-knowledge](RFC-010-research-interests-knowledge.md)
 - **Implementation Interface Design**: [RFC-005-cli-interface](RFC-005-cli-interface.md), [RFC-007-plugin-integration](RFC-007-plugin-integration.md), [RFC-008-data-models](RFC-008-data-models.md)
 
 ### By Status
 
-- **Draft**: All RFCs (001-008)
+- **Draft**: All RFCs (001-010)
 - **Review**: _None yet_
 - **Frozen**: _None yet_
 
 ### By Stage
 
 - **Core**: RFC-002, RFC-001, RFC-004, RFC-005, RFC-006, RFC-007, RFC-008
-- **DataCollection**: RFC-003
-- **Relevance**: RFC-003
+- **DataCollection**: RFC-003, RFC-010
+- **Relevance**: RFC-003, RFC-010
 - **Notification**: RFC-003
 
 ---
@@ -96,10 +98,10 @@ RFC-002-world-view (Conceptual — foundation, no dependencies)
 | Kind | Count | Purpose |
 |------|-------|---------|
 | Conceptual Design | 1 | System vision, principles, taxonomy, invariants |
-| Architecture Design | 4 | Workflow architecture, storage, configuration |
+| Architecture Design | 6 | Workflow architecture, storage, configuration, soothe, knowledge base |
 | Implementation Interface Design | 3 | CLI, plugin integration, data models |
 
-**Total: 8 RFCs**
+**Total: 10 RFCs**
 
 ---
 

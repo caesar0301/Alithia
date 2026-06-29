@@ -12,7 +12,9 @@ from typing import TYPE_CHECKING, Annotated, Any, Literal, TypedDict
 from langgraph.graph.message import add_messages
 from pydantic import BaseModel, ConfigDict, Field
 
-from alithia_agent.models import ArxivPaper, EmailContent, ScoredPaper, ZoteroPaper
+from alithia_agent import ALITHIA_HOME
+from alithia_agent.models import ArxivPaper, EmailContent, ScoredPaper
+from alithia_agent.research_interests import ResearchInterest
 
 if TYPE_CHECKING:
     from alithia_agent.config.schema import Config
@@ -107,6 +109,10 @@ class PaperScoutRuntimeConfig(BaseModel):
     tldr_max_tokens: int = Field(default=150, ge=50, le=300)
     tldr_language: str = "English"
 
+    # Research interests knowledge base (RFC-010). Directory of *.md files
+    # under ALITHIA_HOME. Resolved here so nodes don't re-resolve ALITHIA_HOME.
+    research_interests_dir: str | None = None
+
     def with_scheduler_params(
         self,
         *,
@@ -180,6 +186,7 @@ class PaperScoutRuntimeConfig(BaseModel):
             llm_model=profile.llm.model_name if profile.llm else "qwen-turbo-latest",
             tldr_max_tokens=cfg.paperscout_agent.tldr_max_tokens,
             tldr_language=cfg.paperscout_agent.tldr_language,
+            research_interests_dir=str(ALITHIA_HOME / "research_interests"),
         )
 
 
@@ -213,8 +220,11 @@ class AgentState(TypedDict):
     # Discovered papers (from ArXiv)
     discovered_papers: list[ArxivPaper]
 
-    # User corpus (from Zotero)
-    zotero_papers: list[ZoteroPaper]
+    # Research interests knowledge units loaded from research_interests_dir
+    # (RFC-010). The unified knowledge base: hand-written units + Zotero items
+    # synced into zotero/*.md. This is the ONLY corpus the reranker scores
+    # against — the legacy zotero_papers slot was removed.
+    research_interests: list[ResearchInterest]
 
     # Ranked papers
     scored_papers: list[ScoredPaper]
@@ -228,20 +238,10 @@ class AgentState(TypedDict):
     metrics: dict[str, Any]
 
 
-# Legacy aliases for backward compatibility
-SmtpConfig = SmtpRuntimeConfig
-ZoteroConfig = ZoteroRuntimeConfig
-PaperScoutConfig = PaperScoutRuntimeConfig
-
-
 __all__ = [
     "SmtpRuntimeConfig",
     "ZoteroRuntimeConfig",
     "PaperScoutRuntimeConfig",
     "build_runtime_config",
     "AgentState",
-    # Legacy aliases
-    "SmtpConfig",
-    "ZoteroConfig",
-    "PaperScoutConfig",
 ]

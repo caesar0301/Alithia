@@ -1,7 +1,10 @@
 """Paper reranking using FastEmbed embeddings.
 
-Ranks ArXiv papers by relevance to user's Zotero library
-using FastEmbed ONNX embeddings and time-decay weighting.
+Ranks ArXiv papers by relevance to the user's research-interests knowledge
+base (RFC-010): a directory of Markdown knowledge units — hand-written
+interests plus Zotero items synced into zotero/*.md. All units are
+``ResearchInterest`` objects normalized into one corpus before a single
+embedding pass with time-decay weighting; see RFC-010 §9.
 
 Model cache is isolated from Soothe framework.
 """
@@ -10,15 +13,32 @@ from __future__ import annotations
 
 import logging
 import os
-from datetime import datetime
+from dataclasses import dataclass
+from datetime import date, datetime
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal
 
 import numpy as np
 
-from alithia_agent.models import ArxivPaper, ScoredPaper, ZoteroPaper
+from alithia_agent.models import ArxivPaper, ScoredPaper
+from alithia_agent.research_interests import ResearchInterest
 
 logger = logging.getLogger(__name__)
+
+
+@dataclass
+class _CorpusUnit:
+    """A homogeneous row in the unified corpus (RFC-010 §9.1).
+
+    Both interest units and Zotero papers are normalized into this shape
+    before embedding, so the time-decay + cosine algorithm runs unchanged.
+    """
+
+    text: str
+    weight: float
+    date_added: datetime | None
+    origin: Literal["manual", "zotero"]  # ResearchInterest.source provenance
+
 
 # Default embedding model (same as soothe for consistency)
 EMBEDDING_MODEL_NAME = "sentence-transformers/all-MiniLM-L6-v2"
@@ -86,6 +106,36 @@ def encode_texts(encoder: Any, texts: list[str]) -> list[np.ndarray]:
     return [np.array(emb) for emb in embeddings]
 
 
+def _to_datetime(value: date | datetime | str | None) -> datetime | None:
+    """Normalize a date/datetime/ISO-string to a datetime for recency sorting.
+
+    A bare ``date`` (interest units carry ``date_added: date``) is promoted to
+    midnight so it sorts alongside the datetimes Zotero provides. An ISO
+    ``YYYY-MM-DD`` string is parsed defensively — ``model_copy`` can bypass
+    validation and leave a raw string on the field. None sorts to the recency
+    bottom (lowest time-decay weight).
+    """
+    if value is None:
+        return None
+    if isinstance(value, datetime):
+        return value
+    if isinstance(value, date):
+        return datetime(value.year, value.month, value.day)
+    if isinstance(value, str):
+        s = value.strip()
+        if len(s) >= 10 and s[4] == "-" and s[7] == "-":
+            try:
+                d = datetime.fromisoformat(s[:10])
+                return d
+            except ValueError:
+                return None
+        try:
+            return datetime.fromisoformat(s)
+        except ValueError:
+            return None
+    return None
+
+
 class PaperReranker:
     """Paper reranking with FastEmbed embeddings.
 
@@ -98,24 +148,28 @@ class PaperReranker:
     def __init__(
         self,
         papers: list[ArxivPaper],
-        corpus: list[ZoteroPaper],
+        *,
+        interests: list[ResearchInterest] | None = None,
         cache_dir: str | None = None,
     ):
         """Initialize reranker.
 
         Args:
             papers: ArXiv papers to rank.
-            corpus: User's Zotero library.
+            interests: Research-interest knowledge units (RFC-010) — the unified
+                corpus: hand-written units plus Zotero items synced into
+                zotero/*.md. This is the ONLY knowledge source the reranker
+                scores against; the legacy Zotero-paper corpus slot was removed.
             cache_dir: Cache directory for models.
         """
         self.papers = papers
-        self.corpus = corpus
+        self.interests = interests or []
         self.cache_dir = cache_dir or str(get_model_cache_dir())
 
         if not self.papers:
             logger.warning("No papers provided for reranking")
-        if not self.corpus:
-            logger.warning("Empty corpus provided for reranking")
+        if not self.interests:
+            logger.warning("No research interests provided for reranking")
 
     def rerank(
         self,
@@ -135,8 +189,8 @@ class PaperReranker:
             logger.warning("No papers to rerank")
             return []
 
-        if not self.corpus:
-            logger.warning("Empty corpus, returning papers with default scores")
+        if not self.interests:
+            logger.warning("No interests, returning papers with default scores")
             return [
                 ScoredPaper(paper=p, score=5.0, relevance_factors={"default": 5.0})
                 for p in self.papers
@@ -150,45 +204,47 @@ class PaperReranker:
             return self._fallback_rank()
 
         try:
-            # Sort corpus by date (newest first)
-            sorted_corpus = sorted(
-                [p for p in self.corpus if p.date_added],
-                key=lambda x: x.date_added or datetime.min,
-                reverse=True,
-            )
+            # Build the unified corpus (RFC-010 §9.1): every knowledge unit is
+            # a ResearchInterest — hand-written (source=manual) or synced from
+            # Zotero (source=zotero). Each produces one _CorpusUnit row. Units
+            # without a date_added sort to the recency bottom (lowest decay).
+            units: list[_CorpusUnit] = []
 
-            if not sorted_corpus:
+            for interest in self.interests:
+                text = interest.get_searchable_text()
+                if text and len(text.strip()) > 50:
+                    units.append(
+                        _CorpusUnit(
+                            text=text,
+                            weight=max(float(interest.weight), 0.0),
+                            date_added=_to_datetime(interest.date_added),
+                            origin=interest.source,
+                        )
+                    )
+
+            # Sort unified corpus by date (newest first); undated units last.
+            units.sort(key=lambda u: u.date_added or datetime.min, reverse=True)
+
+            if not units:
                 logger.warning("No valid corpus items after filtering")
                 return [
                     ScoredPaper(paper=p, score=5.0, relevance_factors={"fallback": 5.0})
                     for p in self.papers
                 ]
 
-            # Time-decay weighting
-            time_decay_weight = 1 / (1 + np.log10(np.arange(len(sorted_corpus)) + 1))
+            # Time-decay weighting over the unified corpus (unchanged algorithm).
+            time_decay_weight = 1 / (1 + np.log10(np.arange(len(units)) + 1))
             time_decay_weight = time_decay_weight / time_decay_weight.sum()
 
-            # Extract corpus abstracts
-            corpus_texts: list[str] = []
-            valid_indices: list[int] = []
-            for idx, paper in enumerate(sorted_corpus):
-                if paper.abstract and len(paper.abstract.strip()) > 50:
-                    corpus_texts.append(paper.abstract)
-                    valid_indices.append(idx)
-
-            if not corpus_texts:
-                logger.warning("No valid abstracts in corpus")
-                return [
-                    ScoredPaper(paper=p, score=5.0, relevance_factors={"no_corpus_text": 5.0})
-                    for p in self.papers
-                ]
-
-            # Update weights for valid items
-            time_decay_weight = time_decay_weight[valid_indices]
-            time_decay_weight = time_decay_weight / time_decay_weight.sum()
+            corpus_texts = [u.text for u in units]
+            unit_weights = np.array([u.weight for u in units], dtype=float)
 
             # Encode corpus
-            logger.info(f"Encoding {len(corpus_texts)} corpus abstracts")
+            logger.info(
+                f"Encoding {len(corpus_texts)} corpus units "
+                f"({sum(1 for u in units if u.origin == 'manual')} manual, "
+                f"{sum(1 for u in units if u.origin == 'zotero')} zotero)"
+            )
             corpus_embeddings = encode_texts(encoder, corpus_texts)
             corpus_matrix = np.array(corpus_embeddings)
 
@@ -216,8 +272,10 @@ class PaperReranker:
             # Calculate cosine similarity
             similarities = np.dot(paper_norm, corpus_norm.T)
 
-            # Weighted scores
-            scores = (similarities * time_decay_weight).sum(axis=1) * 10
+            # Weighted scores: time-decay * per-unit weight (RFC-010 §9.2).
+            column_weight = time_decay_weight * unit_weights
+            column_weight = column_weight / column_weight.sum()
+            scores = (similarities * column_weight).sum(axis=1) * 10
 
             # Create scored papers
             scored_papers: list[ScoredPaper] = []
@@ -228,6 +286,13 @@ class PaperReranker:
                     relevance_factors={
                         "corpus_similarity": float(score),
                         "corpus_size": len(corpus_texts),
+                        "interests_count": len(self.interests),
+                        "interest_weight": float(
+                            max(
+                                (u.weight for u in units if u.origin == "manual"),
+                                default=0.0,
+                            )
+                        ),
                         "max_similarity": float(sim_row.max()),
                         "mean_similarity": float(sim_row.mean()),
                     },
@@ -247,19 +312,23 @@ class PaperReranker:
     def _fallback_rank(self) -> list[ScoredPaper]:
         """Fallback ranking when embeddings unavailable.
 
-        Uses title keyword matching and recency.
+        Uses keyword matching against the unified corpus (interest titles/tags
+        + zotero titles) and recency. See RFC-010 §9.4.
         """
         logger.info("Using keyword-based fallback ranking")
 
-        # Get keywords from corpus titles
+        stopwords = {"the", "for", "with", "from", "this", "that"}
+
+        # Get keywords from interest titles/tags (the unified knowledge base:
+        # hand-written interests + Zotero-synced units, all ResearchInterest).
         corpus_keywords: set[str] = set()
-        for zotero_paper in self.corpus:
-            if zotero_paper.title:
-                # Extract significant words from title
-                words = zotero_paper.title.lower().split()
-                for w in words:
-                    if len(w) > 4 and w not in {"the", "for", "with", "from", "this", "that"}:
-                        corpus_keywords.add(w)
+
+        for interest in self.interests:
+            for src in (interest.title, " ".join(interest.tags)):
+                if src:
+                    for w in src.lower().split():
+                        if len(w) > 4 and w not in stopwords:
+                            corpus_keywords.add(w)
 
         scored: list[ScoredPaper] = []
         for arxiv_paper in self.papers:

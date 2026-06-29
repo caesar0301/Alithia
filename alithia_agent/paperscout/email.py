@@ -16,9 +16,6 @@ from email.utils import formataddr, parseaddr
 from alithia_agent.models import ArxivPaper, EmailContent, ScoredPaper
 from alithia_agent.paperscout.state import SmtpRuntimeConfig
 
-# Legacy alias
-SmtpConfig = SmtpRuntimeConfig
-
 logger = logging.getLogger(__name__)
 
 
@@ -270,7 +267,7 @@ def _format_addr(address: str) -> str:
 
 def send_email(
     email_content: EmailContent,
-    smtp_config: SmtpConfig,
+    smtp_config: SmtpRuntimeConfig,
     recipient: str | None = None,
 ) -> bool:
     """Send email via SMTP.

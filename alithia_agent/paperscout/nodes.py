@@ -8,12 +8,12 @@ from __future__ import annotations
 
 import logging
 from datetime import date, datetime, timedelta
+from pathlib import Path
 from typing import Any
 
 import arxiv
-from pyzotero import zotero
 
-from alithia_agent.models import ArxivPaper, ScoredPaper, ZoteroPaper
+from alithia_agent.models import ArxivPaper, ScoredPaper
 from alithia_agent.paperscout.affiliation_extractor import AffiliationExtractor
 from alithia_agent.paperscout.email import construct_email_content, send_email
 from alithia_agent.paperscout.events import (
@@ -24,6 +24,11 @@ from alithia_agent.paperscout.events import (
 )
 from alithia_agent.paperscout.reranker import PaperReranker
 from alithia_agent.paperscout.state import AgentState, PaperScoutRuntimeConfig
+from alithia_agent.research_interests import (
+    ResearchInterest,
+    load_research_interests,
+    sync_zotero_to_markdown,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -95,14 +100,21 @@ def make_nodes(
         _emit_step("profile_analysis", "Validating configuration")
         errors: list[str] = []
 
-        # Validate Zotero
-        if not config.zotero:
-            errors.append("Zotero configuration required")
-        else:
-            if not config.zotero.api_key:
-                errors.append("Zotero API key required")
-            if not config.zotero.library_id:
-                errors.append("Zotero library ID required")
+        # RFC-010 §10: Zotero is optional. Fail fast only when there is NO
+        # knowledge source at all (neither interests markdown nor zotero).
+        has_zotero = bool(config.zotero and config.zotero.api_key and config.zotero.library_id)
+        interests_dir = (
+            Path(config.research_interests_dir) if config.research_interests_dir else None
+        )
+        has_interests = bool(
+            interests_dir and interests_dir.exists() and any(interests_dir.rglob("*.md"))
+        )
+
+        if not has_zotero and not has_interests:
+            errors.append(
+                "No knowledge source: add research_interests markdown files under "
+                f"{interests_dir or '~/.alithia/research_interests'} or configure zotero"
+            )
 
         # Validate SMTP if sending email
         if config.send_email and not config.smtp:
@@ -201,84 +213,83 @@ def make_nodes(
                     # Continue without affiliations - extraction is optional
                     logger.warning(f"Affiliation extraction failed, continuing without: {e}")
 
-            # Fetch Zotero corpus
-            _emit_step("data_collection", "Fetching Zotero library")
-            zotero_papers: list[ZoteroPaper] = []
+            # RFC-010 §8: normalize the Zotero library into research_interests
+            # markdown, then scan all interest files (hand-written + synced)
+            # into a unified knowledge base the reranker scores against.
+            # Zotero items flow ONLY through the markdown sync → ResearchInterest
+            # units → the unified interests corpus. There is no separate
+            # zotero_papers corpus path in the matcher (the legacy slot was
+            # removed to avoid double-counting and to keep one matching logic).
+            _emit_step("data_collection", "Syncing Zotero library to research_interests")
+            interests: list[ResearchInterest] = []
 
-            if config.zotero:
+            interests_dir = (
+                Path(config.research_interests_dir) if config.research_interests_dir else None
+            )
+
+            if interests_dir:
+                cache_key = f"paperscout:zotero:{user_id}"
+
+                # Pre-load the cache so the (sync) sync function can use it
+                # without leaking async into its signature.
                 try:
-                    # Check cache
-                    cache_key = f"paperscout:zotero:{user_id}"
                     cached = await store.load(cache_key)
+                except Exception:
+                    cached = None
 
-                    if (
-                        cached
-                        and (datetime.now() - cached.get("timestamp", datetime.min)).total_seconds()
-                        < 86400
-                    ):
-                        _emit_step("data_collection", "Using cached Zotero library")
-                        zotero_papers = [ZoteroPaper(**p) for p in cached.get("papers", [])]
-                    else:
-                        # Fetch from API
-                        zot = zotero.Zotero(
-                            config.zotero.library_id,
-                            config.zotero.library_type,
-                            config.zotero.api_key,
-                        )
+                def _cache_loader() -> dict[str, Any] | None:
+                    # noqa: B023  (closure over the pre-loaded value)
+                    if isinstance(cached, dict):
+                        return cached
+                    return None
 
-                        # Suppress pyzotero's harmless transaction rollback warnings
-                        import warnings
+                def _cache_saver(payload: dict[str, Any]) -> None:
+                    # Best-effort fire-and-forget: the store is async, so
+                    # schedule the write on the running loop without blocking
+                    # the node. Failures are non-fatal (cache is advisory).
+                    import asyncio
 
-                        with warnings.catch_warnings():
-                            warnings.simplefilter("ignore")
-                            items = list(zot.everything(zot.top()))
+                    asyncio.get_event_loop().create_task(store.save(cache_key, payload))  # type: ignore[attr-defined]
 
-                        for item in items:
-                            data = item.get("data", {})
-                            zp = ZoteroPaper(
-                                zotero_item_key=item.get("key", ""),
-                                title=data.get("title", ""),
-                                authors=[c.get("name", "") for c in data.get("creators", [])],
-                                abstract=data.get("abstractNote", ""),
-                                url=data.get("url"),
-                                tags=[t.get("tag", "") for t in data.get("tags", [])],
-                                date_added=datetime.strptime(
-                                    data.get("dateAdded", ""), "%Y-%m-%dT%H:%M:%SZ"
-                                )
-                                if data.get("dateAdded")
-                                else None,
-                            )
-                            zotero_papers.append(zp)
+                sync_res = sync_zotero_to_markdown(
+                    config.zotero,
+                    interests_dir,
+                    user_id=user_id,
+                    cache_loader=_cache_loader,
+                    cache_saver=_cache_saver,
+                )
+                metrics["zotero_sync"] = {
+                    "synced": sync_res.synced,
+                    "pruned": sync_res.pruned,
+                    "skipped": sync_res.skipped,
+                }
+                if sync_res.error and not sync_res.skipped:
+                    errors.append(f"Zotero sync error: {sync_res.error}")
 
-                        # Cache
-                        await store.save(
-                            cache_key,
-                            {
-                                "papers": [zp.model_dump() for zp in zotero_papers],
-                                "timestamp": datetime.now().isoformat(),
-                            },
-                        )
+                _emit_step(
+                    "data_collection",
+                    f"Zotero sync: {sync_res.synced} synced, {sync_res.pruned} pruned"
+                    + (" (skipped)" if sync_res.skipped else ""),
+                )
 
-                    _emit_step("data_collection", f"Loaded {len(zotero_papers)} papers from Zotero")
-
-                except Exception as e:
-                    # Ignore harmless transaction rollback errors from pyzotero
-                    if "rollback" not in str(e).lower():
-                        _emit_error(f"Zotero error: {e}", "data_collection")
-                        errors.append(f"Zotero error: {e}")
-                    else:
-                        logger.debug(f"Suppressed pyzotero transaction warning: {e}")
+                # Scan the unified knowledge base (hand-written + synced zotero).
+                # Zotero items arrive here as source=zotero ResearchInterest units.
+                _emit_step("data_collection", "Scanning research_interests markdown")
+                interests = load_research_interests(interests_dir)
+                metrics["interests_count"] = len(interests)
+                _emit_step("data_collection", f"Loaded {len(interests)} interest units")
 
             metrics["arxiv_found"] = len(arxiv_papers)
             metrics["arxiv_new"] = len(new_papers)
-            metrics["zotero_corpus"] = len(zotero_papers)
 
             return {
                 "discovered_papers": new_papers,
-                "zotero_papers": zotero_papers,
+                "research_interests": interests,
                 "errors": errors,
                 "metrics": metrics,
-                "info": [f"Collected {len(new_papers)} new papers"],
+                "info": [
+                    f"Collected {len(new_papers)} new papers, {len(interests)} interest units"
+                ],
             }
 
         except Exception as e:
@@ -290,7 +301,7 @@ def make_nodes(
         _emit_step("relevance_assessment", "Ranking papers")
 
         papers = state["discovered_papers"]
-        corpus = state["zotero_papers"]
+        interests = state.get("research_interests", [])
         metrics = state.get("metrics", {})
 
         if not papers:
@@ -301,7 +312,7 @@ def make_nodes(
             }
 
         try:
-            reranker = PaperReranker(papers=papers, corpus=corpus)
+            reranker = PaperReranker(papers=papers, interests=interests)
             scored = reranker.rerank()
 
             # Take top N
