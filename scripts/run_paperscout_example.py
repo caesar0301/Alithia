@@ -17,9 +17,9 @@ from datetime import date, timedelta
 from pathlib import Path
 
 from alithia_agent.config import load_config
+from alithia_agent.paperscout.implementation import create_paperscout_graph
 from alithia_agent.paperscout.runner import build_scheduler_config
 from alithia_agent.paperscout.state import PaperScoutRuntimeConfig
-from alithia_agent.paperscout.implementation import create_paperscout_graph
 from alithia_agent.storage.sqlite import SQLiteStorage
 
 logging.basicConfig(
@@ -87,10 +87,10 @@ async def main() -> int:
     print("\n=== RESULT ===")
     print(f"errors: {errors}")
     print(f"metrics: { {k: v for k, v in metrics.items()} }")
-    print(
-        f"interests loaded: {len(interests)} (sources: "
-        f"{ {s: sum(1 for i in interests if i.source == s) for s in {i.source for i in interests}} })"
-    )
+    source_counts = {
+        s: sum(1 for i in interests if i.source == s) for s in {i.source for i in interests}
+    }
+    print(f"interests loaded: {len(interests)} (sources: {source_counts})")
     print(f"scored papers: {len(scored)}")
 
     if scored:

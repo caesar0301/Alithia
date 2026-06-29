@@ -874,7 +874,7 @@ class TestDeepxivPlugin:
         """Test plugin handles missing deepxiv_sdk gracefully."""
         plugin = DeepxivPlugin()
 
-        with patch("soothe.toolkits.deepxiv.DeepxivToolkit") as mock_toolkit_class:
+        with patch("alithia_agent.plugins.deepxiv.DeepxivToolkit") as mock_toolkit_class:
             mock_toolkit_class.side_effect = ImportError("No module named 'deepxiv_sdk'")
             await plugin.on_load(mock_context)
 
