@@ -245,8 +245,8 @@ requires-dist = [
     { name = "pyzotero", specifier = ">=1.5.0" },
     { name = "ruff", marker = "extra == 'dev'", specifier = ">=0.1.0" },
     { name = "scikit-learn", specifier = ">=1.0.0" },
-    { name = "soothe", specifier = ">=0.6.16,<1.0.0" },
-    { name = "soothe-sdk", specifier = ">=0.6.16,<1.0.0" },
+    { name = "soothe", specifier = ">=0.6.16,<0.7.0" },
+    { name = "soothe-sdk", specifier = ">=0.6.16,<0.7.0" },
 ]
 provides-extras = ["dev"]
 
