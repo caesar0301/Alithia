@@ -105,8 +105,11 @@ class PaperScoutRuntimeConfig(BaseModel):
     llm_api_base: str | None = None
     llm_model: str = "qwen-turbo-latest"
 
-    # TLDR settings
-    tldr_max_tokens: int = Field(default=150, ge=50, le=300)
+    # TLDR settings. Despite the name, this is a character budget for the
+    # digest abstract shown in the TLDR row (a token budget anticipating a
+    # future LLM summary). Default ~600 chars (~90 words); widen to 2000 so
+    # users who want full abstracts can have them.
+    tldr_max_tokens: int = Field(default=600, ge=50, le=2000)
     tldr_language: str = "English"
 
     # Research interests knowledge base (RFC-010). Directory of *.md files

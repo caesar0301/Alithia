@@ -1,0 +1,1440 @@
+\section{Appendix}
+\label{appendix}
+
+\subsection{Effect of network depth and width}
+\label{sec:depth-and-width}
+
+In this section, we check how depth (number of layers) and width (hidden size) affect the performance of ALBERT.
+Table \ref{table:varying-depth} shows the performance of an ALBERT-large configuration (see Table~\ref{table:model_architecture}) using different numbers of layers.
+Networks with 3 or more layers are trained by fine-tuning using the parameters from the depth before (e.g., the 12-layer network parameters are fine-tuned from the checkpoint of the 6-layer network parameters).\footnote{If we compare the performance of ALBERT-large here to the performance in Table \ref{table:overall_comparison}, we can see that this warm-start technique does not help to improve the downstream performance. However, it does help the 48-layer network to converge. A similar technique has been applied to our ALBERT-xxlarge, where we warm-start from a 6-layer network.} Similar technique has been used in \cite{gong2019efficient}.
+If we compare a 3-layer ALBERT model with a 1-layer ALBERT model, although they have the same number of parameters, the performance increases significantly.
+However, there are diminishing returns when continuing to increase the number of layers: the results of a 12-layer network are relatively close to the results of a 24-layer network, and the performance of a 48-layer network appears to decline.
+
+\begin{table}[!htbp] 
+\small
+\centering
+\begin{tabular}{ c  c | c c c c c | c }
+Number of layers	 & Parameters 	&SQuAD1.1	&SQuAD2.0	&MNLI	&SST-2	&RACE & Avg \\
+\hline
+1   &18M    &31.1/22.9	&50.1/50.1	&66.4	&80.8	&40.1   &52.9\\
+3   &18M    &79.8/69.7	&64.4/61.7	&77.7	&86.7	&54.0	&71.2\\
+6   &18M    &86.4/78.4	&73.8/71.1	&81.2	&88.9	&60.9	&77.2\\
+12  &18M    &89.8/83.3	&80.7/77.9	&83.3	&91.7	&66.7	&81.5\\
+24  &18M    &\textbf{90.3/83.3}	&\textbf{81.8/79.0}	&83.3	&91.5	&\textbf{68.7}	&\textbf{82.1}\\
+48  &18M    &90.0/83.1	&\textbf{81.8/78.9}	&\textbf{83.4}	&\textbf{91.9}	&66.9	&81.8\\
+\end{tabular}
+\caption{The effect of increasing the number of layers for an ALBERT-large configuration.}
+\label{table:varying-depth}
+\end{table}
+
+A similar phenomenon, this time for width, can be seen in Table \ref{table:varying-width} for a 3-layer ALBERT-large configuration.
+As we increase the hidden size, we get an increase in performance with diminishing returns.
+At a hidden size of 6144, the performance appears to decline significantly.
+We note that none of these models appear to overfit the training data, and they all have higher training and development loss compared to the best-performing ALBERT configurations.
+
+\begin{table}[!htbp] 
+\small
+\centering
+\begin{tabular}{ c  c | c c c c c | c }
+Hidden size	& Parameters      	&SQuAD1.1	&SQuAD2.0	&MNLI	&SST-2	&RACE & Avg \\
+\hline
+1024    &18M    &79.8/69.7	&64.4/61.7	&77.7	&86.7	&54.0	&71.2\\
+2048    &60M    &83.3/74.1	&69.1/66.6	&79.7	&88.6	&58.2	&74.6\\
+4096    &225M   &\textbf{85.0/76.4}	&\textbf{71.0/68.1}	&\textbf{80.3}	&\textbf{90.4}	&\textbf{60.4}	&\textbf{76.3}\\
+6144    &499M   &84.7/75.8	&67.8/65.4	&78.1	&89.1	&56.0	&74.0\\
+\end{tabular}
+\caption{The effect of increasing the hidden-layer size for an ALBERT-large 3-layer configuration.}
+\label{table:varying-width}
+\end{table}
+
+
+
+\subsection{Do very wide ALBERT models need to be deep(er) too?}
+In Section \ref{sec:depth-and-width}, we show that for ALBERT-large ($H$=1024), the difference between a 12-layer and a 24-layer configuration is small.
+Does this result still hold for much wider ALBERT configurations, such as ALBERT-xxlarge ($H$=4096)?
+
+\begin{table}[!htbp] 
+\small
+\centering
+\begin{tabular}{ c |  c c c c c | c }
+Number of layers		&SQuAD1.1	&SQuAD2.0	&MNLI	&SST-2	&RACE & Avg \\
+\hline
+12      &94.0/88.1	&88.3/85.3	&87.8	&95.4	&82.5   &88.7\\
+24      &94.1/88.3	&88.1/85.1	&88.0	&95.2	&82.3	&88.7\\
+\end{tabular}
+\caption{The effect of a deeper network using an ALBERT-xxlarge configuration.}
+\label{table:12-vs-24-ALBERT-xxlarge}
+\end{table}
+
+The answer is given by the results from Table \ref{table:12-vs-24-ALBERT-xxlarge}.
+The difference between 12-layer and 24-layer ALBERT-xxlarge configurations in terms of downstream accuracy is negligible, with the Avg score being the same.
+We conclude that, when sharing all cross-layer parameters (ALBERT-style), there is no need for models deeper than a 12-layer configuration.
+
+\subsection{Downstream Evaluation Tasks}
+\label{downstream_detailed_description}
+\paragraph{GLUE} GLUE is comprised of 9 tasks, namely Corpus of Linguistic Acceptability (CoLA;~\citealp{warstadt2018neural}), Stanford Sentiment Treebank (SST;~\citealp{socher-etal-2013-recursive}), Microsoft Research Paraphrase Corpus
+(MRPC;~\citealp{dolan-brockett-2005-automatically}), Semantic Textual Similarity Benchmark (STS;~\citealp{cer-etal-2017-semeval}),
+Quora Question Pairs (QQP;~\citealp{qqp2016url}), Multi-Genre NLI (MNLI;~\citealp{williams-etal-2018-broad}), Question NLI (QNLI;~\citealp{rajpurkar-etal-2016-squad}), Recognizing Textual
+Entailment (RTE;~\citealp{dagan2005pascal,bar2006second,giampiccolo-etal-2007-third,bentivogli2009fifth}) and
+Winograd NLI (WNLI;~\citealp{levesque2012winograd}). It focuses on evaluating model capabilities for natural language understanding. 
+When reporting MNLI results, we only report the ``match'' condition (MNLI-m). We follow the finetuning procedures from prior work \citep{devlin2018bert, liu2019roberta, yang2019xlnet} and report the held-out test set performance obtained from GLUE submissions. For test set submissions, we perform task-specific modifications for WNLI and QNLI as described by \cite{liu2019roberta} and \cite{yang2019xlnet}. 
+
+\paragraph{\squad} \squad is an extractive question answering dataset built from Wikipedia. The answers are segments from the context paragraphs and the task is to predict answer spans. We evaluate our models on two versions of SQuAD: v1.1 and v2.0. \squad v1.1 has 100,000 human-annotated question/answer pairs. \squad v2.0 additionally introduced 50,000 unanswerable questions. For \squad v1.1, we use the same training procedure as \bert, whereas for \squad v2.0, models are jointly trained with a span extraction loss and an additional classifier for predicting answerability~\citep{yang2019xlnet,liu2019roberta}. We report both development set and test set performance.
+
+\paragraph{RACE} RACE is a large-scale dataset for multi-choice reading comprehension, collected from English examinations in China with nearly 100,000 questions. Each instance in RACE has 4 candidate answers. Following prior work~\citep{yang2019xlnet,liu2019roberta}, we use the concatenation of the passage, question, and each candidate answer as the input to models. Then, we use the representations from the ``[CLS]'' token for predicting the probability of each answer. The dataset consists of two domains: middle school and high school. We train our models on both domains and report accuracies on both the development set and test set.
+
+
+\subsection{Hyperparameters}
+
+Hyperparameters for downstream tasks are shown in Table~\ref{tab:downstream-hyperparameter}.
+We adapt these hyperparameters from \cite{liu2019roberta},  \cite{devlin2018bert}, and \cite{yang2019xlnet}.
+
+\begin{table}[!htbp] 
+    \small
+    \centering
+
+\begin{tabular}{c|ccccccc}
+& LR & BSZ & ALBERT DR & Classifier DR & TS & WS & MSL \\\hline
+CoLA & 1.00E-05 & 16 & 0 & 0.1 & 5336 & 320 & 512 \\
+STS & 2.00E-05 & 16 & 0 & 0.1 & 3598 & 214 & 512 \\
+SST-2 & 1.00E-05 & 32 & 0 & 0.1 & 20935 & 1256 & 512 \\
+MNLI & 3.00E-05 & 128 & 0 & 0.1 & 10000 & 1000 & 512 \\
+QNLI & 1.00E-05 & 32 & 0 & 0.1 & 33112 & 1986 & 512 \\
+QQP & 5.00E-05 & 128 & 0.1 & 0.1 & 14000 & 1000 & 512 \\
+RTE & 3.00E-05 & 32 & 0.1 & 0.1 & 800 & 200 & 512 \\
+MRPC & 2.00E-05 & 32 & 0 & 0.1 & 800 & 200 & 512 \\
+WNLI & 2.00E-05 & 16 & 0.1 & 0.1 & 2000 & 250 & 512 \\
+SQuAD v1.1 & 5.00E-05 & 48 & 0 & 0.1 & 3649 & 365 & 384 \\
+SQuAD v2.0 & 3.00E-05 & 48 & 0 & 0.1 & 8144 & 814 & 512 \\
+RACE & 2.00E-05 & 32 & 0.1 & 0.1 & 12000 & 1000 & 512 \\
+\end{tabular}
+    \caption{Hyperparameters for ALBERT in downstream tasks. LR: Learning Rate. BSZ: Batch Size. DR: Dropout Rate. TS: Training Steps. WS: Warmup Steps. MSL: Maximum Sequence Length.}
+    \label{tab:downstream-hyperparameter}
+\end{table}
+
+%\subsection{Additional Ablation Experiments}
+%\label{sec:app-ablation}
+
+
+
+
+
+%%% --- FILE BOUNDARY --- %%%
+
+% DO NOT WRITE HERE, this content has been moved to the models_experiments.tex file
+\section{Experimental Setup}
+
+\subsection{Pretraining}
+
+Following \bert\citep{devlin2018bert}, we use \textsc{BookCorpus}~\citep{zhu2015aligning} and English Wikipedia for pretraining baseline models, which consist of 16GB uncompressed text. In particular, we format input as ``\textsc{[CLS]} $x_1$ \textsc{[SEP]} $x_2$ \textsc{[SEP]}'', where $x_1=x_{1,1},x_{1,2}\cdots$ and $x_2=x_{1,1},x_{1,2}\cdots$ are two segments.\footnote{A segment is usually comprised of more than one natural sentence, which has been shown to benefit performances in \cite{liu2019roberta}.} Unlike \bert, we always limit the maximum input length to be 512 and randomly generate input sequences shorter than 512 with a probability of 10\%. We use a vocabulary size of 30,000, tokenized by SentencePiece~\citep{kudo-richardson-2018-sentencepiece}. For our best model, we also use additional training data from~\cite{liu2019roberta} and~\cite{yang2019xlnet}. When generating masked inputs, we use n-gram masking, similar to~\cite{joshi2019spanbert} where the length of each n-gram mask is selected randomly. The probability for the length $n$ is
+
+
+\begin{align}
+    p(n) &= \frac{1/n}{\sum_1^N{1/k}}
+\end{align}
+
+We set the maximum length of n-gram (i.e. $N$) to be 3 as empirically it gives the best performance.
+
+All the models are pretrained with a batch size of 4096 using \textsc{Lamb} optimizer~\citep{you2019reducing}, and the learning rate is set to be 0.00176 ~\citep{you2019reducing}. All of our models are trained 125,000 steps unless specified. 
+
+
+\subsection{Evaluation}
+
+\subsubsection{Downstream Evaluation}
+
+Following \citep{yang2019xlnet,liu2019roberta}, we evaluate our models on three popular benchmarks: The General Language Understanding Evaluation (GLUE) benchmark~\citep{wang-etal-2018-glue}, The Stanford Question Answering Dataset (\squad;~\citealp{rajpurkar-etal-2016-squad,rajpurkar-etal-2018-know}) and The ReAding Comprehension from Examinations (RACE;~\citealp{lai2017race}). Please see the detailed description of these benechmarks in Appendix \ref{downstream_detailed_description}. Similar to \cite{liu2019roberta}, we perform early stopping on the development sets.
+
+\subsubsection{Intrinsic Evaluation}
+
+To monitor the training progress, we create a development set based on the development sets from \squad and RACE. We follow the same procedures that we use for creating training set. We report accuracies for both masked LM and sentence classification tasks. 
+
+%%% --- FILE BOUNDARY --- %%%
+
+\section{Discussion}
+
+
+While ALBERT-xxlarge has less parameters than BERT-large and gets significantly better results, it is computationally more expensive due to its larger structure. An important next step is thus to speed up the training and inference speed of ALBERT through methods like sparse attention \citep{child2019generating} and block attention \citep{shen2018bi}.
+% Another issue is that we stop the training at 1.5M steps even the model hasn't fully converged yet. It would be interesting to see how far the model can go if we can speed up the training process or have enough computational capacity.
+An orthogonal line of research, which could provide additional representation power, includes hard example mining \citep{mikolov2013distributed} and more efficient language modeling training \citep{yang2019xlnet}.
+% Another crucial way of understanding ALBERT is to gain a deeper understanding through its theoretical analysis, which we hope to provide in the future.
+Additionally, although we have convincing evidence that sentence order prediction is a more consistently-useful learning task that leads to better language representations, we hypothesize that there could be more dimensions not yet captured by the current self-supervised training losses that could create additional representation power for the resulting representations.
+
+% Last but not least, while our experiments show state-of-the-art results on a wide range of NLU tasks, they also raise several questions about how to best design neural network architectures that combine training speed, inference speed, model size, and performance. 
+
+
+%%% --- FILE BOUNDARY --- %%%
+
+\documentclass{article} % For LaTeX2e
+\usepackage{iclr2019_conference,times}
+
+% Optional math commands from https://github.com/goodfeli/dlbook_notation.
+\input{math_commands.tex}
+
+\usepackage{hyperref}
+\usepackage{url}
+\usepackage{xspace}
+\usepackage{multirow}
+
+\newcommand{\bert}{BERT\xspace}
+%\newcommand{\bertsize}[1]{BERT$_{\textsc{#1}}$\xspace} % matches the BERT paper
+\newcommand{\bertsize}[1]{BERT-#1\xspace} % matches the figures, so if you don't want to change the figures, let's use this one
+\newcommand{\roberta}{RoBERTa\xspace}
+\newcommand{\xlnet}{XLNet\xspace}
+\newcommand{\squad}{SQuAD\xspace}
+
+\newcommand{\mingda}[1]{\textcolor{red}{[#1 --MC]}}
+\newcommand{\kevin}[1]{\textcolor{blue}{[#1 --KG]}}
+\newcommand{\lanzhzh}[1]{\textcolor{violet}{[#1 --LAN]}}
+\newcommand{\radu}[1]{\textcolor{green}{[#1 --RS]}}
+\usepackage{subcaption}
+
+\usepackage{graphicx}
+\graphicspath{ {./imgs/} }
+% \renewcommand{\mingda}[1]{}
+% \renewcommand{\kevin}[1]{}
+% \renewcommand{\lanzhzh}[1]{}
+
+
+\title{ALBERT: A Lite BERT for Self-supervised Learning of Language Representations}
+
+% Authors must not appear in the submitted version. They should be hidden
+% as long as the \iclrfinalcopy macro remains commented out below.
+% Non-anonymous submissions will be rejected without review.
+
+% \author{}
+\author{
+    \begin{tabular}[t]{c} 
+        Zhenzhong Lan$^{1}$ \hspace{15pt} Mingda Chen$^{2}$\thanks{Work done as an intern at Google Research, driving data processing and downstream task evaluations.} \hspace{15pt} Sebastian Goodman$^{1}$ \hspace{15pt} Kevin Gimpel$^{2}$ \\[1.5ex]
+        Piyush Sharma$^{1}$ \hspace{15pt} Radu Soricut$^{1}$ \\[1.5ex]
+    \end{tabular} 
+    \\
+    \text{\hspace{50pt} $^{1}$Google Research \hspace{30pt} $^{2}$Toyota Technological Institute at Chicago} \\[1.5ex]
+    \texttt{\hspace{30pt}\{lanzhzh, seabass, piyushsharma, rsoricut\}@google.com} \\
+    \texttt{\hspace{100pt}\{mchen, kgimpel\}@ttic.edu} \\
+}
+
+
+% The \author macro works with any number of authors. There are two commands
+% used to separate the names and addresses of multiple authors: \And and \AND.
+%
+% Using \And between authors leaves it to \LaTeX{} to determine where to break
+% the lines. Using \AND forces a linebreak at that point. So, if \LaTeX{}
+% puts 3 of 4 authors names on the first line, and the last on the second
+% line, try using \AND instead of \And before the third author name.
+
+\newcommand{\fix}{\marginpar{FIX}}
+\newcommand{\new}{\marginpar{NEW}}
+
+\iclrfinalcopy % Uncomment for camera-ready version, but NOT for submission.
+\begin{document}
+
+
+\maketitle
+
+\begin{abstract}
+Increasing model size when pretraining natural language representations often results in improved performance on downstream tasks. However, at some point further model increases become harder due to GPU/TPU memory limitations and longer training times. To address these problems,  we present two parameter-reduction techniques to lower memory consumption and increase the training speed of BERT~\citep{devlin2018bert}. Comprehensive empirical evidence shows that our proposed methods lead to models that scale much better compared to the original BERT. We also use a self-supervised loss that focuses on modeling inter-sentence coherence, and show it consistently helps downstream tasks with multi-sentence inputs. As a result, our best model establishes new state-of-the-art results on the GLUE, RACE, and \squad benchmarks while having fewer parameters compared to BERT-large. The code and the pretrained models are available at \url{ https://github.com/google-research/ALBERT}.
+\end{abstract}
+
+%  To address these problems,  we present a set of models that have significantly fewer parameters and higher parameter-efficiency compared to BERT~\citep{devlin2018bert}. Comprehensive empirical evidence also shows that the parameter-reduction techniques we adopt lead to models that scale much better than the original BERT. We also introduce a new self-supervised loss that focuses on modeling inter-sentence coherence. 
+ 
+\input{intro}
+\input{related_work}
+%\input{data}   % the content of this one was moved to models_experiments
+%\input{models} % the content of this one was moved to models_experiments
+\input{models_experiments}
+\input{discussion}
+
+\section*{Acknowledgement}
+The authors would like to thank Beer Changpinyo, Nan Ding, Noam Shazeer, and Tomer Levinboim for discussion and providing useful feedback on the project; Omer Levy and Naman Goyal for clarifying experimental setup for RoBERTa;  Zihang Dai for clarifying XLNet; Brandon Norick, Emma Strubell, Shaojie Bai, Chas Leichner, and Sachin Mehta for providing useful feedback on the paper; Jacob Devlin for providing the English and multilingual version of training data; Liang Xu, Chenjie Cao and the \href{https://github.com/CLUEbenchmark/CLUE}{CLUE community} for providing the training data and evaluation benechmark of the Chinese version of ALBERT models. 
+
+\bibliography{iclr2019_conference}
+\bibliographystyle{iclr2019_conference}
+\appendix
+\input{appendix}
+
+
+\end{document}
+
+
+%%% --- FILE BOUNDARY --- %%%
+
+\section{Introduction}
+Full network pre-training \citep{dai2015semi,radford2018improving, devlin2018bert,howard2018universal} has led to a series of breakthroughs in language representation learning. Many nontrivial NLP tasks, including those that have limited training data, have greatly benefited from these pre-trained models. One of the most compelling signs of these breakthroughs is the evolution of machine performance on a reading comprehension task designed for middle and high-school English exams in China, the RACE test~\citep{lai2017race}: the paper that originally describes the task and formulates the modeling challenge reports then state-of-the-art machine accuracy at $44.1\%$; the latest published result reports their model performance at $83.2\%$~\citep{liu2019roberta}; the work we present here pushes it even higher to $89.4\%$, a stunning $45.3\%$ improvement that is mainly attributable to our current ability to build high-performance pretrained language representations.
+
+%{\em generic}\footnote{We call them generic because they improve performance not only on a specific task like RACE, but over a large battery of both language understanding and language generation tasks.}
+
+
+
+Evidence from these improvements reveals that a large network is of crucial importance for achieving state-of-the-art performance \citep{devlin2018bert, radford2019language}. It has become common practice to pre-train large models and distill them down to smaller ones \citep{sun2019patient, turc2019well} for real applications. Given the importance of model size, we ask: \textit{Is having better NLP models as easy as having larger models}? 
+
+
+%that larger pre-trained models often lead to better performance.
+
+
+
+% A major lesson from these improvements is having large pre-trained models \citep{devlin2018bert, radford2019language} and distilling them down to smaller ones \citep{sun2019patient, turc2019well} for real applications.
+% Evidence shows that larger pre-trained models often lead to better performance~\citep{devlin2018bert, radford2019language}.
+% Given the importance of model size, we ask: \textit{Is having better NLP models as easy as having larger models}? 
+
+
+% Past work has shown that increasingly larger models improve performance on downstream tasks~\citep{devlin2018bert, radford2018improving}.
+% However, our answer to the question ``Is getting better NLU performance as simple as increasing the capacity\footnotemark[1] of the current models?'' is ``unlikely'', as supported by the following observation: when keeping the optimization procedure fixed (number of optimization steps and learning rate), doubling the hidden size of the BERT-large model leads to worse performance.
+% This is illustrated by the results in Table~\ref{table:large_vs_extra_large} and the graphs in Fig.~\ref{fig:large_vs_extra_large}.
+% Given that we see no evidence of overfitting in Fig.~\ref{fig:large_vs_extra_large}, we hypothesize that this is similar to the model degradation problem shown by~\cite{resnet2016}, where they conclude that not all models are similarly easy to optimize.
+
+% This leads us to our second question: ``Is the existing capacity\footnotemark[1] of current BERT models used most efficiently?''
+% The answer here is a definite ``no''.
+% We show that our alternative model formulation, which we call ALBERT -- A Lite BERT --
+% achieves similar or better performance while having lower model capacity, and achieves significantly better performance as its capacity increases.
+
+% \footnotetext[1]{While it is unclear how to best compare model capacity across neural architectures, number of parameters is a useful coarse measure of capacity, especially if the architectures are similar.}
+
+% \begin{figure}[!htbp] 
+% \begin{subfigure}{.5\textwidth}
+%   \centering
+%   \includegraphics[width=.8\linewidth]{large_vs_extra_large_train}
+%   \label{fig:large_vs_extra_large_train}
+% \end{subfigure}%
+% \begin{subfigure}{.5\textwidth}
+%   \centering
+%   \includegraphics[width=.8\linewidth]{large_vs_extra_large_dev_accuracy}
+%   \label{fig:large_vs_extra_large_dev}
+% \end{subfigure}
+% \caption[[Caption for LOF]{Training loss (left) and dev masked LM accuracy (right) of BERT-large and BERT-xlarge (2x larger than BERT-large in terms of hidden size). The larger model has lower masked LM accuracy while showing no obvious sign of over-fitting.}
+% \label{fig:large_vs_extra_large}
+% \end{figure}
+
+
+An obstacle to answering this question is the memory limitations of available hardware.
+Given that current state-of-the-art models often have hundreds of millions or even billions of parameters, it is easy to hit these limitations as we try to scale our models.
+Training speed can also be significantly hampered in distributed training, as the communication overhead is directly proportional to the number of parameters in the model.
+% We also observe that simply growing the hidden size of a model such as \bertsize{large} \citep{devlin2018bert} can lead to worse performance.
+% Table \ref{table:large_vs_extra_large} and Fig.~\ref{fig:large_vs_extra_large} show a typical example, where we simply increase the hidden size of BERT-large to be 2x larger and get worse results with this BERT-xlarge model. 
+
+
+% \begin{table}[!htbp] 
+% \small
+% \centering
+% \begin{tabular}{l   | c c c}
+% Model  & Hidden Size & Parameters	 & RACE (Accuracy)	 \\
+% \hline
+%     \bertsize{large} \citep{devlin2018bert}      &1024 &334M    &72.0\% \\
+%     \hline 
+%     \bertsize{large} (ours)	        & 1024                          &334M	 &73.9\%\\
+%     \bertsize{xlarge} (ours)      & 2048              	&1270M	 &54.3\%\\
+%     %\hline
+% \end{tabular}
+% \caption{Increasing hidden size of BERT-large leads to worse performance on RACE.}
+% \label{table:large_vs_extra_large}
+% \vspace{-5pt}
+% \end{table}
+
+
+
+%\footnotetext{A sliding window smoothing is used on training loss to reduce noise from evaluating different batches.}
+
+
+Existing solutions to the aforementioned problems include model parallelization \citep{shazeer2018mesh,shoeybi2019megatronlm} and clever memory management \citep{chen2016training,gomez2017reversible}.
+These solutions address the memory limitation problem, but not the communication overhead.
+In this paper, we address all of the aforementioned problems, by designing A Lite BERT (ALBERT) architecture that has significantly fewer parameters than a traditional BERT architecture. 
+
+ALBERT incorporates two parameter reduction techniques that lift the major obstacles in scaling pre-trained models.
+The first one is a factorized embedding parameterization.
+By decomposing the large vocabulary embedding matrix into two small matrices, we separate the size of the hidden layers from the size of vocabulary embedding.
+This separation makes it easier to grow the hidden size without significantly increasing the parameter size of the vocabulary embeddings.
+The second technique is cross-layer parameter sharing.
+This technique prevents the parameter from growing with the depth of the network.
+Both techniques significantly reduce the number of parameters for BERT without seriously hurting performance, thus improving  parameter-efficiency.
+An ALBERT configuration similar to BERT-large has 18x fewer parameters and can be trained about 1.7x faster.
+The parameter reduction techniques also act as a form of regularization that stabilizes the training and helps with generalization. 
+
+To further improve the performance of ALBERT, we also introduce a self-supervised loss for sentence-order prediction (SOP). SOP primary focuses on inter-sentence coherence and is designed to address the ineffectiveness \citep{yang2019xlnet, liu2019roberta} of the next sentence prediction (NSP) loss proposed in the original \bert. 
+
+
+As a result of these design decisions, we are able to scale up to much larger ALBERT configurations that still have fewer parameters than BERT-large but achieve significantly better performance.
+We establish new state-of-the-art results on the well-known GLUE, SQuAD, and RACE benchmarks for natural language understanding.
+Specifically, we push the RACE accuracy to $89.4\%$, the GLUE benchmark to 89.4,  and the F1 score of SQuAD 2.0 to 92.2.
+
+% capacity reallocation \footnote{While it is unclear how to best compare model capacity across neural architectures, number of parameters is a useful coarse measure of capacity, especially if the architectures are similar.}
+
+% of the parameter reduction techniques and the new self-supervised loss
+
+%%% --- FILE BOUNDARY --- %%%
+
+%%%%% NEW MATH DEFINITIONS %%%%%
+
+\usepackage{amsmath,amsfonts,bm}
+
+% Mark sections of captions for referring to divisions of figures
+\newcommand{\figleft}{{\em (Left)}}
+\newcommand{\figcenter}{{\em (Center)}}
+\newcommand{\figright}{{\em (Right)}}
+\newcommand{\figtop}{{\em (Top)}}
+\newcommand{\figbottom}{{\em (Bottom)}}
+\newcommand{\captiona}{{\em (a)}}
+\newcommand{\captionb}{{\em (b)}}
+\newcommand{\captionc}{{\em (c)}}
+\newcommand{\captiond}{{\em (d)}}
+
+% Highlight a newly defined term
+\newcommand{\newterm}[1]{{\bf #1}}
+
+
+% Figure reference, lower-case.
+\def\figref#1{figure~\ref{#1}}
+% Figure reference, capital. For start of sentence
+\def\Figref#1{Figure~\ref{#1}}
+\def\twofigref#1#2{figures \ref{#1} and \ref{#2}}
+\def\quadfigref#1#2#3#4{figures \ref{#1}, \ref{#2}, \ref{#3} and \ref{#4}}
+% Section reference, lower-case.
+\def\secref#1{section~\ref{#1}}
+% Section reference, capital.
+\def\Secref#1{Section~\ref{#1}}
+% Reference to two sections.
+\def\twosecrefs#1#2{sections \ref{#1} and \ref{#2}}
+% Reference to three sections.
+\def\secrefs#1#2#3{sections \ref{#1}, \ref{#2} and \ref{#3}}
+% Reference to an equation, lower-case.
+\def\eqref#1{equation~\ref{#1}}
+% Reference to an equation, upper case
+\def\Eqref#1{Equation~\ref{#1}}
+% A raw reference to an equation---avoid using if possible
+\def\plaineqref#1{\ref{#1}}
+% Reference to a chapter, lower-case.
+\def\chapref#1{chapter~\ref{#1}}
+% Reference to an equation, upper case.
+\def\Chapref#1{Chapter~\ref{#1}}
+% Reference to a range of chapters
+\def\rangechapref#1#2{chapters\ref{#1}--\ref{#2}}
+% Reference to an algorithm, lower-case.
+\def\algref#1{algorithm~\ref{#1}}
+% Reference to an algorithm, upper case.
+\def\Algref#1{Algorithm~\ref{#1}}
+\def\twoalgref#1#2{algorithms \ref{#1} and \ref{#2}}
+\def\Twoalgref#1#2{Algorithms \ref{#1} and \ref{#2}}
+% Reference to a part, lower case
+\def\partref#1{part~\ref{#1}}
+% Reference to a part, upper case
+\def\Partref#1{Part~\ref{#1}}
+\def\twopartref#1#2{parts \ref{#1} and \ref{#2}}
+
+\def\ceil#1{\lceil #1 \rceil}
+\def\floor#1{\lfloor #1 \rfloor}
+\def\1{\bm{1}}
+\newcommand{\train}{\mathcal{D}}
+\newcommand{\valid}{\mathcal{D_{\mathrm{valid}}}}
+\newcommand{\test}{\mathcal{D_{\mathrm{test}}}}
+
+\def\eps{{\epsilon}}
+
+
+% Random variables
+\def\reta{{\textnormal{$\eta$}}}
+\def\ra{{\textnormal{a}}}
+\def\rb{{\textnormal{b}}}
+\def\rc{{\textnormal{c}}}
+\def\rd{{\textnormal{d}}}
+\def\re{{\textnormal{e}}}
+\def\rf{{\textnormal{f}}}
+\def\rg{{\textnormal{g}}}
+\def\rh{{\textnormal{h}}}
+\def\ri{{\textnormal{i}}}
+\def\rj{{\textnormal{j}}}
+\def\rk{{\textnormal{k}}}
+\def\rl{{\textnormal{l}}}
+% rm is already a command, just don't name any random variables m
+\def\rn{{\textnormal{n}}}
+\def\ro{{\textnormal{o}}}
+\def\rp{{\textnormal{p}}}
+\def\rq{{\textnormal{q}}}
+\def\rr{{\textnormal{r}}}
+\def\rs{{\textnormal{s}}}
+\def\rt{{\textnormal{t}}}
+\def\ru{{\textnormal{u}}}
+\def\rv{{\textnormal{v}}}
+\def\rw{{\textnormal{w}}}
+\def\rx{{\textnormal{x}}}
+\def\ry{{\textnormal{y}}}
+\def\rz{{\textnormal{z}}}
+
+% Random vectors
+\def\rvepsilon{{\mathbf{\epsilon}}}
+\def\rvtheta{{\mathbf{\theta}}}
+\def\rva{{\mathbf{a}}}
+\def\rvb{{\mathbf{b}}}
+\def\rvc{{\mathbf{c}}}
+\def\rvd{{\mathbf{d}}}
+\def\rve{{\mathbf{e}}}
+\def\rvf{{\mathbf{f}}}
+\def\rvg{{\mathbf{g}}}
+\def\rvh{{\mathbf{h}}}
+\def\rvu{{\mathbf{i}}}
+\def\rvj{{\mathbf{j}}}
+\def\rvk{{\mathbf{k}}}
+\def\rvl{{\mathbf{l}}}
+\def\rvm{{\mathbf{m}}}
+\def\rvn{{\mathbf{n}}}
+\def\rvo{{\mathbf{o}}}
+\def\rvp{{\mathbf{p}}}
+\def\rvq{{\mathbf{q}}}
+\def\rvr{{\mathbf{r}}}
+\def\rvs{{\mathbf{s}}}
+\def\rvt{{\mathbf{t}}}
+\def\rvu{{\mathbf{u}}}
+\def\rvv{{\mathbf{v}}}
+\def\rvw{{\mathbf{w}}}
+\def\rvx{{\mathbf{x}}}
+\def\rvy{{\mathbf{y}}}
+\def\rvz{{\mathbf{z}}}
+
+% Elements of random vectors
+\def\erva{{\textnormal{a}}}
+\def\ervb{{\textnormal{b}}}
+\def\ervc{{\textnormal{c}}}
+\def\ervd{{\textnormal{d}}}
+\def\erve{{\textnormal{e}}}
+\def\ervf{{\textnormal{f}}}
+\def\ervg{{\textnormal{g}}}
+\def\ervh{{\textnormal{h}}}
+\def\ervi{{\textnormal{i}}}
+\def\ervj{{\textnormal{j}}}
+\def\ervk{{\textnormal{k}}}
+\def\ervl{{\textnormal{l}}}
+\def\ervm{{\textnormal{m}}}
+\def\ervn{{\textnormal{n}}}
+\def\ervo{{\textnormal{o}}}
+\def\ervp{{\textnormal{p}}}
+\def\ervq{{\textnormal{q}}}
+\def\ervr{{\textnormal{r}}}
+\def\ervs{{\textnormal{s}}}
+\def\ervt{{\textnormal{t}}}
+\def\ervu{{\textnormal{u}}}
+\def\ervv{{\textnormal{v}}}
+\def\ervw{{\textnormal{w}}}
+\def\ervx{{\textnormal{x}}}
+\def\ervy{{\textnormal{y}}}
+\def\ervz{{\textnormal{z}}}
+
+% Random matrices
+\def\rmA{{\mathbf{A}}}
+\def\rmB{{\mathbf{B}}}
+\def\rmC{{\mathbf{C}}}
+\def\rmD{{\mathbf{D}}}
+\def\rmE{{\mathbf{E}}}
+\def\rmF{{\mathbf{F}}}
+\def\rmG{{\mathbf{G}}}
+\def\rmH{{\mathbf{H}}}
+\def\rmI{{\mathbf{I}}}
+\def\rmJ{{\mathbf{J}}}
+\def\rmK{{\mathbf{K}}}
+\def\rmL{{\mathbf{L}}}
+\def\rmM{{\mathbf{M}}}
+\def\rmN{{\mathbf{N}}}
+\def\rmO{{\mathbf{O}}}
+\def\rmP{{\mathbf{P}}}
+\def\rmQ{{\mathbf{Q}}}
+\def\rmR{{\mathbf{R}}}
+\def\rmS{{\mathbf{S}}}
+\def\rmT{{\mathbf{T}}}
+\def\rmU{{\mathbf{U}}}
+\def\rmV{{\mathbf{V}}}
+\def\rmW{{\mathbf{W}}}
+\def\rmX{{\mathbf{X}}}
+\def\rmY{{\mathbf{Y}}}
+\def\rmZ{{\mathbf{Z}}}
+
+% Elements of random matrices
+\def\ermA{{\textnormal{A}}}
+\def\ermB{{\textnormal{B}}}
+\def\ermC{{\textnormal{C}}}
+\def\ermD{{\textnormal{D}}}
+\def\ermE{{\textnormal{E}}}
+\def\ermF{{\textnormal{F}}}
+\def\ermG{{\textnormal{G}}}
+\def\ermH{{\textnormal{H}}}
+\def\ermI{{\textnormal{I}}}
+\def\ermJ{{\textnormal{J}}}
+\def\ermK{{\textnormal{K}}}
+\def\ermL{{\textnormal{L}}}
+\def\ermM{{\textnormal{M}}}
+\def\ermN{{\textnormal{N}}}
+\def\ermO{{\textnormal{O}}}
+\def\ermP{{\textnormal{P}}}
+\def\ermQ{{\textnormal{Q}}}
+\def\ermR{{\textnormal{R}}}
+\def\ermS{{\textnormal{S}}}
+\def\ermT{{\textnormal{T}}}
+\def\ermU{{\textnormal{U}}}
+\def\ermV{{\textnormal{V}}}
+\def\ermW{{\textnormal{W}}}
+\def\ermX{{\textnormal{X}}}
+\def\ermY{{\textnormal{Y}}}
+\def\ermZ{{\textnormal{Z}}}
+
+% Vectors
+\def\vzero{{\bm{0}}}
+\def\vone{{\bm{1}}}
+\def\vmu{{\bm{\mu}}}
+\def\vtheta{{\bm{\theta}}}
+\def\va{{\bm{a}}}
+\def\vb{{\bm{b}}}
+\def\vc{{\bm{c}}}
+\def\vd{{\bm{d}}}
+\def\ve{{\bm{e}}}
+\def\vf{{\bm{f}}}
+\def\vg{{\bm{g}}}
+\def\vh{{\bm{h}}}
+\def\vi{{\bm{i}}}
+\def\vj{{\bm{j}}}
+\def\vk{{\bm{k}}}
+\def\vl{{\bm{l}}}
+\def\vm{{\bm{m}}}
+\def\vn{{\bm{n}}}
+\def\vo{{\bm{o}}}
+\def\vp{{\bm{p}}}
+\def\vq{{\bm{q}}}
+\def\vr{{\bm{r}}}
+\def\vs{{\bm{s}}}
+\def\vt{{\bm{t}}}
+\def\vu{{\bm{u}}}
+\def\vv{{\bm{v}}}
+\def\vw{{\bm{w}}}
+\def\vx{{\bm{x}}}
+\def\vy{{\bm{y}}}
+\def\vz{{\bm{z}}}
+
+% Elements of vectors
+\def\evalpha{{\alpha}}
+\def\evbeta{{\beta}}
+\def\evepsilon{{\epsilon}}
+\def\evlambda{{\lambda}}
+\def\evomega{{\omega}}
+\def\evmu{{\mu}}
+\def\evpsi{{\psi}}
+\def\evsigma{{\sigma}}
+\def\evtheta{{\theta}}
+\def\eva{{a}}
+\def\evb{{b}}
+\def\evc{{c}}
+\def\evd{{d}}
+\def\eve{{e}}
+\def\evf{{f}}
+\def\evg{{g}}
+\def\evh{{h}}
+\def\evi{{i}}
+\def\evj{{j}}
+\def\evk{{k}}
+\def\evl{{l}}
+\def\evm{{m}}
+\def\evn{{n}}
+\def\evo{{o}}
+\def\evp{{p}}
+\def\evq{{q}}
+\def\evr{{r}}
+\def\evs{{s}}
+\def\evt{{t}}
+\def\evu{{u}}
+\def\evv{{v}}
+\def\evw{{w}}
+\def\evx{{x}}
+\def\evy{{y}}
+\def\evz{{z}}
+
+% Matrix
+\def\mA{{\bm{A}}}
+\def\mB{{\bm{B}}}
+\def\mC{{\bm{C}}}
+\def\mD{{\bm{D}}}
+\def\mE{{\bm{E}}}
+\def\mF{{\bm{F}}}
+\def\mG{{\bm{G}}}
+\def\mH{{\bm{H}}}
+\def\mI{{\bm{I}}}
+\def\mJ{{\bm{J}}}
+\def\mK{{\bm{K}}}
+\def\mL{{\bm{L}}}
+\def\mM{{\bm{M}}}
+\def\mN{{\bm{N}}}
+\def\mO{{\bm{O}}}
+\def\mP{{\bm{P}}}
+\def\mQ{{\bm{Q}}}
+\def\mR{{\bm{R}}}
+\def\mS{{\bm{S}}}
+\def\mT{{\bm{T}}}
+\def\mU{{\bm{U}}}
+\def\mV{{\bm{V}}}
+\def\mW{{\bm{W}}}
+\def\mX{{\bm{X}}}
+\def\mY{{\bm{Y}}}
+\def\mZ{{\bm{Z}}}
+\def\mBeta{{\bm{\beta}}}
+\def\mPhi{{\bm{\Phi}}}
+\def\mLambda{{\bm{\Lambda}}}
+\def\mSigma{{\bm{\Sigma}}}
+
+% Tensor
+\DeclareMathAlphabet{\mathsfit}{\encodingdefault}{\sfdefault}{m}{sl}
+\SetMathAlphabet{\mathsfit}{bold}{\encodingdefault}{\sfdefault}{bx}{n}
+\newcommand{\tens}[1]{\bm{\mathsfit{#1}}}
+\def\tA{{\tens{A}}}
+\def\tB{{\tens{B}}}
+\def\tC{{\tens{C}}}
+\def\tD{{\tens{D}}}
+\def\tE{{\tens{E}}}
+\def\tF{{\tens{F}}}
+\def\tG{{\tens{G}}}
+\def\tH{{\tens{H}}}
+\def\tI{{\tens{I}}}
+\def\tJ{{\tens{J}}}
+\def\tK{{\tens{K}}}
+\def\tL{{\tens{L}}}
+\def\tM{{\tens{M}}}
+\def\tN{{\tens{N}}}
+\def\tO{{\tens{O}}}
+\def\tP{{\tens{P}}}
+\def\tQ{{\tens{Q}}}
+\def\tR{{\tens{R}}}
+\def\tS{{\tens{S}}}
+\def\tT{{\tens{T}}}
+\def\tU{{\tens{U}}}
+\def\tV{{\tens{V}}}
+\def\tW{{\tens{W}}}
+\def\tX{{\tens{X}}}
+\def\tY{{\tens{Y}}}
+\def\tZ{{\tens{Z}}}
+
+
+% Graph
+\def\gA{{\mathcal{A}}}
+\def\gB{{\mathcal{B}}}
+\def\gC{{\mathcal{C}}}
+\def\gD{{\mathcal{D}}}
+\def\gE{{\mathcal{E}}}
+\def\gF{{\mathcal{F}}}
+\def\gG{{\mathcal{G}}}
+\def\gH{{\mathcal{H}}}
+\def\gI{{\mathcal{I}}}
+\def\gJ{{\mathcal{J}}}
+\def\gK{{\mathcal{K}}}
+\def\gL{{\mathcal{L}}}
+\def\gM{{\mathcal{M}}}
+\def\gN{{\mathcal{N}}}
+\def\gO{{\mathcal{O}}}
+\def\gP{{\mathcal{P}}}
+\def\gQ{{\mathcal{Q}}}
+\def\gR{{\mathcal{R}}}
+\def\gS{{\mathcal{S}}}
+\def\gT{{\mathcal{T}}}
+\def\gU{{\mathcal{U}}}
+\def\gV{{\mathcal{V}}}
+\def\gW{{\mathcal{W}}}
+\def\gX{{\mathcal{X}}}
+\def\gY{{\mathcal{Y}}}
+\def\gZ{{\mathcal{Z}}}
+
+% Sets
+\def\sA{{\mathbb{A}}}
+\def\sB{{\mathbb{B}}}
+\def\sC{{\mathbb{C}}}
+\def\sD{{\mathbb{D}}}
+% Don't use a set called E, because this would be the same as our symbol
+% for expectation.
+\def\sF{{\mathbb{F}}}
+\def\sG{{\mathbb{G}}}
+\def\sH{{\mathbb{H}}}
+\def\sI{{\mathbb{I}}}
+\def\sJ{{\mathbb{J}}}
+\def\sK{{\mathbb{K}}}
+\def\sL{{\mathbb{L}}}
+\def\sM{{\mathbb{M}}}
+\def\sN{{\mathbb{N}}}
+\def\sO{{\mathbb{O}}}
+\def\sP{{\mathbb{P}}}
+\def\sQ{{\mathbb{Q}}}
+\def\sR{{\mathbb{R}}}
+\def\sS{{\mathbb{S}}}
+\def\sT{{\mathbb{T}}}
+\def\sU{{\mathbb{U}}}
+\def\sV{{\mathbb{V}}}
+\def\sW{{\mathbb{W}}}
+\def\sX{{\mathbb{X}}}
+\def\sY{{\mathbb{Y}}}
+\def\sZ{{\mathbb{Z}}}
+
+% Entries of a matrix
+\def\emLambda{{\Lambda}}
+\def\emA{{A}}
+\def\emB{{B}}
+\def\emC{{C}}
+\def\emD{{D}}
+\def\emE{{E}}
+\def\emF{{F}}
+\def\emG{{G}}
+\def\emH{{H}}
+\def\emI{{I}}
+\def\emJ{{J}}
+\def\emK{{K}}
+\def\emL{{L}}
+\def\emM{{M}}
+\def\emN{{N}}
+\def\emO{{O}}
+\def\emP{{P}}
+\def\emQ{{Q}}
+\def\emR{{R}}
+\def\emS{{S}}
+\def\emT{{T}}
+\def\emU{{U}}
+\def\emV{{V}}
+\def\emW{{W}}
+\def\emX{{X}}
+\def\emY{{Y}}
+\def\emZ{{Z}}
+\def\emSigma{{\Sigma}}
+
+% entries of a tensor
+% Same font as tensor, without \bm wrapper
+\newcommand{\etens}[1]{\mathsfit{#1}}
+\def\etLambda{{\etens{\Lambda}}}
+\def\etA{{\etens{A}}}
+\def\etB{{\etens{B}}}
+\def\etC{{\etens{C}}}
+\def\etD{{\etens{D}}}
+\def\etE{{\etens{E}}}
+\def\etF{{\etens{F}}}
+\def\etG{{\etens{G}}}
+\def\etH{{\etens{H}}}
+\def\etI{{\etens{I}}}
+\def\etJ{{\etens{J}}}
+\def\etK{{\etens{K}}}
+\def\etL{{\etens{L}}}
+\def\etM{{\etens{M}}}
+\def\etN{{\etens{N}}}
+\def\etO{{\etens{O}}}
+\def\etP{{\etens{P}}}
+\def\etQ{{\etens{Q}}}
+\def\etR{{\etens{R}}}
+\def\etS{{\etens{S}}}
+\def\etT{{\etens{T}}}
+\def\etU{{\etens{U}}}
+\def\etV{{\etens{V}}}
+\def\etW{{\etens{W}}}
+\def\etX{{\etens{X}}}
+\def\etY{{\etens{Y}}}
+\def\etZ{{\etens{Z}}}
+
+% The true underlying data generating distribution
+\newcommand{\pdata}{p_{\rm{data}}}
+% The empirical distribution defined by the training set
+\newcommand{\ptrain}{\hat{p}_{\rm{data}}}
+\newcommand{\Ptrain}{\hat{P}_{\rm{data}}}
+% The model distribution
+\newcommand{\pmodel}{p_{\rm{model}}}
+\newcommand{\Pmodel}{P_{\rm{model}}}
+\newcommand{\ptildemodel}{\tilde{p}_{\rm{model}}}
+% Stochastic autoencoder distributions
+\newcommand{\pencode}{p_{\rm{encoder}}}
+\newcommand{\pdecode}{p_{\rm{decoder}}}
+\newcommand{\precons}{p_{\rm{reconstruct}}}
+
+\newcommand{\laplace}{\mathrm{Laplace}} % Laplace distribution
+
+\newcommand{\E}{\mathbb{E}}
+\newcommand{\Ls}{\mathcal{L}}
+\newcommand{\R}{\mathbb{R}}
+\newcommand{\emp}{\tilde{p}}
+\newcommand{\lr}{\alpha}
+\newcommand{\reg}{\lambda}
+\newcommand{\rect}{\mathrm{rectifier}}
+\newcommand{\softmax}{\mathrm{softmax}}
+\newcommand{\sigmoid}{\sigma}
+\newcommand{\softplus}{\zeta}
+\newcommand{\KL}{D_{\mathrm{KL}}}
+\newcommand{\Var}{\mathrm{Var}}
+\newcommand{\standarderror}{\mathrm{SE}}
+\newcommand{\Cov}{\mathrm{Cov}}
+% Wolfram Mathworld says $L^2$ is for function spaces and $\ell^2$ is for vectors
+% But then they seem to use $L^2$ for vectors throughout the site, and so does
+% wikipedia.
+\newcommand{\normlzero}{L^0}
+\newcommand{\normlone}{L^1}
+\newcommand{\normltwo}{L^2}
+\newcommand{\normlp}{L^p}
+\newcommand{\normmax}{L^\infty}
+
+\newcommand{\parents}{Pa} % See usage in notation.tex. Chosen to match Daphne's book.
+
+\DeclareMathOperator*{\argmax}{arg\,max}
+\DeclareMathOperator*{\argmin}{arg\,min}
+
+\DeclareMathOperator{\sign}{sign}
+\DeclareMathOperator{\Tr}{Tr}
+\let\ab\allowbreak
+
+
+%%% --- FILE BOUNDARY --- %%%
+
+\section{The Elements of ALBERT}
+\label{sec:model}
+In this section, we present the design decisions for ALBERT and provide quantified comparisons against corresponding configurations of the original BERT architecture~\citep{devlin2018bert}.
+% Studies are now in the next section.
+% as well as careful ablation studies that shed light on the impact of these design decisions.
+
+
+\subsection{Model architecture choices}
+The backbone of the ALBERT architecture is similar to BERT in that it uses a transformer encoder~\citep{vaswani2017attention} with GELU nonlinearities~\citep{hendrycks2016gelus}. 
+We follow the BERT notation conventions and denote the vocabulary embedding size as $E$, the number of encoder layers as $L$, and the hidden size as $H$. Following \cite{devlin2018bert}, 
+we set the feed-forward/filter size to be $4H$ and the number of attention heads to be $H/64$. 
+
+There are three main contributions that ALBERT makes over the design choices of BERT.
+
+\paragraph{Factorized embedding parameterization.}
+In BERT, as well as subsequent modeling improvements such as \xlnet~\citep{yang2019xlnet} and \roberta~\citep{liu2019roberta}, the WordPiece embedding size $E$ is tied with the hidden layer size $H$, i.e., $E\equiv H$.
+This decision appears suboptimal for both modeling and practical reasons, as follows.
+
+From a modeling perspective, WordPiece embeddings are meant to learn {\em context-independent} representations, whereas hidden-layer embeddings are meant to learn {\em context-dependent} representations.
+As experiments with context length indicate~\citep{liu2019roberta}, the power of BERT-like representations comes from the use of context to provide the signal for learning such context-dependent representations.
+As such, untying the WordPiece embedding size $E$ from the hidden layer size $H$ allows us to make a more efficient usage of the total model parameters as informed by modeling needs, which dictate that $H \gg E$. 
+
+From a practical perspective, natural language processing usually require the vocabulary size $V$ to be large.\footnote{Similar to BERT, all the experiments in this paper use a vocabulary size $V$ of 30,000.} 
+If $E\equiv H$, then increasing $H$ increases the size of the embedding matrix, which has size $V \times E$.
+This can easily result in a model with billions of parameters, most of which are only updated sparsely during training. 
+
+Therefore, for ALBERT we use a factorization of the embedding parameters, decomposing them into two smaller matrices.
+Instead of projecting the one-hot vectors directly into the hidden space of size $H$, we first project them into a lower dimensional embedding space of size $E$, and then project it to the hidden space.
+By using this decomposition, we reduce the embedding parameters from $O(V \times H)$  to $O(V \times E + E \times H)$.
+This parameter reduction is significant when $H \gg E$. We choose to use the same E for all word pieces because they are much more evenly distributed across documents compared to whole-word embedding, where having different embedding size  (\cite{grave2017efficient, baevski2018adaptive,dai2019transformer} ) for different words is important.  
+
+
+\paragraph{Cross-layer parameter sharing.}
+For ALBERT, we propose cross-layer parameter sharing as another way to improve parameter efficiency.
+There are multiple ways to share parameters, e.g., only sharing feed-forward network (FFN) parameters across layers, or only sharing attention parameters.
+The default decision for ALBERT is to share all parameters across layers. All our experiments use this default decision unless otherwise specified.
+We compare this design decision against other strategies in our experiments in Sec.~\ref{sec:sharing}.
+
+Similar strategies have been explored by \cite{dehghani2018universal} (Universal Transformer, UT) and \cite{bai2019deep} (Deep Equilibrium Models, DQE) for Transformer networks.
+Different from our observations, \cite{dehghani2018universal} show that UT outperforms a vanilla Transformer.
+% even without dynamical halting, % RS: not a must here, and introduces a new concept that's not relevant
+\cite{bai2019deep} show that their DQEs reach an equilibrium point for which the input and output embedding of a certain layer stay the same.
+Our measurement on the L2 distances and cosine similarity show that our embeddings are oscillating rather than converging.
+
+
+\begin{figure}[!htbp] 
+\begin{subfigure}{.5\textwidth}
+  \centering
+  \includegraphics[width=.8\linewidth]{adjacent_l2}
+  \label{fig:adjacent_l2}
+\end{subfigure}%
+\begin{subfigure}{.5\textwidth}
+  \centering
+  \includegraphics[width=.8\linewidth]{adjacent_cos_sim}
+  \label{fig:adjacent_cos_sim}
+\end{subfigure}
+\caption{The L2 distances and cosine similarity (in terms of degree) of the input and output embedding of each layer for BERT-large and ALBERT-large.}
+\label{fig:l2_cos_sim}
+\end{figure}
+
+Figure \ref{fig:l2_cos_sim} shows the L2 distances and cosine similarity of the input and output embeddings for each layer, using BERT-large and ALBERT-large configurations (see Table~\ref{table:model_architecture}).
+We observe that the transitions from layer to layer are much smoother for ALBERT than for BERT.
+These results show that weight-sharing has an effect on stabilizing network parameters.
+Although there is a drop for both metrics compared to BERT, they nevertheless do not converge to 0 even after 24 layers.
+This shows that the solution space for ALBERT parameters is very different from the one found by DQE. 
+
+\paragraph{Inter-sentence coherence loss.}
+In addition to the masked language modeling (MLM) loss~\citep{devlin2018bert}, BERT uses an additional loss called next-sentence prediction (NSP).
+NSP is a binary classification loss for predicting whether two segments appear consecutively in the original text, as follows:
+positive examples are created by taking consecutive segments from the training corpus;
+negative examples are created by pairing segments from different documents;
+positive and negative examples are sampled with equal probability.
+The NSP objective was designed to improve performance on downstream tasks, such as natural language inference, that require reasoning about the relationship between sentence pairs. 
+However, subsequent studies~\citep{yang2019xlnet,liu2019roberta} found NSP's impact unreliable and decided to eliminate it, a decision supported by an improvement in downstream task performance across several tasks.
+
+We conjecture that the main reason behind NSP's ineffectiveness is its lack of difficulty as a task, as compared to MLM.
+As formulated, NSP conflates {\em topic prediction} and {\em coherence prediction} in a single task\footnote{Since a negative example is constructed using material from a different document, the negative-example segment is misaligned both from a topic and from a coherence perspective.}.
+However, topic prediction is easier to learn compared to coherence prediction, and also overlaps more with what is learned using the MLM loss.
+%RS: the second reason not supported for now by the empirical results in Table~\ref{table:sop}.
+% Second, for MLM, negative examples only have half of the context of the positive examples, which makes it difficult for the model to learn to use larger context. 
+
+%For ALBERT, we maintain that inter-sentence modeling is an important aspect of language understanding, if defined as a {\em coherence} loss. 
+We maintain that inter-sentence modeling is an important aspect of language understanding, but we propose a loss based primarily on {\em coherence}. 
+That is, for ALBERT, we use a sentence-order prediction (SOP) loss, which avoids topic prediction and instead focuses on modeling inter-sentence coherence.
+The SOP loss uses as positive examples the same technique as BERT (two consecutive segments from the same document), and as negative examples the same two consecutive segments but with their order swapped.
+This forces the model to learn finer-grained distinctions about discourse-level coherence properties.
+As we show in Sec.~\ref{sec:sop}, it turns out that NSP cannot solve the SOP task at all (i.e., it ends up learning the easier topic-prediction signal, and performs at random-baseline level on the SOP task), while SOP can solve the NSP task to a reasonable degree, presumably based on analyzing misaligned coherence cues. 
+As a result, ALBERT models consistently improve downstream task performance for multi-sentence encoding tasks.
+
+\subsection{Model setup}
+We present the differences between BERT and ALBERT models with comparable hyperparameter settings in Table~\ref{table:model_architecture}.
+Due to the design choices discussed above, ALBERT models have much smaller parameter size compared to corresponding BERT models.
+
+
+\begin{table}
+\small
+\centering
+\begin{tabular}{l  l | c c c c c c}
+ \multicolumn{2}{c}{Model}          &Parameters	&Layers &Hidden &Embedding  &Parameter-sharing \\
+\hline
+\multirow{3}{*}{BERT}    & base	    &108M    &12 & 768  & 768  & False\\
+                         & large	&334M	 &24 & 1024 & 1024 & False\\
+ %                        & xlarge	&1270M	 &24 & 2048 & 2048 & False\\
+    \hline
+\multirow{4}{*}{ALBERT}  &base	    &12M     &12 & 768  & 128  & True \\
+                         &large	    &18M	 &24 & 1024 & 128  & True\\
+                         &xlarge	&60M	 &24 & 2048 & 128  & True\\
+                         &xxlarge	&235M	 &12 & 4096 & 128  & True\\
+\end{tabular}
+\caption{The configurations of the main BERT and ALBERT models analyzed in this paper.}
+\label{table:model_architecture}
+\end{table}
+
+For example, ALBERT-large has about 18x fewer parameters compared to BERT-large, 18M versus 334M.
+% If we set BERT to have an extra-large size with $H=2048$, we end up with a model that has 1.27 billion parameters and the model becomes difficult to run without model parallization.  and under-performs (Fig.~\ref{fig:large_vs_extra_large}).
+An ALBERT-xlarge configuration with $H=2048$ has only 60M parameters and an ALBERT-xxlarge configuration with $H=4096$ has 233M parameters, i.e., around 70\% of BERT-large's parameters.
+Note that for ALBERT-xxlarge, we mainly report results on a 12-layer network because a 24-layer network (with the same configuration) obtains similar results but is computationally more expensive.
+
+This improvement in parameter efficiency is the most important advantage of ALBERT's design choices. 
+Before we can quantify this advantage, we need to introduce our experimental setup in more detail.
+
+
+\section{Experimental Results}
+
+\subsection{Experimental Setup}
+\label{sec:setup}
+To keep the comparison as meaningful as possible, we follow the \bert~\citep{devlin2018bert} setup in using the \textsc{BookCorpus}~\citep{zhu2015aligning} and English Wikipedia~\citep{devlin2018bert} for pretraining baseline models.
+These two corpora consist of around 16GB of uncompressed text.
+We format our inputs as ``\textsc{[CLS]} $x_1$ \textsc{[SEP]} $x_2$ \textsc{[SEP]}'', where $x_1=x_{1,1},x_{1,2}\cdots$ and $x_2=x_{1,1},x_{1,2}\cdots$ are two segments.\footnote{A segment is usually comprised of more than one natural sentence, which has been shown to benefit performance by~\cite{liu2019roberta}.} 
+We always limit the maximum input length to 512, and randomly generate input sequences shorter than 512 with a probability of 10\%.
+Like \bert, we use a vocabulary size of 30,000, tokenized using SentencePiece~\citep{kudo-richardson-2018-sentencepiece} as in \xlnet~\citep{yang2019xlnet}.
+
+We generate masked inputs for the MLM targets using $n$-gram masking~\citep{joshi2019spanbert}, with the length of each $n$-gram mask selected randomly.
+The probability for the length $n$ is given by
+$$
+    p(n) = \frac{1/n}{\sum_{k=1}^N{1/k}}
+$$
+We set the maximum length of $n$-gram (i.e., $n$) to be 3 (i.e., the MLM target can consist of up to a 3-gram of complete words, such as ``White House correspondents'').
+
+All the model updates use a batch size of 4096 and a \textsc{Lamb} optimizer with learning rate 0.00176~\citep{you2019reducing}.
+We train all models for 125,000 steps unless otherwise specified.
+Training was done on Cloud TPU V3.
+The number of TPUs used for training ranged from 64 to 512, depending on model size. 
+
+The experimental setup described in this section is used for all of our own versions of BERT as well as ALBERT models, unless otherwise specified. 
+
+
+\subsection{Evaluation Benchmarks}
+
+
+\subsubsection{Intrinsic Evaluation}
+% RS: this needs to be more detailed.
+To monitor the training progress, we create a development set based on the development sets from \squad and RACE using the same procedure as in Sec.~\ref{sec:setup}. 
+We report accuracies for both MLM and sentence classification tasks. Note that we only use this set to check how the model is converging; it has not been used in a way that would affect the performance of any downstream evaluation, such as via model selection. 
+%\lanzhzh{add a clarification to make sure that people would not think that we misuse the downstream datasets.}\kevin{thanks for the clarification!}
+
+
+\subsubsection{Downstream Evaluation}
+Following \cite{yang2019xlnet} and \cite{liu2019roberta}, we evaluate our models on three popular benchmarks: The General Language Understanding Evaluation (GLUE) benchmark~\citep{wang-etal-2018-glue}, two versions of the Stanford Question Answering Dataset (\squad;~\citealp{rajpurkar-etal-2016-squad,rajpurkar-etal-2018-know}), and the ReAding Comprehension from Examinations  (RACE) dataset~\citep{lai2017race}. 
+For completeness, we provide description of these benchmarks in Appendix~\ref{downstream_detailed_description}.
+As in \citep{liu2019roberta}, we perform early stopping on the development sets, on which we report all comparisons except for our final comparisons based on the task leaderboards, for which we also report test set results. For GLUE datasets that have large variances on the dev set, we report median over 5 runs.  
+
+
+\subsection{Overall Comparison between BERT and ALBERT}
+We are now ready to quantify the impact of the design choices described in Sec.~\ref{sec:model}, specifically the ones around parameter efficiency.
+The improvement in parameter efficiency showcases the most important advantage of ALBERT's design choices, as shown in Table~\ref{table:overall_comparison}: with only around 70\% of BERT-large's parameters, ALBERT-xxlarge achieves significant improvements over BERT-large, as measured by the difference on development set scores for several representative downstream tasks:
+SQuAD v1.1 (+1.9\%), SQuAD v2.0 (+3.1\%), MNLI (+1.4\%), SST-2 (+2.2\%), and RACE (+8.4\%).
+
+
+% We also observe that BERT-xlarge gets significantly worse results than BERT-base on all metrics.
+% This indicates that a model like BERT-xlarge is more difficult to train than those that have smaller parameter sizes. 
+Another interesting observation is the speed of data throughput at training time under the same training configuration (same number of TPUs). 
+Because of less communication and fewer computations, ALBERT models have higher data throughput compared to their corresponding BERT models.
+If we use BERT-large as the baseline, we observe that ALBERT-large is about 1.7 times faster in iterating through the data while ALBERT-xxlarge is about 3 times slower because of the larger structure. 
+%The 12-layer ALBERT-xxlarge model outperform all other models significantly.
+%Compared to BERT-large, which has roughly 1.45x more parameters, ALBERT-xxlarge has an average of $3.6\%$ absolute improvements over 5 downstream tasks and $8.5\%$ absolute improvements over the RACE task. 
+
+
+\begin{table}[!htbp] 
+\setlength{\tabcolsep}{5pt}
+\small
+\centering
+\begin{tabular}{ l l | c c c c c c | c | c}
+ \multicolumn{2}{c}{Model}    &Parameters        	&SQuAD1.1	&SQuAD2.0	&MNLI	&SST-2	&RACE	&Avg & Speedup\\
+\hline
+\multirow{3}{*}{BERT} &base	     &108M       &90.4/83.2	&80.4/77.6	&84.5	&92.8	&68.2	&82.3 & 4.7x \\
+
+    &large	        &334M	&92.2/85.5	&85.0/82.2	&86.6	&93.0	&73.9	&85.2 & 1.0\\
+%    &xlarge			&1270M &86.4/78.1	&75.5/72.6	&81.6	&90.7	&54.3	&76.6 & 1.0\\
+\hline 
+\multirow{4}{*}{ALBERT}  &base	      &12M    	    &89.3/82.3	&80.0/77.1	&81.6	&90.3	&64.0	&80.1 &5.6x \\
+&large	        	 &18M   &90.6/83.9	&82.3/79.4	&83.5	&91.7	&68.5	&82.4 &1.7x\\
+&xlarge		   &60M   &92.5/86.1	&86.1/83.1	&86.4	&92.4	&74.8	&85.5 & 0.6x\\
+&xxlarge	&235M	& \textbf{94.1/88.3}	&\textbf{88.1/85.1}	&\textbf{88.0}	&\textbf{95.2}	&\textbf{82.3}	&\textbf{88.7} & 0.3x\\
+\end{tabular}
+\caption{Dev set results for models pretrained over \textsc{BookCorpus} and Wikipedia for 125k steps.
+Here and everywhere else, the Avg column is computed by averaging the scores of the downstream tasks to its left (the two numbers of F1 and EM for each SQuAD are first averaged).}
+\label{table:overall_comparison}
+\end{table}
+
+Next, we perform ablation experiments that quantify the individual contribution of each of the design choices for ALBERT. 
+
+\subsection{Factorized Embedding Parameterization}
+
+%\subsubsection{Effect of vocabulary embedding size}
+Table \ref{table:voc_embedding} shows the effect of changing the vocabulary embedding size $E$ using an ALBERT-base configuration setting (see Table~\ref{table:model_architecture}), using the same set of representative downstream tasks.
+Under the non-shared condition (BERT-style), larger embedding sizes give better performance, but not by much.
+Under the all-shared condition (ALBERT-style), an embedding of size 128 appears to be the best.
+Based on these results, we use an embedding size $E=128$ in all future settings, as a necessary step to do further scaling.
+
+\begin{table}[!htbp] 
+\small
+\centering
+\begin{tabular}{ c c c | c c c c c | c }
+Model  & $E$ & Parameters     	&SQuAD1.1	&SQuAD2.0	&MNLI	&SST-2	&RACE	&Avg \\
+\hline
+\multirow{4}{*}{\shortstack{ALBERT \\ base \\ not-shared}}
+& 64  & 87M &89.9/82.9	&80.1/77.8	&82.9	&91.5	&66.7   &81.3 \\
+& 128 & 89M &89.9/82.8	&80.3/77.3	&83.7	&91.5	&67.9	&81.7 \\
+& 256 & 93M &90.2/83.2	&80.3/77.4	&84.1	&91.9	&67.3	&81.8 \\
+& 768 & 108M &90.4/83.2	&80.4/77.6	&84.5	&92.8	&68.2	&82.3  \\
+\hline
+\multirow{4}{*}{\shortstack{ALBERT \\base \\ all-shared}}
+&64     & 10M &88.7/81.4	&77.5/74.8  &80.8	&89.4	&63.5	&79.0 \\
+&128    & 12M  &89.3/82.3	&80.0/77.1	&81.6	&90.3	&64.0	&80.1 \\
+&256    & 16M &88.8/81.5	&79.1/76.3	&81.5	&90.3	&63.4	&79.6 \\
+&768    & 31M &88.6/81.5	&79.2/76.6	&82.0	&90.6	&63.3	&79.8 \\
+\end{tabular}
+\caption{The effect of vocabulary embedding size on the performance of ALBERT-base.}
+\label{table:voc_embedding}
+\end{table}
+
+% RS: I propose we take this out, since we're not following this trend.
+% As a side observation with respect to model capacity, for ALBERT-xxlarge, we can reduce the number of parameters for the word-piece embedding from 61M, which is more than half of the overall parameters, to 4M. 
+
+\vspace{-3pt}
+
+\subsection{Cross-layer parameter sharing}
+\label{sec:sharing}
+Table \ref{table:paramter-sharing} presents experiments for various cross-layer parameter-sharing strategies, using an ALBERT-base configuration (Table~\ref{table:model_architecture}) with two embedding sizes ($E=768$ and $E=128$).
+We compare the all-shared strategy (ALBERT-style), the not-shared strategy (BERT-style), and intermediate strategies in which only the attention parameters are shared (but not the FNN ones) or only the FFN parameters are shared (but not the attention ones).
+
+The all-shared strategy hurts performance under both conditions, but it is less severe for $E=128$ (-1.5 on Avg) compared to $E=768$ (-2.5 on Avg).
+In addition, most of the performance drop appears to come from sharing the FFN-layer parameters, while sharing the attention parameters results in no drop when $E=128$ (+0.1 on Avg), and a slight drop when $E=768$ (-0.7 on Avg).
+
+There are other strategies of sharing the parameters cross layers. For example, We can divide the $L$ layers into $N$ groups of size $M$, and each size-$M$ group shares parameters. Overall, our experimental results shows that the smaller the group size $M$ is, the better the performance we get. However, decreasing group size $M$ also dramatically increase the number of overall parameters. We choose all-shared strategy as our default choice.  
+
+\begin{table}[!htbp] 
+\small
+\centering
+\begin{tabular}{ l l | c | c c c c c | c }
+\multicolumn{2}{c}{Model}	    &Parameters  	&SQuAD1.1	&SQuAD2.0	&MNLI	&SST-2	&RACE &Avg \\
+\hline
+\multirow{4}{*}{\shortstack{ALBERT \\ base \\ $E$=768}}
+&all-shared       &31M   &88.6/81.5	&79.2/76.6   &82.0	&90.6	&63.3	&79.8 \\
+&shared-attention &83M   &89.9/82.7	&80.0/77.2	 &84.0	&91.4	&67.7	&81.6 \\
+&shared-FFN       &57M   &89.2/82.1	&78.2/75.4	 &81.5	&90.8	&62.6	&79.5 \\
+&not-shared        &108M  &90.4/83.2	&80.4/77.6	 &84.5	&92.8	&68.2	&82.3 \\
+\hline
+\multirow{4}{*}{\shortstack{ALBERT \\base \\ $E$=128}}
+&all-shared       & 12M  &89.3/82.3	&80.0/77.1	&82.0	&90.3	&64.0	&80.1 \\
+&shared-attention & 64M  &89.9/82.8	&80.7/77.9	&83.4	&91.9	&67.6	&81.7 \\
+&shared-FFN       & 38M  &88.9/81.6	&78.6/75.6	&82.3	&91.7	&64.4	&80.2 \\
+&not-shared   & 89M  &89.9/82.8	&80.3/77.3	&83.2	&91.5	&67.9	&81.6 \\
+\end{tabular}
+\caption{The effect of cross-layer parameter-sharing strategies, ALBERT-base configuration.}
+\label{table:paramter-sharing}
+\end{table}
+
+\vspace{-5pt}
+
+\subsection{Sentence order prediction (SOP)}
+\label{sec:sop}
+We compare head-to-head three experimental conditions for the additional inter-sentence loss: none (XLNet- and RoBERTa-style), NSP (BERT-style), and SOP (ALBERT-style), using an ALBERT-base configuration.
+Results are shown in Table \ref{table:sop}, both over intrinsic (accuracy for the MLM, NSP, and SOP tasks) and downstream tasks.
+
+\begin{table}[!htbp] 
+\small
+\centering
+\begin{tabular}{ l | c c c | c c c c  c | c }
+&\multicolumn{3}{|c|}{Intrinsic Tasks} & \multicolumn{6}{c}{Downstream Tasks} \\
+SP tasks	    	&MLM	&NSP & SOP &SQuAD1.1	&SQuAD2.0	&MNLI	&SST-2	&RACE & Avg \\
+\hline
+None &54.9 &52.4 & 53.3 &88.6/81.5	&78.1/75.3	&81.5	&89.9	&61.7		& 79.0 \\
+NSP	 &54.5 &90.5 & 52.0 &88.4/81.5	&77.2/74.6	&81.6	&\textbf{91.1}	&62.3	& 79.2  \\
+SOP	 &54.0 &78.9 &86.5  &\textbf{89.3/82.3}	&\textbf{80.0/77.1}	&\textbf{82.0}	&90.3	&\textbf{64.0}	 & \textbf{80.1}	\\
+\end{tabular}
+\caption{The effect of sentence-prediction loss, NSP vs. SOP, on intrinsic and downstream tasks.}
+\label{table:sop}
+\end{table}
+
+The results on the intrinsic tasks reveal that the NSP loss brings no discriminative power to the SOP task (52.0\% accuracy, similar to the random-guess performance for the ``None'' condition).
+This allows us to conclude that NSP ends up modeling only topic shift.
+In contrast, the SOP loss does solve the NSP task relatively well (78.9\% accuracy), and the SOP task even better (86.5\% accuracy).
+Even more importantly, the SOP loss appears to consistently improve downstream task performance for multi-sentence encoding tasks (around +1\% for SQuAD1.1, +2\% for SQuAD2.0, +1.7\% for RACE), for an Avg score improvement of around +1\%.
+
+\subsection{What if we train for the same amount of time?}
+
+The speed-up results in Table \ref{table:overall_comparison} indicate that data-throughput for BERT-large is about 3.17x higher compared to ALBERT-xxlarge.
+Since longer training usually leads to better performance, we perform a comparison in which, instead of controlling for data throughput (number of training steps), we control for the actual training time (i.e., let the models train for the same number of hours).
+In Table \ref{table:same-training-time}, we compare the performance of a  BERT-large model after 400k training steps (after 34h of training), roughly equivalent with the amount of time needed to train an ALBERT-xxlarge model with 125k training steps (32h of training).
+
+
+\begin{table}[!htbp] 
+\small
+\centering
+\begin{tabular}{ l c c|  c c c c c | c }
+Models	& Steps& Time	&SQuAD1.1	&SQuAD2.0	&MNLI	&SST-2	&RACE & Avg \\
+\hline
+BERT-large & 400k  & 34h      &93.5/87.4	&86.9/84.3	&87.8	&94.6	&77.3	&87.2\\
+ALBERT-xxlarge & 125k & 32h  &\textbf{94.0/88.1}	&\textbf{88.3/85.3}	&87.8	&\textbf{95.4}	&\textbf{82.5}   &\textbf{88.7}\\
+\end{tabular}
+\caption{The effect of controlling for training time, BERT-large vs ALBERT-xxlarge configurations.}
+\label{table:same-training-time}
+\end{table}
+
+After training for roughly the same amount of time, ALBERT-xxlarge is significantly better than BERT-large: +1.5\% better on Avg, with the difference on RACE as high as +5.2\%.
+
+
+\subsection{Additional training data and dropout effects}
+The experiments done up to this point use only the Wikipedia and \textsc{BookCorpus} datasets, as in \citep{devlin2018bert}.
+In this section, we report measurements on the impact of the additional data used by both XLNet~\citep{yang2019xlnet} and RoBERTa~\citep{liu2019roberta}.
+
+Fig.~\ref{fig:additiona_data} plots the dev set MLM accuracy under two conditions, without and with additional data, with the latter condition giving a significant boost.
+We also observe  performance improvements on the downstream tasks in Table \ref{table:additional_training_data}, except for the SQuAD benchmarks (which are Wikipedia-based, and therefore are negatively affected by out-of-domain training material).
+
+\begin{figure}[!htbp] 
+\begin{subfigure}{.5\textwidth}
+  \centering
+  \includegraphics[width=.8\linewidth]{adding_additional_data}
+  \caption{Adding data   \label{fig:additiona_data}}
+\end{subfigure}%
+\begin{subfigure}{.5\textwidth}
+  \centering
+  \includegraphics[width=.8\linewidth]{removing_dropout}
+  \caption{Removing dropout   \label{fig:removing_dropout}}
+\end{subfigure}
+\caption{The effects of adding data and removing dropout during training.}
+\label{fig:additional_data_removing_dropout}
+\end{figure}
+
+\begin{table}[!htbp] 
+\small
+\centering
+\begin{tabular}{ r |  c c c c c | c }
+%Number of layer		
+&SQuAD1.1	&SQuAD2.0	&MNLI	&SST-2	&RACE & Avg \\
+\hline
+No additional data      &\textbf{89.3/82.3}	&\textbf{80.0/77.1}	&81.6	&90.3	&64.0	&80.1\\
+With additional data      &88.8/81.7	&79.1/76.3	&\textbf{82.4}	&\textbf{92.8}	&\textbf{66.0}	&\textbf{80.8}\\
+\end{tabular}
+\caption{The effect of additional training data using the ALBERT-base configuration.}
+\label{table:additional_training_data}
+\end{table}
+
+
+We also note that, even after training for 1M steps, our largest models still do not overfit to their training data.
+As a result, we decide to remove dropout to further increase our model capacity.
+The plot in Fig.~\ref{fig:removing_dropout} shows that removing dropout significantly improves MLM accuracy.
+Intermediate evaluation on ALBERT-xxlarge at around 1M training steps (Table~\ref{table:removing_dropout}) also confirms that removing dropout helps the downstream tasks.
+There is empirical \citep{szegedy2017inception} and theoretical \citep{li2019understanding} evidence showing that a combination of batch normalization and dropout in Convolutional Neural Networks may have harmful results.
+To the best of our knowledge, we are the first to show that dropout can hurt performance in large Transformer-based models. However, the underlying network structure of ALBERT is a special case of the transformer and further experimentation is needed to see if this phenomenon appears with other transformer-based architectures or not.
+
+\begin{table}[!htbp] 
+\small
+\centering
+\begin{tabular}{ r |  c c c c c | c }
+%Number of layer		
+&SQuAD1.1	&SQuAD2.0	&MNLI	&SST-2	&RACE & Avg \\
+\hline
+With dropout     &94.7/89.2	&89.6/86.9	&90.0	&96.3	&85.7	&90.4\\
+Without dropout  &\textbf{94.8/89.5}	 &\textbf{89.9/87.2}	&\textbf{90.4}	&\textbf{96.5}	&\textbf{86.1}	&\textbf{90.7}\\
+\end{tabular}
+\caption{The effect of removing dropout, measured for an ALBERT-xxlarge configuration.}
+\label{table:removing_dropout}
+\end{table}
+
+
+\vspace{-5pt}
+%\radu{I moved two subsections with ablation experiments to the Appendix.}
+%\lanzhzh{cool, look good}
+
+\subsection{Current State-of-the-art on NLU Tasks}
+
+The results we report in this section make use of the training data used by~\cite{devlin2018bert}, as well as the additional data used by~\cite{liu2019roberta} and~\cite{yang2019xlnet}. 
+We report state-of-the-art results under two settings for fine-tuning: single-model and ensembles.
+In both settings, we only do single-task fine-tuning\footnote{Following \cite{liu2019roberta}, we fine-tune for RTE, STS, and MRPC using an MNLI checkpoint.}.
+Following \cite{liu2019roberta}, on the development set we report the median result over five runs.
+
+%\mingda{Added this} 
+
+
+\begin{table}[!htbp] 
+\small
+\centering
+\begin{tabular}{ l   c c c c c c c c c c}
+Models &MNLI	&QNLI	&QQP	&RTE	&SST	&MRPC	&CoLA	&STS	&WNLI	&Avg \\
+\hline
+\multicolumn{11}{l}{\textit{Single-task single models on dev}}\\
+BERT-large	 &86.6	&92.3	&91.3	&70.4	&93.2	&88.0	&60.6	&90.0 &- &-	\\	
+XLNet-large	 &89.8	&93.9	&91.8	&83.8	&95.6	&89.2	&63.6	&91.8 &- &-	\\	
+RoBERTa-large&90.2	&94.7	&\textbf{92.2}	&86.6	&96.4	&\textbf{90.9}	&68.0	&92.4 &- &-	\\	
+ALBERT (1M)   &90.4	&95.2	&92.0	&88.1	&96.8	&90.2	&68.7	&92.7 &- &-	\\
+ALBERT (1.5M) &\textbf{90.8}	&\textbf{95.3}	&\textbf{92.2}	&\textbf{89.2}	&\textbf{96.9}	&\textbf{90.9}	&\textbf{71.4}	&\textbf{93.0} &- &-	\\	
+\hline
+\multicolumn{11}{l}{\textit{Ensembles on test (from leaderboard as of Sept. 16, 2019)}}\\
+ALICE	    &88.2	&95.7	&\textbf{90.7}	&83.5	&95.2	&92.6	&\textbf{69.2}	&91.1	&80.8	&87.0 \\
+MT-DNN	    &87.9	&96.0	&89.9	&86.3	&96.5	&92.7	&68.4	&91.1	&89.0	&87.6 \\
+XLNet	    &90.2	&98.6	&90.3	&86.3	&96.8	&93.0	&67.8	&91.6	&90.4	&88.4 \\
+RoBERTa	    &90.8	&98.9	&90.2	&88.2	&96.7	&92.3	&67.8	&92.2	&89.0	&88.5 \\
+Adv-RoBERTa	&91.1	&98.8	&90.3	&88.7	&96.8	&93.1	&68.0	&92.4	&89.0	&88.8 \\
+ALBERT 	    &\textbf{91.3}	&\textbf{99.2}	&90.5	&\textbf{89.2}	&\textbf{97.1}	&\textbf{93.4}	&69.1	&\textbf{92.5}	&\textbf{91.8}	&\textbf{89.4} \\
+\end{tabular}
+\caption{State-of-the-art results on the GLUE benchmark.
+For single-task single-model results, we report ALBERT at 1M steps (comparable to RoBERTa) and at 1.5M steps. The ALBERT ensemble uses models trained with 1M, 1.5M, and other numbers of steps.}
+\label{table:glue}
+\end{table}
+
+
+The single-model ALBERT configuration incorporates the best-performing settings discussed: an ALBERT-xxlarge configuration (Table~\ref{table:model_architecture}) using combined MLM and SOP losses, and no dropout. 
+The checkpoints that contribute to the final ensemble model are selected based on development set performance; the number of checkpoints considered for this selection range from 6 to 17, depending on the task. 
+For the GLUE (Table~\ref{table:glue}) and RACE (Table~\ref{table:sota-squad-race}) benchmarks, we average the model predictions for the ensemble models, where the candidates are fine-tuned from different training steps using the 12-layer and 24-layer architectures.
+For SQuAD (Table~\ref{table:sota-squad-race}), we average the prediction scores for those spans that have multiple probabilities; we also average the scores of the ``unanswerable'' decision.
+
+Both single-model and ensemble results indicate that ALBERT improves the state-of-the-art significantly for all three benchmarks, achieving a GLUE score of 89.4, a SQuAD 2.0 test F1 score of 92.2, and a RACE test accuracy of 89.4. 
+The latter appears to be a particularly strong improvement, a jump of +17.4\% absolute points over BERT~\citep{devlin2018bert,clark2019bam}, +7.6\% over XLNet~\citep{yang2019xlnet},  +6.2\% over RoBERTa~\citep{liu2019roberta}, and 5.3\% over DCMI+ \citep{zhang2019dcmn+}, an ensemble of multiple models specifically designed for reading comprehension tasks.
+Our single model achieves an accuracy of $86.5\%$, which is still $2.4\%$ better than the state-of-the-art ensemble model. 
+
+
+
+\begin{table}[!htbp] 
+\setlength{\tabcolsep}{4pt}
+\small
+\centering
+\begin{tabular}{ l   c c c c }
+Models		&SQuAD1.1 dev	&SQuAD2.0 dev	& SQuAD2.0 test &RACE test (Middle/High) \\
+\hline
+\multicolumn{5}{l}{\textit{Single model (from leaderboard as of Sept.~23, 2019)}}\\
+BERT-large          & 90.9/84.1 & 81.8/79.0 & 89.1/86.3 & 72.0 (76.6/70.1) \\
+XLNet               & 94.5/89.0 & 88.8/86.1 & 89.1/86.3 & 81.8 (85.5/80.2) \\
+RoBERTa             & 94.6/88.9 &89.4/86.5  & 89.8/86.8 & 83.2 (86.5/81.3) \\
+UPM                 &  - & - & 89.9/87.2 & - \\
+XLNet + SG-Net Verifier++ & - & - & 90.1/87.2 &  -\\
+ALBERT (1M)          & 94.8/89.2 & 89.9/87.2 & - & 86.0 (88.2/85.1) \\
+ALBERT (1.5M)        & \textbf{94.8/89.3}	& \textbf{90.2/87.4} & \textbf{90.9/88.1} & \textbf{86.5 (89.0/85.5)} \\
+\hline
+\multicolumn{5}{l}{\textit{Ensembles (from leaderboard as of Sept.~23, 2019)}}\\
+BERT-large          & 92.2/86.2        & - & - &  - \\
+XLNet + SG-Net Verifier & -& -& 	90.7/88.2	& -\\
+UPM & - & - & 90.7/88.2 & \\ 
+XLNet + DAAF + Verifier & - & - & 	90.9/88.6 & -\\
+DCMN+               & - & -& - & 84.1 (88.5/82.3) \\
+ALBERT     &    \textbf{95.5/90.1}      & \textbf{91.4/88.9} & \textbf{92.2/89.7}    &\textbf{89.4 (91.2/88.6)}  \\ 
+\end{tabular}
+\caption{State-of-the-art results on the SQuAD and RACE benchmarks. }
+\label{table:sota-squad-race}
+\vspace{-3pt}
+\end{table}
+	
+
+
+
+%%% --- FILE BOUNDARY --- %%%
+
+% DO NOT WRITE HERE, this content has been moved to the models_experiments.tex file 
+\section{ALBERT}
+In this section, we present a set of ALBERT models and give an overall comparison of these models to the original BERT models. 
+We will have detailed analysis of how each component contribute to the differences and the reasons behind the choices of these models in section \ref{sec:experiments}.
+
+\subsection{Model architectures}
+BERT uses the popular transformer encoder architecture \citep{vaswani2017attention}, which we will not review in detail. Following the annotation of BERTs,
+we denote the number transformer encoder layers as $L$, the hidden size as $H$, the number of self-attention heads as $A$,
+and the vocab embedding size as $E$. We also set the feed-forward/filter size to be $4H$. We primary report results on the models listed in Table \ref{table:model_architecture}. 
+The major differences between BERT and ALBERT are smaller vocabulary embedding size and cross-layer parameter sharing. Because of these two techniques, ALBERTs have much smaller parameter size compared to BERT with similar architecture. For example, ALBERT-large has about 18x less parameters compared to BERT-large. For BERTs, besides base and large models as reported by \cite{devlin2018bert}, we are able to train an xlarge model with a hidden size 2x as large as the BERT-large model. However, this BERT-xlarge has about 1.3 billions parameters, which make it difficult to train as it requires a Cloud-TPU machine with 1024 chips that is hard to get. On the contrary, ALBERTs have much smaller parameter size hence memory footprint, so we are able to scale to a model with 4x larger hidden size than BERT-large while having smaller parameter size. 
+
+
+
+
+\begin{table}
+\small
+\centering
+\begin{tabular}{l  l | c c c c c c}
+ \multicolumn{2}{c}{Model}  &Parameters	&Layers	&Hidden	& Heads	&Embedding &Parameter-sharing \\
+\hline
+\multirow{3}{*}{BERT}    &base	        &110M    &12 & 768  & 12 & 768 & False\\
+    &large	        &340M	 &24 & 1024 & 16 & 1024 & False\\
+    &xlarge	&1370M	 &24 & 2048 & 32 & 2048 & False\\
+    \hline
+\multirow{4}{*}{ALBERT}    &base	        &12M     &12 & 768  & 12 & 128 & True \\
+    &large	        &18M	 &24 & 1024 & 16 & 128 & True\\
+    &xlarge	&59M	 &24 & 2048 & 32 & 128 & True\\
+    &xxlarge	&233M	 &12 & 4096 & 64 & 128 & True\\
+\end{tabular}
+\caption{The architectures of the primary models reported in this paper.}
+\label{table:model_architecture}
+\end{table}
+
+
+\subsection{Overall Performance Comparison}
+\label{overall-performance}
+
+\begin{table}
+\small
+\centering
+\begin{tabular}{ l l | c  c c c c c c}
+ \multicolumn{2}{c}{Model}            	&SQuAD1.1	&SQuAD2.0	&MNLI-m	&SST-2	&RACE	&Avg & Speedup\\
+\hline
+\multirow{3}{*}{BERT} &base	          &90.5/83.3	&80.3/77.3	&84.1	&91.7	&68.3	&82.1 & 17.7x \\
+
+    &large	        	&92.4/85.8	&83.9/80.8	&85.8	&92.2	&73.8	&85.1 & 3.8x\\
+    &xlarge		&86.3/77.9	&73.8/70.5	&80.5	&87.8	&39.7	&76.7 & 1.0\\
+\hline 
+\multirow{4}{*}{ALBERT}  &base	        	    &89.3/82.1	&79.1/76.1	&81.9	&89.4	&63.5	&80.1 &21.1x \\
+&large	        	    &90.9/84.1	&82.1/79.0	&83.8	&90.6	&68.4	&82.4 &6.5x\\
+&xlarge		    &93.0/86.5	&85.9/83.1	&85.4	&91.9	&73.9	&85.5 & 2.4x\\
+&xxlarge		& \textbf{94.1/88.3}	&\textbf{88.1/85.1}	&\textbf{88.0}	&\textbf{95.2}	&\textbf{82.3}	&\textbf{88.7} & 1.2x\\
+\end{tabular}
+\caption{Dev sets results for primary models pre-trained over BookCorpus and Wikipedia for 125k steps. The average score are averaged over the representative downstream tasks. For SQuAD datasets, the two metrics are first averaged.}
+\label{table:overall_comparison}
+\end{table}
+
+
+
+We compare the performance of the primary models listed in Table \ref{table:overall_comparison} on the dev sets of several representative downstream tasks including SQuAD v1.1, SQuaAD v2.0, MNLI-m, SST-2 and RACE tasks. We first observe that BERT-xlarge gets significantly worse results than BERT-base on all metrics. This indicates that a model like BERT-xlarge is more difficult to train than those that have smaller parameter sizes. 
+Another interesting observation we have is the speed of data throughput. The slowest one is the BERT-xlarge model, which we use as the baseline. ALBERT models have higher data throughput than their corresponding BERT models. As the model get larger, the differences between a BERT model and its light version become bigger. A ALBERT xlarge can be trained about 2.4x faster than BERT-x large. The 12-layer ALBERT-xxlarge model outperform all other models significantly. Compared to BERT-large, which has roughly 1.45x more parameters, ALBERT-xxlarge has an average of $3.6\%$ absolute improvements over 5 downstream tasks and $8.5\%$ absolute improvements over the RACE task. 
+
+
+%%% --- FILE BOUNDARY --- %%%
+
+\section{Related work}
+
+\subsection{Scaling Up Representation Learning for Natural Language}
+Learning representations of natural language has been shown to be useful for a wide range of NLP tasks and has been widely adopted~\citep{mikolov2013distributed,le-mikolov:2014,dai2015semi, peters2018deep,devlin2018bert,radford2018improving,radford2019language}.
+One of the most significant changes in the last two years is the shift from pre-training word embeddings, whether standard~\citep{mikolov2013distributed,pennington-etal-2014-glove} or contextualized~\citep{NIPS2017_7209,peters2018deep}, to full-network pre-training followed by task-specific fine-tuning~\citep{dai2015semi, radford2018improving,devlin2018bert}.
+In this line of work, it is often shown that larger model size improves performance.
+For example, \cite{devlin2018bert} show that across three selected natural language understanding tasks, using larger hidden size, more hidden layers, and more attention heads always leads to better performance.
+However, they stop at a hidden size of 1024, presumably because of the model size and computation cost problems. 
+% We show that, under the same setting, increasing the hidden size to 2048 leads to model degradation and hence worse performance.
+% Therefore, scaling up representation learning for natural language is not as easy as simply increasing model size.
+
+It is difficult to experiment with large models due to computational constraints, especially in terms of 
+GPU/TPU memory limitations.
+Given that current state-of-the-art models often have hundreds of millions or even billions of parameters, we can easily hit  memory limits.
+To address this issue, \cite{chen2016training} propose a method called gradient checkpointing to reduce the memory requirement to be sublinear at the cost of an extra forward pass. 
+\cite{gomez2017reversible} propose a way to reconstruct each layer's activations from the next layer so that they do not need to store the intermediate activations.
+Both methods reduce the memory consumption at the cost of speed. \cite{raffel2019exploring} proposed to use model parallelization to train a giant model.
+In contrast, our parameter-reduction techniques reduce memory consumption and increase training speed. 
+
+
+\subsection{Cross-layer parameter sharing}
+The idea of sharing parameters across layers 
+%cross-layer parameter sharing 
+has been previously explored with the Transformer architecture~\citep{vaswani2017attention}, but this prior work has focused on training for standard encoder-decoder tasks rather than the pretraining/finetuning setting. Different from our observations, \cite{dehghani2018universal} show that  networks with cross-layer parameter sharing (Universal Transformer, UT) get better performance on language modeling and subject-verb agreement than the standard transformer. Very recently, \cite{bai2019deep} propose a Deep Equilibrium Model (DQE) for transformer networks and show that DQE can reach an equilibrium point for which the input embedding and the output embedding of a certain layer stay the same. Our observations show that our embeddings are oscillating rather than converging. \cite{Hao_2019} combine a parameter-sharing transformer with the standard one, which further increases the number of parameters of the standard transformer.  
+
+\vspace{-5pt}
+\subsection{Sentence Ordering Objectives}
+ALBERT uses a pretraining loss based on predicting the ordering of two consecutive segments of text. Several researchers have experimented with pretraining objectives that similarly relate to discourse coherence. 
+Coherence and cohesion in discourse have been widely studied and many phenomena have been identified that connect neighboring text segments~\citep{DBLP:journals/cogsci/Hobbs79,halliday-76,grosz-etal-1995-centering}. 
+Most objectives found effective in practice are quite simple. 
+Skip-thought~\citep{Kiros2015skipthought} and FastSent~\citep{hill2016fastsent} sentence embeddings are learned by using an encoding of a sentence to predict words in neighboring sentences. 
+Other objectives for sentence embedding learning include predicting future sentences rather than only neighbors~\citep{gan-etal-2017-learning} and predicting explicit discourse markers~\citep{jernite2017discourse,nie-etal-2019-dissent}. 
+Our loss is most similar to the sentence ordering objective of \citet{jernite2017discourse}, where sentence embeddings are learned in order to determine the ordering of two consecutive sentences. 
+Unlike most of the above work, however, our loss is defined on textual segments rather than sentences. BERT~\citep{devlin2018bert} uses a loss based on predicting whether the second segment in a pair has been swapped with a segment from another document.
+We compare to this loss in our experiments and find that sentence ordering is a more challenging pretraining task and more useful for certain downstream tasks.
+Concurrently to our work, \cite{wang2019structbert} also try to predict the order of two consecutive segments of text, but they combine it with the original next sentence prediction in a three-way classification task rather than empirically comparing the two. 

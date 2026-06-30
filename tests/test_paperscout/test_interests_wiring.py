@@ -128,7 +128,7 @@ async def test_data_collection_loads_interests_into_state(tmp_path, monkeypatch)
     fake_extractor = MagicMock()
     fake_extractor.enrich_papers = AsyncMock(side_effect=lambda papers: papers)
     fake_extractor.close = AsyncMock(return_value=None)
-    monkeypatch.setattr(nodes_mod, "AffiliationExtractor", lambda: fake_extractor)
+    monkeypatch.setattr(nodes_mod, "AffiliationExtractor", lambda **kw: fake_extractor)
 
     cfg = _runtime_config(
         research_interests_dir=str(tmp_path),

@@ -97,16 +97,30 @@ def _format_affiliations(paper: ArxivPaper) -> str:
     return affiliations_str
 
 
-def _get_tldr(paper: ScoredPaper) -> str:
-    """Get TLDR text for a scored paper."""
+def _truncate_tldr(text: str | None, max_chars: int) -> str:
+    """Truncate TLDR text to ``max_chars``, appending ``...`` only when cut."""
+    if not text:
+        return "No summary available"
+    if len(text) <= max_chars:
+        return text
+    return text[:max_chars].rstrip() + "..."
+
+
+def _get_tldr(paper: ScoredPaper, max_chars: int = 600) -> str:
+    """Get TLDR text for a scored paper.
+
+    Truncates to ``max_chars`` only when the text exceeds it, so short
+    abstracts are shown in full without a trailing "...".
+    """
     if isinstance(paper.paper, ArxivPaper):
-        return paper.paper.tldr or paper.paper.summary[:200] + "..."
+        text = paper.paper.tldr or paper.paper.summary
+        return _truncate_tldr(text, max_chars)
     if paper.paper.abstract:
-        return paper.paper.abstract[:200] + "..."
+        return _truncate_tldr(paper.paper.abstract, max_chars)
     return "No summary available"
 
 
-def create_paper_html(paper: ScoredPaper) -> str:
+def create_paper_html(paper: ScoredPaper, max_chars: int = 600) -> str:
     """Create HTML block for a single paper."""
     stars_html = get_stars_html(paper.score)
 
@@ -138,7 +152,7 @@ def create_paper_html(paper: ScoredPaper) -> str:
     elif paper.paper.source_url:
         pdf_url = paper.paper.source_url
 
-    tldr = _get_tldr(paper)
+    tldr = _get_tldr(paper, max_chars=max_chars)
 
     arxiv_row = ""
     if arxiv_id:
@@ -217,11 +231,12 @@ def get_digest_date(papers: list[ScoredPaper]) -> str:
     return datetime.now().strftime("%Y/%m/%d")
 
 
-def construct_email_content(papers: list[ScoredPaper]) -> EmailContent:
+def construct_email_content(papers: list[ScoredPaper], max_chars: int = 600) -> EmailContent:
     """Construct complete email content.
 
     Args:
         papers: Scored papers to include.
+        max_chars: Character budget for the TLDR/abstract row per paper.
 
     Returns:
         EmailContent with subject, HTML, and paper list.
@@ -239,7 +254,7 @@ def construct_email_content(papers: list[ScoredPaper]) -> EmailContent:
             papers=[],
         )
 
-    paper_blocks = [create_paper_html(p) for p in papers]
+    paper_blocks = [create_paper_html(p, max_chars=max_chars) for p in papers]
     content = "<br>".join(paper_blocks)
 
     html = EMAIL_TEMPLATE.format(

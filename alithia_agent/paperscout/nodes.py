@@ -24,6 +24,7 @@ from alithia_agent.paperscout.events import (
 )
 from alithia_agent.paperscout.reranker import PaperReranker
 from alithia_agent.paperscout.state import AgentState, PaperScoutRuntimeConfig
+from alithia_agent.paperscout.tldr import generate_tldrs
 from alithia_agent.research_interests import (
     ResearchInterest,
     load_research_interests,
@@ -195,11 +196,23 @@ def make_nodes(
                 f"(filtered {len(arxiv_papers) - len(new_papers)} already sent)",
             )
 
-            # Extract affiliations from ArXiv LaTeX source (for new papers)
+            # Extract affiliations from ArXiv LaTeX source (for new papers).
+            # When an LLM API key is configured, the extractor batches the
+            # fetched sources into LLM requests; without a key, sources are
+            # fetched but affiliations stay unset (→ "Unknown Affiliation").
             if new_papers:
                 _emit_step("data_collection", "Extracting affiliations from LaTeX source")
                 try:
-                    extractor = AffiliationExtractor()
+                    llm_cfg = (
+                        {
+                            "api_key": config.llm_api_key,
+                            "api_base": config.llm_api_base,
+                            "model": config.llm_model,
+                        }
+                        if config.llm_api_key
+                        else None
+                    )
+                    extractor = AffiliationExtractor(llm_config=llm_cfg)
                     new_papers = await extractor.enrich_papers(new_papers)
                     enriched_count = sum(1 for p in new_papers if p.affiliations)
                     _emit_step(
@@ -355,25 +368,39 @@ def make_nodes(
 
         if not scored:
             if config.send_empty:
-                email = construct_email_content([])
+                email = construct_email_content([], max_chars=config.tldr_max_tokens)
                 return {"email_content": email, "info": ["Generated empty digest"]}
             return {"info": ["No papers, skipping email"]}
 
         try:
-            # Generate TLDRs (placeholder - would use LLM in production)
-            for sp in scored:
-                # Only ArxivPaper has tldr and summary fields
-                if isinstance(sp.paper, ArxivPaper):
-                    if not sp.paper.tldr:
-                        sp.paper.tldr = sp.paper.summary[:200] + "..."
+            # Generate LLM TLDRs for ArXiv papers (graceful: if no api key is
+            # configured or any call fails, paper.tldr stays None and the
+            # renderer falls back to a truncated summary). Only ArxivPaper
+            # carries the summary/tldr fields.
+            arxiv_papers_for_tldr = [sp.paper for sp in scored if isinstance(sp.paper, ArxivPaper)]
+            tldrs_generated = 0
+            if arxiv_papers_for_tldr and config.llm_api_key:
+                try:
+                    tldrs_generated = generate_tldrs(arxiv_papers_for_tldr, config)
+                    _emit_step(
+                        "content_generation",
+                        f"Generated {tldrs_generated} LLM TLDRs",
+                    )
+                except Exception as e:
+                    _emit_error(f"TLDR generation error: {e}", "content_generation")
+                    logger.warning(f"TLDR generation failed, using summary fallback: {e}")
 
-            email = construct_email_content(scored)
+            # TLDR is rendered from each paper's tldr/summary at display time,
+            # truncated to config.tldr_max_tokens chars inside
+            # construct_email_content.
+            email = construct_email_content(scored, max_chars=config.tldr_max_tokens)
 
             _emit_step("content_generation", f"Generated digest ({len(scored)} papers)")
 
             return {
                 "email_content": email,
                 "info": [f"Generated email content ({len(scored)} papers)"],
+                "metrics": {"tldrs_generated": tldrs_generated},
             }
 
         except Exception as e:

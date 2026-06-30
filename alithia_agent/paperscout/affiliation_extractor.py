@@ -1,20 +1,36 @@
 """Extract author affiliations from ArXiv LaTeX source files.
 
-Downloads source tarball from ArXiv and parses .tex files to extract
-institution affiliations. Falls back gracefully if source is PDF-only or
-parsing fails.
+Downloads each paper's source tarball from ArXiv, extracts the ``.tex``
+files, and asks an LLM to read the LaTeX and return author affiliations.
+Parsing is delegated to :mod:`affiliation_llm` because real-world LaTeX
+stores affiliations in too many forms for a regex to reach reliably
+(comment-hidden blocks, ICML ``\\icmlaffiliation`` mappings, inline
+``\\author{Org\\thanks{...}}``). The LLM packs many papers into one batched
+JSON request; see :class:`AffiliationLLMExtractor`.
+
+This module owns the **network and source-extraction layer** only:
+
+- :meth:`AffiliationExtractor.fetch_source` — download the source tarball.
+- :meth:`AffiliationExtractor.extract_tex_files` — unpack ``.tex`` contents
+  (``.tar.gz`` or single gzipped ``.tex``).
+- :meth:`AffiliationExtractor.enrich_papers` — orchestrate fetch + LLM
+  extraction for a batch of papers, populating ``paper.affiliations``.
+
+Falls back gracefully: PDF-only source, a fetch error, a missing LLM API
+key, or a failed LLM call all leave ``affiliations`` unset, which the email
+renderer shows as "Unknown Affiliation". Extraction never breaks the digest.
 """
 
 from __future__ import annotations
 
 import logging
-import re
 import tarfile
 import tempfile
 from pathlib import Path
 from typing import Any
 
 from alithia_agent.models import ArxivPaper
+from alithia_agent.paperscout.affiliation_llm import AffiliationLLMExtractor
 
 logger = logging.getLogger(__name__)
 
@@ -24,51 +40,45 @@ ARXIV_SOURCE_URL = "https://arxiv.org/src/{arxiv_id}"
 # Rate limiting to respect ArXiv
 ARXIV_RATE_LIMIT_SECONDS = 0.5
 
-# Common LaTeX affiliation patterns
-# LaTeX commands like \affiliation are single backslash in the actual string
-# Regex: \\affiliation matches \affiliation in string (single backslash)
-AFFILIATION_PATTERNS = [
-    # Explicit affiliation command (most common)
-    r"\\affiliation\{([^}]+)\}",
-    r"\\affil\{([^}]+)\}",
-    # ACM style with optional arg: \affiliation[...]{...}
-    r"\\affiliation(?:\[[^\]]*\])?\{([^}]+)\}",
-    # Institute command
-    r"\\institute\{([^}]+)\}",
-    r"\\institut\{([^}]+)\}",
-    # Institution command
-    r"\\institution\{([^}]+)\}",
-]
+# Maximum affiliations kept per paper.
+MAX_AFFILIATIONS = 10
 
-# Author block pattern - LaTeX \author{...}
-# \author in string (single backslash) is matched by \\author in regex
-AUTHOR_BLOCK_PATTERN = re.compile(r"\\author\{(.+?)\}", re.DOTALL | re.IGNORECASE)
-
-# Common institution name cleanup patterns
-INSTITUTION_CLEANUP = [
-    (r"\\texttt\{[^}]+\}", ""),  # Remove emails wrapped in \texttt{}
-    (r"\\footnote(?:mark|text)?(?:\[[^\]]+\])?\{[^}]+\}", ""),  # Remove footnotes
-    (r"\\thanks\{[^}]+\}", ""),  # Remove thanks
-    (r"\\hspace\{[^}]+\}", ""),  # Remove spacing
-    (r"\{[^}]*\}", ""),  # Remove remaining braces content
-    (r"\\\\", " "),  # LaTeX line breaks -> space
-    (r"\s+", " "),  # Normalize whitespace
-    (r"^\s+|\s+$", ""),  # Strip leading/trailing
-]
+# Number of papers whose sources are fetched concurrently per batch, to
+# respect ArXiv rate limits before the batched LLM call.
+FETCH_BATCH_SIZE = 5
 
 
 class AffiliationExtractor:
-    """Extract affiliations from ArXiv LaTeX source files."""
+    """Fetch ArXiv LaTeX sources and extract affiliations via an LLM.
 
-    def __init__(self, http_client: Any | None = None):
+    The HTTP client is created lazily. The LLM extractor is constructed from
+    ``llm_config`` (``{api_key, api_base, model}``); if omitted or without an
+    API key, sources are still fetched but no affiliations are extracted.
+    """
+
+    def __init__(
+        self,
+        http_client: Any | None = None,
+        llm_config: dict[str, Any] | None = None,
+    ) -> None:
         """Initialize affiliation extractor.
 
         Args:
-            http_client: Optional httpx.AsyncClient for HTTP requests.
+            http_client: Optional httpx.AsyncClient for ArXiv source fetches.
                         If None, creates its own client.
+            llm_config: Optional ``{"api_key", "api_base", "model"}`` for the
+                        LLM affiliation extractor. When None or without an
+                        ``api_key``, affiliation extraction is a no-op
+                        (sources are still fetched).
         """
         self._client = http_client
         self._owns_client = http_client is None
+        cfg = llm_config or {}
+        self._llm = AffiliationLLMExtractor(
+            api_key=cfg.get("api_key"),
+            api_base=cfg.get("api_base"),
+            model=cfg.get("model", "qwen-turbo-latest"),
+        )
 
     async def _get_client(self) -> Any:
         """Get or create HTTP client."""
@@ -134,6 +144,13 @@ class AffiliationExtractor:
     def extract_tex_files(self, tarball_bytes: bytes) -> list[str]:
         """Extract .tex file contents from tarball.
 
+        Handles two ArXiv source formats:
+        - ``.tar.gz`` of multiple files (the common case).
+        - A single gzipped ``.tex`` file (older submissions; ArXiv serves
+          these as ``application/gzip`` but they are NOT tar archives, so
+          ``tarfile.open`` raises ``ReadError``). We fall back to
+          ``gzip``-decompressing the whole blob as one .tex file.
+
         Args:
             tarball_bytes: Raw tarball data
 
@@ -142,11 +159,11 @@ class AffiliationExtractor:
         """
         tex_contents: list[str] = []
 
-        try:
-            with tempfile.NamedTemporaryFile(suffix=".tar.gz", delete=False) as tmp:
-                tmp.write(tarball_bytes)
-                tmp_path = tmp.name
+        with tempfile.NamedTemporaryFile(suffix=".tar.gz", delete=False) as tmp:
+            tmp.write(tarball_bytes)
+            tmp_path = tmp.name
 
+        try:
             with tarfile.open(tmp_path, "r:gz") as tar:
                 for member in tar.getmembers():
                     if member.isfile() and member.name.endswith(".tex"):
@@ -158,204 +175,49 @@ class AffiliationExtractor:
                         except Exception as e:
                             logger.debug(f"Error reading {member.name}: {e}")
 
-            # Clean up temp file
-            Path(tmp_path).unlink(missing_ok=True)
-
         except tarfile.TarError as e:
-            logger.warning(f"Error extracting tarball: {e}")
+            # Not a tar archive — likely a single gzipped .tex file.
+            logger.debug(f"Not a tar.gz ({e}); trying single-file gzip fallback")
+            tex_contents = self._extract_single_gzip_tex(tmp_path)
         except Exception as e:
             logger.error(f"Unexpected error extracting tex files: {e}")
+        finally:
+            Path(tmp_path).unlink(missing_ok=True)
 
         return tex_contents
 
-    def parse_affiliations_from_tex(self, tex_content: str) -> list[str]:
-        """Parse affiliations from LaTeX content.
+    @staticmethod
+    def _extract_single_gzip_tex(path: str) -> list[str]:
+        """Decompress a single gzipped .tex file (ArXiv's non-tar source form)."""
+        import gzip
 
-        Handles multiple LaTeX author/affiliation formats:
-        - NIPS/NeurIPS: \\author{...} with inline institutions
-        - ACM: \\affiliation{...}
-        - IEEE: \\institute{...}
-        - Custom conference styles
+        try:
+            with gzip.open(path, "rt", encoding="utf-8", errors="ignore") as f:
+                return [f.read()]
+        except Exception as e:
+            logger.warning(f"Single-file gzip fallback failed: {e}")
+            return []
 
-        Args:
-            tex_content: Content of a .tex file
+    async def _fetch_source_for(self, paper: ArxivPaper) -> tuple[str, str] | None:
+        """Fetch and flatten one paper's .tex sources into ``(arxiv_id, tex)``.
 
-        Returns:
-            List of institution names.
+        Returns None when there is no usable LaTeX source (PDF-only, 404,
+        fetch error, or no .tex files inside).
         """
-        affiliations: list[str] = []
-
-        # Try explicit affiliation commands first (most reliable)
-        for pattern in AFFILIATION_PATTERNS:
-            matches = re.findall(pattern, tex_content, re.IGNORECASE)
-            for match in matches:
-                if isinstance(match, tuple):
-                    # Take first non-empty element
-                    for part in match:
-                        if part and not self._is_email(part):
-                            cleaned = self._clean_institution(part)
-                            if cleaned and len(cleaned) > 2:
-                                affiliations.append(cleaned)
-                            break
-                elif match and not self._is_email(match):
-                    cleaned = self._clean_institution(match)
-                    if cleaned and len(cleaned) > 2:
-                        affiliations.append(cleaned)
-
-        # Try author block parsing (NIPS/NeurIPS inline style)
-        author_blocks = AUTHOR_BLOCK_PATTERN.findall(tex_content)
-        for block in author_blocks:
-            block_affiliations = self._parse_author_block(block)
-            affiliations.extend(block_affiliations)
-
-        # Deduplicate while preserving order
-        seen = set()
-        unique = []
-        for aff in affiliations:
-            normalized = aff.lower().strip()
-            if normalized not in seen and len(normalized) > 2:
-                seen.add(normalized)
-                unique.append(aff)
-
-        return unique[:10]  # Limit to 10 institutions
-
-    def _parse_author_block(self, block: str) -> list[str]:
-        """Parse affiliations from an author block.
-
-        Common formats:
-        1. Author Name\\Institution\\email (LaTeX line breaks)
-        2. Author Name\\footnote...\\Institution
-        3. \\And separator between authors
-
-        Args:
-            block: Content inside \\author{...}
-
-        Returns:
-            List of institution names.
-        """
-        affiliations: list[str] = []
-
-        # Split by \And or \AND to process each author separately
-        # \And in string -> regex \\And
-        authors = re.split(r"\\And|\\AND", block)
-
-        for author_section in authors:
-            # Look for institution lines (between \\ markers)
-            # LaTeX line break \\ in string -> regex \\\\
-            lines = re.split(r"\\\\", author_section)
-
-            for line in lines:
-                line = line.strip()
-                if not line:
-                    continue
-
-                # Skip emails
-                if self._is_email(line):
-                    continue
-
-                # Skip footnote markers
-                if re.match(r"\\footnote(?:mark|text)?", line):
-                    continue
-
-                # Skip thanks
-                if re.match(r"\\thanks", line):
-                    continue
-
-                # Clean the line
-                cleaned = self._clean_institution(line)
-
-                # Check if it looks like an institution
-                if self._looks_like_institution(cleaned):
-                    affiliations.append(cleaned)
-
-        return affiliations
-
-    def _is_email(self, text: str) -> bool:
-        """Check if text looks like an email address."""
-        text = text.lower().strip()
-        # Remove \\texttt{} wrapper if present
-        text = re.sub(r"\\texttt\{([^}]+)\}", r"\1", text)
-        return "@" in text and "." in text
-
-    def _clean_institution(self, text: str) -> str:
-        """Clean institution name from LaTeX formatting."""
-        cleaned = text.strip()
-
-        # Apply cleanup patterns
-        for pattern, replacement in INSTITUTION_CLEANUP:
-            cleaned = re.sub(pattern, replacement, cleaned)
-
-        # Remove common LaTeX commands
-        cleaned = re.sub(r"\\[a-zA-Z]+\{([^}]*)\}", r"\1", cleaned)
-        cleaned = re.sub(r"\\[a-zA-Z]+", "", cleaned)
-
-        # Normalize whitespace
-        cleaned = re.sub(r"\s+", " ", cleaned).strip()
-
-        return cleaned
-
-    def _looks_like_institution(self, text: str) -> bool:
-        """Heuristic to check if text looks like an institution name."""
-        if not text or len(text) < 3:
-            return False
-
-        # Common institution keywords
-        institution_keywords = [
-            "university",
-            "institute",
-            "laboratory",
-            "lab",
-            "research",
-            "college",
-            "school",
-            "center",
-            "centre",
-            "department",
-            "google",
-            "meta",
-            "facebook",
-            "amazon",
-            "microsoft",
-            "apple",
-            "deepmind",
-            "openai",
-            "nvidia",
-            "ibm",
-            "intel",
-            "adobe",
-            "eth",
-            "mit",
-            "stanford",
-            "berkeley",
-            "cmu",
-            "caltech",
-            "harvard",
-            "princeton",
-            "yale",
-            "oxford",
-            "cambridge",
-            "tsinghua",
-            "peking",
-            "tokyo",
-            "singapore",
-            "nus",
-        ]
-
-        text_lower = text.lower()
-
-        # Check for keywords
-        for keyword in institution_keywords:
-            if keyword in text_lower:
-                return True
-
-        # Check if it's a proper noun-like structure (capitalized words)
-        words = text.split()
-        if len(words) >= 2:
-            capitalized = sum(1 for w in words if w and w[0].isupper())
-            if capitalized >= len(words) * 0.5:
-                return True
-
-        return False
+        try:
+            tarball = await self.fetch_source(paper.arxiv_id)
+            if tarball is None:
+                return None
+            tex_files = self.extract_tex_files(tarball)
+            if not tex_files:
+                logger.debug(f"No .tex files found for {paper.arxiv_id}")
+                return None
+            # Concatenate all .tex files (the affiliation markup may live in
+            # a separate authors.tex; the LLM trim keeps the prompt bounded).
+            return paper.arxiv_id, "\n".join(tex_files)
+        except Exception as e:
+            logger.warning(f"Error fetching source for {paper.arxiv_id}: {e}")
+            return None
 
     async def enrich_paper(self, paper: ArxivPaper) -> ArxivPaper:
         """Enrich a single paper with affiliations.
@@ -369,58 +231,30 @@ class AffiliationExtractor:
         if paper.affiliations:  # Already has affiliations
             return paper
 
-        arxiv_id = paper.arxiv_id
-        logger.debug(f"Extracting affiliations for {arxiv_id}")
-
-        try:
-            # Fetch source
-            tarball = await self.fetch_source(arxiv_id)
-            if tarball is None:
-                return paper
-
-            # Extract tex files
-            tex_files = self.extract_tex_files(tarball)
-            if not tex_files:
-                logger.debug(f"No .tex files found for {arxiv_id}")
-                return paper
-
-            # Parse affiliations
-            all_affiliations: list[str] = []
-            for tex_content in tex_files:
-                affiliations = self.parse_affiliations_from_tex(tex_content)
-                all_affiliations.extend(affiliations)
-
-            # Deduplicate
-            seen = set()
-            unique = []
-            for aff in all_affiliations:
-                normalized = aff.lower().strip()
-                if normalized not in seen:
-                    seen.add(normalized)
-                    unique.append(aff)
-
-            if unique:
-                paper.affiliations = unique[:10]
-                logger.debug(f"Found {len(paper.affiliations)} affiliations for {arxiv_id}")
-
+        result = await self._fetch_source_for(paper)
+        if result is None:
             return paper
+        _, tex = result
 
-        except Exception as e:
-            logger.warning(f"Error extracting affiliations for {arxiv_id}: {e}")
-            return paper
+        mapping = self._llm.extract_batch([(paper.arxiv_id, tex)])
+        affs = mapping.get(paper.arxiv_id, [])
+        if affs:
+            paper.affiliations = affs[:MAX_AFFILIATIONS]
+        return paper
 
     async def enrich_papers(
         self,
         papers: list[ArxivPaper],
-        batch_size: int = 5,
+        batch_size: int = FETCH_BATCH_SIZE,
     ) -> list[ArxivPaper]:
         """Enrich multiple papers with affiliations.
 
-        Processes papers in batches to respect ArXiv rate limits.
+        Fetches each paper's LaTeX source (rate-limited batches), then issues
+        a single batched LLM request per fetch batch to extract affiliations.
 
         Args:
             papers: List of ArxivPaper objects to enrich
-            batch_size: Number of papers to process concurrently
+            batch_size: Number of papers whose sources are fetched concurrently
 
         Returns:
             List of enriched papers (same objects, modified in place).
@@ -434,20 +268,30 @@ class AffiliationExtractor:
 
         enriched_count = 0
 
-        # Process in batches with rate limiting
         for i in range(0, len(papers), batch_size):
             batch = papers[i : i + batch_size]
+            need = [p for p in batch if not p.affiliations]
+            if not need:
+                continue
 
-            # Process batch concurrently
-            tasks = [self.enrich_paper(paper) for paper in batch]
-            await asyncio.gather(*tasks)
+            # Fetch sources concurrently (rate-limited by batch_size).
+            fetch_results = await asyncio.gather(
+                *(self._fetch_source_for(p) for p in need)
+            )
+            papers_tex = [r for r in fetch_results if r is not None]
 
-            # Count enriched
+            # One batched LLM request for everything we fetched this round.
+            if papers_tex:
+                mapping = self._llm.extract_batch(papers_tex)
+                for paper in need:
+                    affs = mapping.get(paper.arxiv_id, [])
+                    if affs:
+                        paper.affiliations = affs[:MAX_AFFILIATIONS]
+
             for paper in batch:
                 if paper.affiliations:
                     enriched_count += 1
 
-            # Rate limiting between batches
             if i + batch_size < len(papers):
                 await asyncio.sleep(ARXIV_RATE_LIMIT_SECONDS)
 
@@ -465,6 +309,10 @@ class AffiliationExtractor:
 
 async def enrich_papers_with_affiliations(papers: list[ArxivPaper]) -> list[ArxivPaper]:
     """Async function to enrich papers with affiliations.
+
+    Convenience wrapper with no LLM config: sources are fetched but
+    affiliations are left unset (no API key). Prefer constructing an
+    :class:`AffiliationExtractor` with ``llm_config`` for real extraction.
 
     Args:
         papers: List of ArxivPaper objects to enrich

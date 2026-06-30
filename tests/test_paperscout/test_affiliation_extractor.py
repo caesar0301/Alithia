@@ -1,5 +1,12 @@
-"""Tests for affiliation extraction from LaTeX source."""
+"""Tests for affiliation extraction from ArXiv LaTeX source.
 
+The parser layer is now an LLM call (see ``affiliation_llm.py``); these
+tests cover the fetch + orchestration layer in ``affiliation_extractor.py``:
+source download, tarball/gzip extraction, and wiring of the batched LLM
+extraction onto ``paper.affiliations``. The LLM client itself is mocked.
+"""
+
+from datetime import datetime
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -10,9 +17,26 @@ from alithia_agent.paperscout.affiliation_extractor import (
     enrich_papers_with_affiliations,
 )
 
-# Sample LaTeX content with affiliations
-# Python source: \\author -> \author (LaTeX command)
-# Python source: \\ -> \ (single backslash), but LaTeX line break is \\ so we need \\\\ in source
+
+def _fake_llm_response(text: str) -> MagicMock:
+    """Build a fake openai chat.completions.create return value."""
+    msg = MagicMock()
+    msg.content = text
+    choice = MagicMock()
+    choice.message = msg
+    resp = MagicMock()
+    resp.choices = [choice]
+    return resp
+
+
+def _llm_config() -> dict:
+    return {
+        "api_key": "fake-key",
+        "api_base": "https://dashscope.example.com/v1",
+        "model": "qwen-turbo-latest",
+    }
+
+
 NIPS_STYLE_TEX = """
 \\documentclass{article}
 \\begin{document}
@@ -24,79 +48,15 @@ NIPS_STYLE_TEX = """
   Noam Shazeer\\\\
   Google Brain\\\\
   \\texttt{noam@google.com}\\\\
-  \\And
-  Illia Polosukhin\\\\
-  \\texttt{illia@gmail.com}\\\\
 }
 \\maketitle
 \\end{document}
 """
-
-IEEE_STYLE_TEX = """
-\\documentclass{ieee}
-\\begin{document}
-\\author{John Smith}
-\\institute{MIT}
-\\maketitle
-\\end{document}
-"""
-
-ACM_STYLE_TEX = """
-\\documentclass{acmart}
-\\begin{document}
-\\author{Alice Johnson}
-\\affiliation{Stanford University}
-\\author{Bob Williams}
-\\affiliation{Google Research}
-\\maketitle
-\\end{document}
-"""
-
-MULTI_AUTHOR_TEX = """
-\\documentclass{article}
-\\begin{document}
-\\author{
-  \\AND
-  Alexander Viand\\\\
-  ETH Zurich\\\\
-  \\And
-  Christian Knabenhans\\\\
-  ETH Zurich\\\\
-  \\And
-  Anwar Hithnawi\\\\
-  ETH Zurich\\\\
-}
-\\maketitle
-\\end{document}
-"""
-
-
-# Tarball mock
-class MockTarball:
-    """Mock tarball for testing."""
-
-    def __init__(self, tex_content: str):
-        self.tex_content = tex_content
-
-    def getmembers(self):
-        """Return mock tar members."""
-        member = MagicMock()
-        member.name = "main.tex"
-        member.isfile = lambda: True
-        return [member]
-
-    def extractfile(self, member):
-        """Return mock file content."""
-        mock_file = MagicMock()
-        mock_file.read = lambda: self.tex_content.encode("utf-8")
-        return mock_file
 
 
 @pytest.fixture
 def sample_paper():
     """Sample ArXiv paper for testing."""
-    from datetime import datetime
-
     return ArxivPaper(
         title="Test Paper",
         summary="Test abstract",
@@ -107,166 +67,87 @@ def sample_paper():
     )
 
 
-class TestAffiliationExtractor:
-    """Tests for AffiliationExtractor class."""
-
-    def test_parse_nips_style_affiliations(self):
-        """Test parsing NIPS-style author blocks."""
-        extractor = AffiliationExtractor()
-        affiliations = extractor.parse_affiliations_from_tex(NIPS_STYLE_TEX)
-
-        assert "Google Brain" in affiliations
-        assert len(affiliations) >= 1
-
-    def test_parse_ieee_style_affiliations(self):
-        """Test parsing IEEE-style institute command."""
-        extractor = AffiliationExtractor()
-        affiliations = extractor.parse_affiliations_from_tex(IEEE_STYLE_TEX)
-
-        assert "MIT" in affiliations
-
-    def test_parse_acm_style_affiliations(self):
-        """Test parsing ACM-style affiliation command."""
-        extractor = AffiliationExtractor()
-        affiliations = extractor.parse_affiliations_from_tex(ACM_STYLE_TEX)
-
-        assert "Stanford University" in affiliations
-        assert "Google Research" in affiliations
-
-    def test_parse_multi_author_affiliations(self):
-        """Test parsing multiple authors with same affiliation."""
-        extractor = AffiliationExtractor()
-        affiliations = extractor.parse_affiliations_from_tex(MULTI_AUTHOR_TEX)
-
-        assert "ETH Zurich" in affiliations
-        # Should deduplicate
-        count_eth = sum(1 for a in affiliations if "ETH" in a)
-        assert count_eth == 1
-
-    def test_clean_institution(self):
-        """Test institution name cleanup."""
-        extractor = AffiliationExtractor()
-
-        # Remove email wrapper (email itself remains in output after cleanup)
-        cleaned = extractor._clean_institution("\\texttt{test@email.com}")
-        # The cleanup removes \\texttt but leaves the content
-        assert "\\texttt" not in cleaned
-
-        # Remove LaTeX commands
-        cleaned = extractor._clean_institution("\\textbf{MIT}")
-        assert "MIT" in cleaned or "textbf" not in cleaned
-
-        # Normalize whitespace
-        cleaned = extractor._clean_institution("  MIT  ")
-        assert cleaned == "MIT"
-
-    def test_is_email_detection(self):
-        """Test email detection."""
-        extractor = AffiliationExtractor()
-
-        assert extractor._is_email("test@email.com") is True
-        assert extractor._is_email("\\texttt{test@email.com}") is True
-        assert extractor._is_email("MIT") is False
-        assert extractor._is_email("Google Brain") is False
-
-    def test_looks_like_institution(self):
-        """Test institution heuristics."""
-        extractor = AffiliationExtractor()
-
-        assert extractor._looks_like_institution("MIT") is True
-        assert extractor._looks_like_institution("Google Brain") is True
-        assert extractor._looks_like_institution("Stanford University") is True
-        assert extractor._looks_like_institution("test@email.com") is False
-        assert extractor._looks_like_institution("") is False
-        assert extractor._looks_like_institution("ab") is False
-
-    def test_deduplicate_affiliations(self):
-        """Test that affiliations are deduplicated."""
-        extractor = AffiliationExtractor()
-
-        # Create tex with repeated affiliations
-        tex = """
-        \\author{
-          Author A\\\\Google Brain\\\\
-          \\And
-          Author B\\\\Google Brain\\\\
-        }
-        """
-        affiliations = extractor.parse_affiliations_from_tex(tex)
-
-        # Should only have one Google Brain
-        assert affiliations.count("Google Brain") == 1
-
-    def test_limit_affiliations(self):
-        """Test that affiliations are limited to 10."""
-        extractor = AffiliationExtractor()
-
-        # Create tex with many affiliations
-        tex = "\\author{" + "\\And Author\\\\Inst{}\\\\" * 15 + "}"
-        affiliations = extractor.parse_affiliations_from_tex(tex)
-
-        assert len(affiliations) <= 10
-
-    def test_empty_tex_returns_empty(self):
-        """Test empty tex content returns empty list."""
-        extractor = AffiliationExtractor()
-        affiliations = extractor.parse_affiliations_from_tex("")
-        assert affiliations == []
-
-    def test_no_author_block_returns_empty(self):
-        """Test tex without author block returns empty list."""
-        extractor = AffiliationExtractor()
-        tex = "\\documentclass{article}\\begin{document}Content\\end{document}"
-        affiliations = extractor.parse_affiliations_from_tex(tex)
-        assert affiliations == []
+class TestEnrichPaper:
+    """Single-paper enrichment via the LLM path."""
 
     @pytest.mark.asyncio
-    async def test_enrich_paper_success(self, sample_paper):
-        """Test enriching a paper with affiliations."""
-        extractor = AffiliationExtractor()
+    async def test_enrich_paper_populates_affiliations(self, sample_paper):
+        """A fetched source + LLM JSON response populates affiliations."""
+        extractor = AffiliationExtractor(llm_config=_llm_config())
+        with (
+            patch.object(extractor, "fetch_source", new_callable=AsyncMock) as mock_fetch,
+            patch.object(extractor, "extract_tex_files") as mock_extract,
+            patch("openai.OpenAI") as mock_openai,
+        ):
+            mock_fetch.return_value = b"mock tarball"
+            mock_extract.return_value = [NIPS_STYLE_TEX]
+            mock_client = MagicMock()
+            mock_client.chat.completions.create.return_value = _fake_llm_response(
+                '[{"arxiv_id": "1706.03762", "affiliations": ["Google Brain"]}]'
+            )
+            mock_openai.return_value = mock_client
 
-        # Mock the fetch and extraction
-        with patch.object(extractor, "fetch_source", new_callable=AsyncMock) as mock_fetch:
-            with patch.object(extractor, "extract_tex_files") as mock_extract:
-                mock_fetch.return_value = b"mock tarball"
-                mock_extract.return_value = [NIPS_STYLE_TEX]
+            enriched = await extractor.enrich_paper(sample_paper)
 
-                enriched = await extractor.enrich_paper(sample_paper)
-
-                assert enriched.affiliations is not None
-                assert "Google Brain" in enriched.affiliations
+        assert enriched.affiliations == ["Google Brain"]
 
     @pytest.mark.asyncio
     async def test_enrich_paper_no_source(self, sample_paper):
-        """Test enriching when source not available."""
-        extractor = AffiliationExtractor()
-
+        """No LaTeX source (PDF-only / 404) leaves affiliations unset."""
+        extractor = AffiliationExtractor(llm_config=_llm_config())
         with patch.object(extractor, "fetch_source", new_callable=AsyncMock) as mock_fetch:
             mock_fetch.return_value = None
-
             enriched = await extractor.enrich_paper(sample_paper)
-
-            # Should return paper unchanged
-            assert enriched.affiliations is None
+        assert enriched.affiliations is None
 
     @pytest.mark.asyncio
-    async def test_enrich_paper_pdf_only(self, sample_paper):
-        """Test enriching when source is PDF-only."""
-        extractor = AffiliationExtractor()
-
+    async def test_enrich_paper_already_has_affiliations(self, sample_paper):
+        """A paper with existing affiliations is not re-enriched."""
+        sample_paper.affiliations = ["MIT"]
+        extractor = AffiliationExtractor(llm_config=_llm_config())
         with patch.object(extractor, "fetch_source", new_callable=AsyncMock) as mock_fetch:
-            # Return None (PDF-only case)
-            mock_fetch.return_value = None
+            enriched = await extractor.enrich_paper(sample_paper)
+            # Source was never fetched.
+            mock_fetch.assert_not_called()
+        assert enriched.affiliations == ["MIT"]
+
+    @pytest.mark.asyncio
+    async def test_enrich_paper_llm_returns_empty(self, sample_paper):
+        """A non-JSON / empty LLM response leaves affiliations unset."""
+        extractor = AffiliationExtractor(llm_config=_llm_config())
+        with (
+            patch.object(extractor, "fetch_source", new_callable=AsyncMock) as mock_fetch,
+            patch.object(extractor, "extract_tex_files") as mock_extract,
+            patch("openai.OpenAI") as mock_openai,
+        ):
+            mock_fetch.return_value = b"mock tarball"
+            mock_extract.return_value = [NIPS_STYLE_TEX]
+            mock_client = MagicMock()
+            mock_client.chat.completions.create.return_value = _fake_llm_response("not json")
+            mock_openai.return_value = mock_client
 
             enriched = await extractor.enrich_paper(sample_paper)
+        assert enriched.affiliations is None
 
-            assert enriched.affiliations is None
+    @pytest.mark.asyncio
+    async def test_enrich_paper_no_llm_config_is_noop(self, sample_paper):
+        """Without an LLM config the source is fetched but affiliations stay unset."""
+        extractor = AffiliationExtractor()  # no llm_config
+        with (
+            patch.object(extractor, "fetch_source", new_callable=AsyncMock) as mock_fetch,
+            patch.object(extractor, "extract_tex_files") as mock_extract,
+        ):
+            mock_fetch.return_value = b"mock tarball"
+            mock_extract.return_value = [NIPS_STYLE_TEX]
+            enriched = await extractor.enrich_paper(sample_paper)
+        assert enriched.affiliations is None
+
+
+class TestEnrichPapers:
+    """Batch enrichment: sources fetched concurrently, one batched LLM call."""
 
     @pytest.mark.asyncio
     async def test_enrich_papers_batch(self, sample_paper):
-        """Test enriching multiple papers."""
-        from datetime import datetime
-
         papers = [
             sample_paper,
             ArxivPaper(
@@ -278,63 +159,103 @@ class TestAffiliationExtractor:
                 published_date=datetime(2023, 1, 17),
             ),
         ]
+        extractor = AffiliationExtractor(llm_config=_llm_config())
+        with (
+            patch.object(extractor, "fetch_source", new_callable=AsyncMock) as mock_fetch,
+            patch.object(extractor, "extract_tex_files") as mock_extract,
+            patch("openai.OpenAI") as mock_openai,
+        ):
+            mock_fetch.return_value = b"mock tarball"
+            mock_extract.return_value = [NIPS_STYLE_TEX]
+            mock_client = MagicMock()
 
-        extractor = AffiliationExtractor()
+            def fake_create(*args, **kwargs):
+                # Return affiliations for both ids present in the prompt.
+                import json as _json
+                import re
 
-        with patch.object(extractor, "fetch_source", new_callable=AsyncMock) as mock_fetch:
-            with patch.object(extractor, "extract_tex_files") as mock_extract:
-                mock_fetch.return_value = b"mock tarball"
-                mock_extract.return_value = [NIPS_STYLE_TEX]
+                user_msg = kwargs["messages"][1]["content"]
+                ids = [m.group(1) for m in re.finditer(r"### arxiv_id: (\S+)", user_msg)]
+                arr = [
+                    {"arxiv_id": i, "affiliations": [f"Lab-{i}"]} for i in ids
+                ]
+                return _fake_llm_response(_json.dumps(arr))
 
-                enriched = await extractor.enrich_papers(papers)
+            mock_client.chat.completions.create.side_effect = fake_create
+            mock_openai.return_value = mock_client
 
-                assert len(enriched) == 2
-                # At least one should have affiliations
-                assert any(p.affiliations for p in enriched)
+            enriched = await extractor.enrich_papers(papers)
+
+        assert len(enriched) == 2
+        assert enriched[0].affiliations == ["Lab-1706.03762"]
+        assert enriched[1].affiliations == ["Lab-2301.07041"]
 
     @pytest.mark.asyncio
-    async def test_enrich_paper_already_has_affiliations(self, sample_paper):
-        """Test that paper with existing affiliations is not re-enriched."""
+    async def test_enrich_papers_skips_existing(self, sample_paper):
+        """Papers that already have affiliations are skipped (no fetch)."""
         sample_paper.affiliations = ["MIT"]
-        extractor = AffiliationExtractor()
+        papers = [
+            sample_paper,
+            ArxivPaper(
+                title="Paper 2",
+                summary="Abstract 2",
+                authors=["Alice"],
+                arxiv_id="2301.07041",
+                pdf_url="https://arxiv.org/pdf/2301.07041",
+                published_date=datetime(2023, 1, 17),
+            ),
+        ]
+        extractor = AffiliationExtractor(llm_config=_llm_config())
+        with (
+            patch.object(extractor, "fetch_source", new_callable=AsyncMock) as mock_fetch,
+            patch.object(extractor, "extract_tex_files") as mock_extract,
+            patch("openai.OpenAI") as mock_openai,
+        ):
+            mock_fetch.return_value = b"mock tarball"
+            mock_extract.return_value = [NIPS_STYLE_TEX]
+            mock_client = MagicMock()
+            mock_client.chat.completions.create.return_value = _fake_llm_response(
+                '[{"arxiv_id": "2301.07041", "affiliations": ["Stanford"]}]'
+            )
+            mock_openai.return_value = mock_client
 
-        enriched = await extractor.enrich_paper(sample_paper)
+            await extractor.enrich_papers(papers)
 
-        # Should keep existing affiliations
-        assert enriched.affiliations == ["MIT"]
+        # Only the second paper was fetched (its arxiv_id appears once).
+        assert sample_paper.affiliations == ["MIT"]
+        assert papers[1].affiliations == ["Stanford"]
+
+    @pytest.mark.asyncio
+    async def test_enrich_papers_empty_list(self):
+        extractor = AffiliationExtractor(llm_config=_llm_config())
+        assert await extractor.enrich_papers([]) == []
 
 
 class TestEnrichPapersWithAffiliations:
-    """Tests for the convenience function."""
+    """The module-level convenience wrapper."""
 
     @pytest.mark.asyncio
     async def test_enrich_papers_with_affiliations(self, sample_paper):
-        """Test the convenience function."""
         with patch(
             "alithia_agent.paperscout.affiliation_extractor.AffiliationExtractor.enrich_papers",
             new_callable=AsyncMock,
         ) as mock_enrich:
             mock_enrich.return_value = [sample_paper]
-
             result = await enrich_papers_with_affiliations([sample_paper])
-
-            assert len(result) == 1
+        assert len(result) == 1
 
     @pytest.mark.asyncio
     async def test_enrich_empty_list(self):
-        """Test enriching empty list."""
         result = await enrich_papers_with_affiliations([])
         assert result == []
 
 
 class TestHttpxIntegration:
-    """Tests for httpx HTTP integration."""
+    """Tests for httpx HTTP integration (source fetch, independent of LLM)."""
 
     @pytest.mark.asyncio
     async def test_fetch_source_success(self):
-        """Test successful source fetch."""
         extractor = AffiliationExtractor()
-
         mock_response = MagicMock()
         mock_response.status_code = 200
         mock_response.headers = {"content-type": "application/gzip"}
@@ -347,14 +268,11 @@ class TestHttpxIntegration:
             mock_client_class.return_value = mock_client
 
             result = await extractor.fetch_source("2301.07041")
-
-            assert result == b"tarball content"
+        assert result == b"tarball content"
 
     @pytest.mark.asyncio
     async def test_fetch_source_pdf_only(self):
-        """Test fetch when source is PDF."""
         extractor = AffiliationExtractor()
-
         mock_response = MagicMock()
         mock_response.status_code = 200
         mock_response.headers = {"content-type": "application/pdf"}
@@ -367,14 +285,11 @@ class TestHttpxIntegration:
             mock_client_class.return_value = mock_client
 
             result = await extractor.fetch_source("2012.12104")
-
-            assert result is None
+        assert result is None
 
     @pytest.mark.asyncio
     async def test_fetch_source_not_found(self):
-        """Test fetch when source not found."""
         extractor = AffiliationExtractor()
-
         mock_response = MagicMock()
         mock_response.status_code = 404
 
@@ -385,14 +300,11 @@ class TestHttpxIntegration:
             mock_client_class.return_value = mock_client
 
             result = await extractor.fetch_source("invalid-id")
-
-            assert result is None
+        assert result is None
 
     @pytest.mark.asyncio
     async def test_close_client(self):
-        """Test closing HTTP client."""
         extractor = AffiliationExtractor()
-
         with patch("httpx.AsyncClient") as mock_client_class:
             mock_client = AsyncMock()
             mock_client.aclose = AsyncMock()
@@ -400,5 +312,19 @@ class TestHttpxIntegration:
 
             await extractor._get_client()
             await extractor.close()
-
             mock_client.aclose.assert_called_once()
+
+
+class TestExtractTexFiles:
+    """Tarball / single-gzip extraction (no LLM involved)."""
+
+    def test_single_file_gzip_fallback(self):
+        """A gzipped single .tex (not a tar.gz) decompresses to its content."""
+        import gzip
+
+        tex = r"\affiliation{Stanford University}"
+        gz_bytes = gzip.compress(tex.encode("utf-8"))
+        ext = AffiliationExtractor()
+        results = ext.extract_tex_files(gz_bytes)
+        assert len(results) == 1
+        assert "Stanford University" in results[0]
