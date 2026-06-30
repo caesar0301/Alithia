@@ -90,6 +90,11 @@ def load_encoder(model_name: str, cache_dir: Path) -> tuple[Any | None, str]:
         return None, "fallback"
 
 
+def weighted_similarity_to_score(weighted_similarity: float) -> float:
+    """Map weighted cosine similarity in [-1, 1] to ScoredPaper range [0, 10]."""
+    return float(np.clip((weighted_similarity + 1.0) / 2.0 * 10.0, 0.0, 10.0))
+
+
 def encode_texts(encoder: Any, texts: list[str]) -> list[np.ndarray]:
     """Encode texts to embedding vectors using FastEmbed.
 
@@ -273,9 +278,11 @@ class PaperReranker:
             similarities = np.dot(paper_norm, corpus_norm.T)
 
             # Weighted scores: time-decay * per-unit weight (RFC-010 §9.2).
+            # Cosine similarity is in [-1, 1]; map to ScoredPaper's [0, 10] range.
             column_weight = time_decay_weight * unit_weights
             column_weight = column_weight / column_weight.sum()
-            scores = (similarities * column_weight).sum(axis=1) * 10
+            weighted_similarities = (similarities * column_weight).sum(axis=1)
+            scores = np.clip((weighted_similarities + 1.0) / 2.0 * 10.0, 0.0, 10.0)
 
             # Create scored papers
             scored_papers: list[ScoredPaper] = []
@@ -363,4 +370,10 @@ class PaperReranker:
         return scored
 
 
-__all__ = ["PaperReranker", "load_encoder", "get_model_cache_dir", "EMBEDDING_MODEL_NAME"]
+__all__ = [
+    "PaperReranker",
+    "EMBEDDING_MODEL_NAME",
+    "get_model_cache_dir",
+    "load_encoder",
+    "weighted_similarity_to_score",
+]

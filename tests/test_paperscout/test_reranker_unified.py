@@ -19,7 +19,7 @@ import numpy as np
 import pytest
 
 from alithia_agent.models import ArxivPaper
-from alithia_agent.paperscout.reranker import PaperReranker
+from alithia_agent.paperscout.reranker import PaperReranker, weighted_similarity_to_score
 from alithia_agent.research_interests import ResearchInterest
 
 
@@ -183,3 +183,39 @@ def test_interest_without_date_sorts_to_recency_bottom(patched_encoder):
     scored = PaperReranker(papers=[mm_paper], interests=interests).rerank()
     assert len(scored) == 1
     assert scored[0].relevance_factors["interests_count"] == 2
+
+
+def test_weighted_similarity_to_score_maps_cosine_range():
+    assert weighted_similarity_to_score(-1.0) == 0.0
+    assert weighted_similarity_to_score(0.0) == 5.0
+    assert weighted_similarity_to_score(1.0) == 10.0
+
+
+def test_opposing_embeddings_produce_valid_scores():
+    """Negative cosine similarity must not fail ScoredPaper validation."""
+
+    class _OpposingEncoder:
+        def embed(self, texts: list[str]):
+            for t in texts:
+                if "interest corpus marker" in t.lower():
+                    yield np.array([1.0, 0.0, 0.0, 0.0])
+                else:
+                    yield np.array([-1.0, 0.0, 0.0, 0.0])
+
+    paper = _paper("Unrelated Paper", "paper abstract text")
+    interests = [
+        _interest(
+            "Interest",
+            "interest corpus marker " + ("text " * 30),
+        )
+    ]
+
+    with patch(
+        "alithia_agent.paperscout.reranker.load_encoder",
+        return_value=(_OpposingEncoder(), "fastembed"),
+    ):
+        scored = PaperReranker(papers=[paper], interests=interests).rerank()
+
+    assert len(scored) == 1
+    assert 0.0 <= scored[0].score <= 10.0
+    assert scored[0].score == 0.0
