@@ -1,6 +1,6 @@
 """PaperScout LangGraph workflow implementation.
 
-Creates and compiles the 5-node workflow graph.
+Creates and compiles the 6-node workflow graph.
 """
 
 from __future__ import annotations
@@ -111,6 +111,7 @@ def create_paperscout_graph(
     graph.add_node("data_collection", nodes["data_collection"])
     graph.add_node("relevance_assessment", nodes["relevance_assessment"])
     graph.add_node("content_generation", nodes["content_generation"])
+    graph.add_node("persist_digest", nodes["persist_digest"])
     graph.add_node("communication", nodes["communication"])
 
     # Add edges (linear workflow)
@@ -118,7 +119,8 @@ def create_paperscout_graph(
     graph.add_edge("profile_analysis", "data_collection")
     graph.add_edge("data_collection", "relevance_assessment")
     graph.add_edge("relevance_assessment", "content_generation")
-    graph.add_edge("content_generation", "communication")
+    graph.add_edge("content_generation", "persist_digest")
+    graph.add_edge("persist_digest", "communication")
     graph.add_edge("communication", END)
 
     logger.info("PaperScout workflow graph created")

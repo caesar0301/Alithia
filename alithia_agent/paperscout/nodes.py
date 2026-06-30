@@ -1,7 +1,8 @@
 """PaperScout workflow nodes.
 
-5-node linear pipeline:
-profile_analysis → data_collection → relevance_assessment → content_generation → communication
+6-node linear pipeline:
+profile_analysis → data_collection → relevance_assessment → content_generation
+→ persist_digest → communication
 """
 
 from __future__ import annotations
@@ -15,6 +16,7 @@ import arxiv
 
 from alithia_agent.models import ArxivPaper, ScoredPaper
 from alithia_agent.paperscout.affiliation_extractor import AffiliationExtractor
+from alithia_agent.paperscout.digest_store import build_daily_digest_record, save_daily_digest
 from alithia_agent.paperscout.email import construct_email_content, send_email
 from alithia_agent.paperscout.events import (
     PaperScoutEmailSentEvent,
@@ -410,6 +412,39 @@ def make_nodes(
             _emit_error(str(e), "content_generation")
             return {"errors": [str(e)]}
 
+    async def persist_digest_node(state: AgentState) -> dict[str, Any]:
+        """Persist scored paper metadata for future analysis (no email HTML)."""
+        _emit_step("persist_digest", "Saving daily digest metadata")
+
+        metrics = dict(state.get("metrics", {}))
+        notification_date = metrics.get(
+            "notification_date", (date.today() - timedelta(days=1)).isoformat()
+        )
+        scored = state.get("scored_papers") or []
+
+        try:
+            record = build_daily_digest_record(
+                scored,
+                digest_date=notification_date,
+                config=config,
+                metrics=metrics,
+            )
+            key = await save_daily_digest(store, user_id, record)
+            _emit_step(
+                "persist_digest",
+                f"Saved digest for {notification_date} ({len(scored)} papers)",
+            )
+            metrics["digest_saved"] = True
+            metrics["digest_storage_key"] = key
+            return {
+                "metrics": metrics,
+                "info": [f"Persisted digest metadata for {notification_date}"],
+            }
+        except Exception as e:
+            _emit_error(str(e), "persist_digest")
+            logger.warning(f"Failed to persist digest for {notification_date}: {e}")
+            return {"errors": [f"Digest persistence failed: {e}"]}
+
     async def communication_node(state: AgentState) -> dict[str, Any]:
         """Send email notification."""
         _emit_step("communication", "Sending notification")
@@ -533,6 +568,7 @@ def make_nodes(
         "data_collection": data_collection_node,
         "relevance_assessment": relevance_assessment_node,
         "content_generation": content_generation_node,
+        "persist_digest": persist_digest_node,
         "communication": communication_node,
     }
 
