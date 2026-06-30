@@ -77,6 +77,8 @@ class DaemonService:
         configure_logging(
             level=logging.INFO,
             log_file=log_file,
+            log_max_bytes=self._daemon_config.log_max_bytes,
+            log_backup_count=self._daemon_config.log_backup_count,
             console=True,
             console_stream=sys.stdout,
         )

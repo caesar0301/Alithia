@@ -11,7 +11,11 @@ from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
-from alithia_agent.logging_config import DEFAULT_LOG_FILE
+from alithia_agent.logging_config import (
+    DEFAULT_LOG_BACKUP_COUNT,
+    DEFAULT_LOG_FILE,
+    DEFAULT_LOG_MAX_BYTES,
+)
 
 
 class ConfigError(Exception):
@@ -266,6 +270,17 @@ class DaemonConfig(BaseModel):
     scheduler: DaemonSchedulerConfig = Field(default_factory=DaemonSchedulerConfig)
     pid_file: str = "daemon.pid"
     log_file: str = DEFAULT_LOG_FILE
+    log_max_bytes: int = Field(
+        default=DEFAULT_LOG_MAX_BYTES,
+        ge=1024,
+        description="Max size per log file before rotation (bytes)",
+    )
+    log_backup_count: int = Field(
+        default=DEFAULT_LOG_BACKUP_COUNT,
+        ge=1,
+        le=100,
+        description="Number of rotated log files to retain",
+    )
     big_bang: date | None = Field(
         default=None, description="Tracking start date, no scans before this"
     )
