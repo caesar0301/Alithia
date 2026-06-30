@@ -47,6 +47,7 @@ class TestClientConstruction:
             _, kwargs = mock_openai.call_args
             assert kwargs["api_key"] == "fake-key"
             assert kwargs["base_url"] == "https://dashscope.example.com/compatible-mode/v1"
+            assert kwargs["timeout"] == 120.0
 
 
 class TestResponseParsing:
@@ -61,9 +62,7 @@ class TestResponseParsing:
             mock_client.chat.completions.create.return_value = _fake_openai_response(payload)
             mock_openai.return_value = mock_client
 
-            result = ext.extract_batch(
-                [("2401.00001", "tex1"), ("2401.00002", "tex2")]
-            )
+            result = ext.extract_batch([("2401.00001", "tex1"), ("2401.00002", "tex2")])
 
         assert result["2401.00001"] == ["OpenAI"]
         assert result["2401.00002"] == ["Stanford University"]
@@ -71,11 +70,7 @@ class TestResponseParsing:
     def test_markdown_fence_stripped(self):
         """A ```json ... ``` fenced response still parses."""
         ext = _make_extractor()
-        payload = (
-            "```json\n"
-            '[{"arxiv_id": "2401.00001", "affiliations": ["MIT"]}]'
-            "\n```"
-        )
+        payload = '```json\n[{"arxiv_id": "2401.00001", "affiliations": ["MIT"]}]\n```'
         with patch("openai.OpenAI") as mock_openai:
             mock_client = MagicMock()
             mock_client.chat.completions.create.return_value = _fake_openai_response(payload)
@@ -98,6 +93,7 @@ class TestResponseParsing:
             result = ext.extract_batch([("2401.00001", "tex")])
 
         assert result == {}
+        assert mock_client.chat.completions.create.call_count == 2
 
     def test_partial_garbage_recovers_array_span(self):
         """Leading prose + trailing JSON array is recovered via the [...] fallback."""
@@ -114,6 +110,19 @@ class TestResponseParsing:
             result = ext.extract_batch([("2401.00001", "tex")])
 
         assert result["2401.00001"] == ["Google Brain"]
+
+    def test_arxiv_id_without_version_suffix(self):
+        """Model ids without the vN suffix map back to the input arxiv_id."""
+        ext = _make_extractor()
+        payload = '[{"arxiv_id": "1706.03762", "affiliations": ["Google Brain"]}]'
+        with patch("openai.OpenAI") as mock_openai:
+            mock_client = MagicMock()
+            mock_client.chat.completions.create.return_value = _fake_openai_response(payload)
+            mock_openai.return_value = mock_client
+
+            result = ext.extract_batch([("1706.03762v1", "tex")])
+
+        assert result["1706.03762v1"] == ["Google Brain"]
 
 
 class TestNormalization:
@@ -137,9 +146,7 @@ class TestNormalization:
 
         ext = _make_extractor()
         affs = [f"University number {i}" for i in range(15)]
-        payload = _json.dumps(
-            [{"arxiv_id": "2401.00001", "affiliations": affs}]
-        )
+        payload = _json.dumps([{"arxiv_id": "2401.00001", "affiliations": affs}])
         with patch("openai.OpenAI") as mock_openai:
             mock_client = MagicMock()
             mock_client.chat.completions.create.return_value = _fake_openai_response(payload)
@@ -152,8 +159,7 @@ class TestNormalization:
     def test_strips_and_drops_empty(self):
         ext = _make_extractor()
         payload = (
-            '[{"arxiv_id": "2401.00001", "affiliations": '
-            '["  Stanford University  ", "", "   "]}]'
+            '[{"arxiv_id": "2401.00001", "affiliations": ["  Stanford University  ", "", "   "]}]'
         )
         with patch("openai.OpenAI") as mock_openai:
             mock_client = MagicMock()
@@ -214,6 +220,23 @@ class TestApiErrors:
             result = ext.extract_batch([("2401.00001", "tex")])
 
         assert result == {}
+        assert mock_client.chat.completions.create.call_count == 2
+
+    def test_retry_succeeds_on_second_attempt(self):
+        ext = _make_extractor()
+        payload = '[{"arxiv_id": "2401.00001", "affiliations": ["MIT"]}]'
+        with patch("openai.OpenAI") as mock_openai:
+            mock_client = MagicMock()
+            mock_client.chat.completions.create.side_effect = [
+                RuntimeError("transient"),
+                _fake_openai_response(payload),
+            ]
+            mock_openai.return_value = mock_client
+
+            result = ext.extract_batch([("2401.00001", "tex")])
+
+        assert result["2401.00001"] == ["MIT"]
+        assert mock_client.chat.completions.create.call_count == 2
 
     def test_empty_content_returns_empty(self):
         ext = _make_extractor()
@@ -225,6 +248,7 @@ class TestApiErrors:
             result = ext.extract_batch([("2401.00001", "tex")])
 
         assert result == {}
+        assert mock_client.chat.completions.create.call_count == 2
 
 
 class TestSourceTrimming:
@@ -245,9 +269,11 @@ class TestSourceTrimming:
         """Author markup deep in the file is kept, not cut by a head-only slice."""
         from pathlib import Path
 
-        tex = Path(__file__).parent.joinpath(
-            "fixtures", "attention_1706.03762.tex"
-        ).read_text(encoding="utf-8")
+        tex = (
+            Path(__file__)
+            .parent.joinpath("fixtures", "attention_1706.03762.tex")
+            .read_text(encoding="utf-8")
+        )
         trimmed = AffiliationLLMExtractor._trim_source(tex)
         assert r"\author{" in trimmed
         assert "Google Brain" in trimmed
@@ -271,9 +297,11 @@ class TestFixturePrompts:
     def test_attention_fixture_in_user_message(self):
         from pathlib import Path
 
-        tex = Path(__file__).parent.joinpath(
-            "fixtures", "attention_1706.03762.tex"
-        ).read_text(encoding="utf-8")
+        tex = (
+            Path(__file__)
+            .parent.joinpath("fixtures", "attention_1706.03762.tex")
+            .read_text(encoding="utf-8")
+        )
         ext = _make_extractor()
         captured: dict[str, str] = {}
 

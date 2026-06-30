@@ -397,10 +397,13 @@ def make_nodes(
 
             _emit_step("content_generation", f"Generated digest ({len(scored)} papers)")
 
+            metrics = dict(state.get("metrics", {}))
+            metrics["tldrs_generated"] = tldrs_generated
+
             return {
                 "email_content": email,
                 "info": [f"Generated email content ({len(scored)} papers)"],
-                "metrics": {"tldrs_generated": tldrs_generated},
+                "metrics": metrics,
             }
 
         except Exception as e:

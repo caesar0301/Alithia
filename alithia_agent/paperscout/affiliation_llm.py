@@ -10,10 +10,9 @@ sources handles all of these and returns structured JSON mapped back to each
 paper.
 
 Design notes:
-- Uses a **sync** ``openai.OpenAI`` client, mirroring ``tldr.py``. The
-  PaperScout data-collection node is async, but it ``await``s the source
-  fetch (httpx) and calls this extractor synchronously in between — the LLM
-  call is a single batched request, so blocking briefly is acceptable.
+- Uses a **sync** ``openai.OpenAI`` client. Callers should invoke
+  :meth:`AffiliationLLMExtractor.extract_batch` via ``asyncio.to_thread`` so
+  the async data-collection node is not blocked for long LLM calls.
 - **Batched**: many papers' sources are packed into one request (capped at
   ``_BATCH_PAPERS`` per call) returning a JSON array, so N papers cost
   ``ceil(N / _BATCH_PAPERS)`` requests, not N.
@@ -27,6 +26,7 @@ from __future__ import annotations
 import json
 import logging
 import re
+import time
 from typing import Any
 
 logger = logging.getLogger(__name__)
@@ -43,6 +43,10 @@ _MAX_TEX_CHARS = 6000
 # Affiliation cap per paper (matches the legacy MAX_AFFILIATIONS).
 _MAX_AFFILIATIONS = 10
 
+# LLM request timeout and retry policy (one retry after the first failure).
+_LLM_TIMEOUT_SECONDS = 120.0
+_MAX_RETRIES = 1
+
 # LaTeX commands that typically carry author/institution markup.
 _AFFIL_CMD_RE = re.compile(
     r"\\(?:author|affiliation|institute|icmlaffiliation|institutename|thanks)\b",
@@ -50,6 +54,8 @@ _AFFIL_CMD_RE = re.compile(
 )
 # End of the author/preamble block where affiliations usually live.
 _DOC_START_RE = re.compile(r"\\(?:begin\{document\}|maketitle)\b")
+# Strip optional version suffix from arXiv ids (e.g. 2401.00001v2 → 2401.00001).
+_ARXIV_ID_BASE_RE = re.compile(r"^(\d+\.\d+)(?:v\d+)?$", re.IGNORECASE)
 
 _SYSTEM_PROMPT = (
     "You extract author affiliations from LaTeX paper sources for a research "
@@ -84,6 +90,11 @@ class AffiliationLLMExtractor:
         self._client: Any | None = None
         self._disabled = False
 
+    @property
+    def is_enabled(self) -> bool:
+        """True when an API key is configured and extraction has not been disabled."""
+        return bool(self._api_key) and not self._disabled
+
     def _get_client(self) -> Any | None:
         """Get or create the OpenAI client. Returns None if unavailable."""
         if self._disabled:
@@ -97,7 +108,10 @@ class AffiliationLLMExtractor:
         try:
             from openai import OpenAI
 
-            kwargs: dict[str, Any] = {"api_key": self._api_key}
+            kwargs: dict[str, Any] = {
+                "api_key": self._api_key,
+                "timeout": _LLM_TIMEOUT_SECONDS,
+            }
             if self._api_base:
                 kwargs["base_url"] = self._api_base
             self._client = OpenAI(**kwargs)
@@ -123,6 +137,37 @@ class AffiliationLLMExtractor:
         )
 
     @staticmethod
+    def _arxiv_id_base(arxiv_id: str) -> str:
+        """Normalize an arXiv id by stripping an optional version suffix."""
+        arxiv_id = arxiv_id.strip()
+        m = _ARXIV_ID_BASE_RE.match(arxiv_id)
+        if m:
+            return m.group(1)
+        if "v" in arxiv_id:
+            prefix, _, suffix = arxiv_id.partition("v")
+            if suffix.isdigit():
+                return prefix
+        return arxiv_id
+
+    @classmethod
+    def _map_to_input_ids(
+        cls,
+        papers_tex: list[tuple[str, str]],
+        raw_by_returned_id: dict[str, list[str]],
+    ) -> dict[str, list[str]]:
+        """Map LLM-returned ids (possibly without version) back to input ids."""
+        base_to_input: dict[str, str] = {}
+        for arxiv_id, _ in papers_tex:
+            base_to_input[cls._arxiv_id_base(arxiv_id)] = arxiv_id
+
+        mapped: dict[str, list[str]] = {}
+        for returned_id, affs in raw_by_returned_id.items():
+            canonical = base_to_input.get(cls._arxiv_id_base(returned_id))
+            if canonical and affs:
+                mapped[canonical] = affs
+        return mapped
+
+    @staticmethod
     def _trim_source(tex: str) -> str:
         """Keep the affiliation-bearing header of a .tex source.
 
@@ -140,9 +185,7 @@ class AffiliationLLMExtractor:
         lines = tex.splitlines(keepends=True)
         keep = [False] * len(lines)
 
-        marker_indices = [
-            i for i, line in enumerate(lines) if _AFFIL_CMD_RE.search(line)
-        ]
+        marker_indices = [i for i, line in enumerate(lines) if _AFFIL_CMD_RE.search(line)]
         if not marker_indices:
             return tex[:_MAX_TEX_CHARS]
 
@@ -227,26 +270,9 @@ class AffiliationLLMExtractor:
                 break
         return out
 
-    def _extract_one_batch(self, papers_tex: list[tuple[str, str]]) -> dict[str, list[str]]:
-        """Run one LLM request over one batch; return {arxiv_id: [affs]}."""
-        client = self._get_client()
-        if client is None:
-            return {}
-        try:
-            response = client.chat.completions.create(
-                model=self._model,
-                messages=[
-                    {"role": "system", "content": _SYSTEM_PROMPT},
-                    {"role": "user", "content": self._build_user_message(papers_tex)},
-                ],
-                temperature=0.0,
-            )
-            text = response.choices[0].message.content or ""
-        except Exception as e:
-            logger.warning(f"Affiliation LLM request failed: {e}")
-            return {}
-
-        results: dict[str, list[str]] = {}
+    def _entries_to_raw_map(self, text: str) -> dict[str, list[str]]:
+        """Parse LLM text into ``{returned_arxiv_id: affiliations}``."""
+        raw: dict[str, list[str]] = {}
         for entry in self._parse_response(text):
             if not isinstance(entry, dict):
                 continue
@@ -256,8 +282,78 @@ class AffiliationLLMExtractor:
             arxiv_id = arxiv_id.strip()
             if not arxiv_id:
                 continue
-            results[arxiv_id] = self._normalize_affiliations(entry.get("affiliations"))
-        return results
+            affs = self._normalize_affiliations(entry.get("affiliations"))
+            if affs:
+                raw[arxiv_id] = affs
+        return raw
+
+    def _extract_one_batch(self, papers_tex: list[tuple[str, str]]) -> dict[str, list[str]]:
+        """Run one LLM request over one batch; return {arxiv_id: [affs]}."""
+        client = self._get_client()
+        if client is None:
+            return {}
+
+        batch_size = len(papers_tex)
+        user_message = self._build_user_message(papers_tex)
+
+        for attempt in range(_MAX_RETRIES + 1):
+            start = time.monotonic()
+            try:
+                response = client.chat.completions.create(
+                    model=self._model,
+                    messages=[
+                        {"role": "system", "content": _SYSTEM_PROMPT},
+                        {"role": "user", "content": user_message},
+                    ],
+                    temperature=0.0,
+                )
+                text = response.choices[0].message.content or ""
+                raw = self._entries_to_raw_map(text)
+                mapped = self._map_to_input_ids(papers_tex, raw)
+                success_count = sum(1 for arxiv_id, _ in papers_tex if mapped.get(arxiv_id))
+                elapsed_s = time.monotonic() - start
+
+                if success_count == 0 and batch_size > 0 and attempt < _MAX_RETRIES:
+                    logger.warning(
+                        "Affiliation LLM batch empty: batch_size=%d latency_s=%.2f "
+                        "success_count=0 attempt=%d — retrying",
+                        batch_size,
+                        elapsed_s,
+                        attempt + 1,
+                    )
+                    continue
+
+                logger.info(
+                    "Affiliation LLM batch complete: batch_size=%d latency_s=%.2f "
+                    "success_count=%d/%d attempt=%d",
+                    batch_size,
+                    elapsed_s,
+                    success_count,
+                    batch_size,
+                    attempt + 1,
+                )
+                return mapped
+            except Exception as e:
+                elapsed_s = time.monotonic() - start
+                if attempt < _MAX_RETRIES:
+                    logger.warning(
+                        "Affiliation LLM batch failed: batch_size=%d latency_s=%.2f "
+                        "attempt=%d error=%s — retrying",
+                        batch_size,
+                        elapsed_s,
+                        attempt + 1,
+                        e,
+                    )
+                else:
+                    logger.warning(
+                        "Affiliation LLM batch failed: batch_size=%d latency_s=%.2f "
+                        "attempt=%d error=%s",
+                        batch_size,
+                        elapsed_s,
+                        attempt + 1,
+                        e,
+                    )
+        return {}
 
     def extract_batch(self, papers_tex: list[tuple[str, str]]) -> dict[str, list[str]]:
         """Extract affiliations for many papers, batching into few requests.
@@ -273,11 +369,17 @@ class AffiliationLLMExtractor:
         if not papers_tex:
             return {}
         merged: dict[str, list[str]] = {}
+        total_success = 0
         for i in range(0, len(papers_tex), _BATCH_PAPERS):
             batch = papers_tex[i : i + _BATCH_PAPERS]
-            merged.update(self._extract_one_batch(batch))
+            batch_result = self._extract_one_batch(batch)
+            merged.update(batch_result)
+            total_success += len(batch_result)
         logger.info(
-            f"Affiliation LLM: {len(merged)}/{len(papers_tex)} papers got affiliations"
+            "Affiliation LLM run complete: papers=%d batches=%d success_count=%d",
+            len(papers_tex),
+            (len(papers_tex) + _BATCH_PAPERS - 1) // _BATCH_PAPERS,
+            total_success,
         )
         return merged
 

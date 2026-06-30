@@ -163,3 +163,39 @@ async def test_data_collection_records_affiliations_metric(tmp_path, monkeypatch
 
     assert result["metrics"]["affiliations_extracted"] == 1
     assert result["discovered_papers"][0].affiliations == ["MIT"]
+
+
+@pytest.mark.asyncio
+async def test_content_generation_preserves_prior_metrics(tmp_path, monkeypatch):
+    """content_generation merges tldrs_generated into existing metrics."""
+    from datetime import UTC, datetime
+
+    from alithia_agent.models import ArxivPaper, ScoredPaper
+
+    paper = ArxivPaper(
+        title="T",
+        summary="abstract " * 20,
+        authors=["a"],
+        arxiv_id="2401.00001",
+        pdf_url="u",
+        published_date=datetime(2024, 1, 1, tzinfo=UTC),
+    )
+    scored = [ScoredPaper(paper=paper, score=8.0)]
+
+    monkeypatch.setattr(
+        "alithia_agent.paperscout.nodes.generate_tldrs",
+        lambda papers, cfg: 1,
+    )
+
+    cfg = _runtime_config(research_interests_dir=str(tmp_path), llm_api_key="sk-test")
+    nodes = make_nodes(_mock_store(), "u", cfg)
+    result = nodes["content_generation"](
+        {
+            "scored_papers": scored,
+            "metrics": {"affiliations_extracted": 4, "arxiv_new": 10},
+        }
+    )
+
+    assert result["metrics"]["affiliations_extracted"] == 4
+    assert result["metrics"]["arxiv_new"] == 10
+    assert result["metrics"]["tldrs_generated"] == 1

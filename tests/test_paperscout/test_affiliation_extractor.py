@@ -131,15 +131,11 @@ class TestEnrichPaper:
 
     @pytest.mark.asyncio
     async def test_enrich_paper_no_llm_config_is_noop(self, sample_paper):
-        """Without an LLM config the source is fetched but affiliations stay unset."""
+        """Without an LLM config enrichment is skipped (no ArXiv fetch)."""
         extractor = AffiliationExtractor()  # no llm_config
-        with (
-            patch.object(extractor, "fetch_source", new_callable=AsyncMock) as mock_fetch,
-            patch.object(extractor, "extract_tex_files") as mock_extract,
-        ):
-            mock_fetch.return_value = b"mock tarball"
-            mock_extract.return_value = [NIPS_STYLE_TEX]
+        with patch.object(extractor, "fetch_source", new_callable=AsyncMock) as mock_fetch:
             enriched = await extractor.enrich_paper(sample_paper)
+            mock_fetch.assert_not_called()
         assert enriched.affiliations is None
 
 
@@ -176,9 +172,7 @@ class TestEnrichPapers:
 
                 user_msg = kwargs["messages"][1]["content"]
                 ids = [m.group(1) for m in re.finditer(r"### arxiv_id: (\S+)", user_msg)]
-                arr = [
-                    {"arxiv_id": i, "affiliations": [f"Lab-{i}"]} for i in ids
-                ]
+                arr = [{"arxiv_id": i, "affiliations": [f"Lab-{i}"]} for i in ids]
                 return _fake_llm_response(_json.dumps(arr))
 
             mock_client.chat.completions.create.side_effect = fake_create

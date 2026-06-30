@@ -53,7 +53,7 @@ class AffiliationExtractor:
 
     The HTTP client is created lazily. The LLM extractor is constructed from
     ``llm_config`` (``{api_key, api_base, model}``); if omitted or without an
-    API key, sources are still fetched but no affiliations are extracted.
+    API key, enrichment is a no-op (no ArXiv source fetch, no LLM call).
     """
 
     def __init__(
@@ -68,8 +68,7 @@ class AffiliationExtractor:
                         If None, creates its own client.
             llm_config: Optional ``{"api_key", "api_base", "model"}`` for the
                         LLM affiliation extractor. When None or without an
-                        ``api_key``, affiliation extraction is a no-op
-                        (sources are still fetched).
+                        ``api_key``, enrichment is a no-op.
         """
         self._client = http_client
         self._owns_client = http_client is None
@@ -230,13 +229,17 @@ class AffiliationExtractor:
         """
         if paper.affiliations:  # Already has affiliations
             return paper
+        if not self._llm.is_enabled:
+            return paper
 
         result = await self._fetch_source_for(paper)
         if result is None:
             return paper
         _, tex = result
 
-        mapping = self._llm.extract_batch([(paper.arxiv_id, tex)])
+        import asyncio
+
+        mapping = await asyncio.to_thread(self._llm.extract_batch, [(paper.arxiv_id, tex)])
         affs = mapping.get(paper.arxiv_id, [])
         if affs:
             paper.affiliations = affs[:MAX_AFFILIATIONS]
@@ -261,6 +264,9 @@ class AffiliationExtractor:
         """
         if not papers:
             return papers
+        if not self._llm.is_enabled:
+            logger.debug("Affiliation extraction skipped: no LLM API key configured")
+            return papers
 
         import asyncio
 
@@ -275,14 +281,12 @@ class AffiliationExtractor:
                 continue
 
             # Fetch sources concurrently (rate-limited by batch_size).
-            fetch_results = await asyncio.gather(
-                *(self._fetch_source_for(p) for p in need)
-            )
+            fetch_results = await asyncio.gather(*(self._fetch_source_for(p) for p in need))
             papers_tex = [r for r in fetch_results if r is not None]
 
             # One batched LLM request for everything we fetched this round.
             if papers_tex:
-                mapping = self._llm.extract_batch(papers_tex)
+                mapping = await asyncio.to_thread(self._llm.extract_batch, papers_tex)
                 for paper in need:
                     affs = mapping.get(paper.arxiv_id, [])
                     if affs:
@@ -310,9 +314,9 @@ class AffiliationExtractor:
 async def enrich_papers_with_affiliations(papers: list[ArxivPaper]) -> list[ArxivPaper]:
     """Async function to enrich papers with affiliations.
 
-    Convenience wrapper with no LLM config: sources are fetched but
-    affiliations are left unset (no API key). Prefer constructing an
-    :class:`AffiliationExtractor` with ``llm_config`` for real extraction.
+    Convenience wrapper with no LLM config: returns papers unchanged.
+    Prefer constructing an :class:`AffiliationExtractor` with ``llm_config``
+    for real extraction.
 
     Args:
         papers: List of ArxivPaper objects to enrich
