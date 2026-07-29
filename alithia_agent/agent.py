@@ -1,7 +1,8 @@
 """Alithia agent bootstrap on soothe-nano (flowjet-style host).
 
 Provides branded CLI entry that:
-- Uses SOOTHE_HOME=~/.alithia/soothe/
+- Uses SOOTHE_HOME=~/.alithia/soothe/ (set in ``alithia_agent.__init__``)
+- Loads nano.yml via the same resolution order as flowjet-agent
 - Loads alithia domain config from ~/.alithia/config.yml
 - Enables paperscout/paperlens plugins and nano deepxiv tools
 - Builds an in-process SootheNanoAgent via create_nano_agent
@@ -20,12 +21,12 @@ from typing import Any, Literal
 
 from langchain_core.messages import HumanMessage
 from soothe_nano import SootheNanoAgent, create_nano_agent
-from soothe_nano.config import SOOTHE_HOME as NANO_SOOTHE_HOME
-from soothe_nano.config import SootheConfig
+from soothe_nano.config import SOOTHE_HOME, SootheConfig
 from soothe_nano.config.models import SubagentConfig
 
-from alithia_agent import ALITHIA_HOME, SOOTHE_HOME
-from alithia_agent.config import Config, load_config
+from alithia_agent import ALITHIA_HOME
+from alithia_agent.config import Config
+from alithia_agent.config import load_config as load_alithia_config
 from alithia_agent.soothe_defaults import apply_soothe_home_defaults
 
 logger = logging.getLogger(__name__)
@@ -42,16 +43,30 @@ Guidelines:
 """
 
 
-def default_nano_config_path() -> Path:
-    """Return ``~/.alithia/soothe/config/nano.yml`` (respects SOOTHE_HOME)."""
-    # Prefer env / package SOOTHE_HOME (alithia redirects to ~/.alithia/soothe).
-    home = Path(os.environ.get("SOOTHE_HOME", str(SOOTHE_HOME)))
+# ---------------------------------------------------------------------------
+# nano.yml (soothe-nano) — same API surface as flowjet-agent
+# ---------------------------------------------------------------------------
+
+
+def default_config_path() -> Path:
+    """Return ``$SOOTHE_HOME/config/nano.yml``.
+
+    Alithia sets ``SOOTHE_HOME`` to ``~/.alithia/soothe`` before nano imports.
+    Reads the live env so late redirects / tests still resolve correctly.
+    """
+    home = Path(os.environ.get("SOOTHE_HOME", str(SOOTHE_HOME))).expanduser()
     return home / "config" / "nano.yml"
 
 
-def load_nano_config(config_path: str | Path | None = None) -> SootheConfig:
-    """Load ``SootheConfig`` from nano.yml, or zero-config from env when missing."""
-    path = Path(config_path).expanduser() if config_path else default_nano_config_path()
+def load_config(config_path: str | Path | None = None) -> SootheConfig:
+    """Load ``SootheConfig`` from nano.yml, or bootstrap from env when missing.
+
+    Resolution order (matches flowjet-agent):
+    1. Explicit ``config_path``
+    2. ``$SOOTHE_HOME/config/nano.yml`` (default ``~/.alithia/soothe/config/nano.yml``)
+    3. ``SootheConfig()`` zero-config from ``OPENAI_API_KEY`` / ``ANTHROPIC_API_KEY``
+    """
+    path = Path(config_path).expanduser() if config_path else default_config_path()
     if path.is_file():
         return SootheConfig.from_yaml_file(str(path))
     if config_path is not None:
@@ -59,24 +74,29 @@ def load_nano_config(config_path: str | Path | None = None) -> SootheConfig:
     return SootheConfig()
 
 
+# Backward-compatible aliases
+default_nano_config_path = default_config_path
+load_nano_config = load_config
+
+
 def apply_alithia_defaults(config: SootheConfig) -> SootheConfig:
-    """Apply alithia CLI defaults without requiring them in nano.yml.
+    """Apply alithia CLI defaults without requiring them in ``nano.yml``.
 
     - SQLite checkpointer / durability
     - Enable paperscout / paperlens subagents
     - Enable nano built-in deepxiv tools
-    - Research-oriented system prompt when unset / default
-    - Redirect memory paths under ~/.alithia/soothe
+    - Research-oriented system prompt when unset / stock default
+    - Redirect memory paths under ``$SOOTHE_HOME``
     """
+    soothe_home = Path(os.environ.get("SOOTHE_HOME", str(SOOTHE_HOME))).expanduser()
+
     durability = config.agent.protocols.durability.model_copy(
         update={"backend": "sqlite", "checkpointer": "sqlite"}
     )
     protocols = config.agent.protocols.model_copy(update={"durability": durability})
     agent_updates: dict[str, Any] = {"protocols": protocols}
-    # Keep an explicit research prompt when the config still has the stock default.
-    if not (config.agent.system_prompt or "").strip() or "Soothe" in (
-        config.agent.system_prompt or ""
-    ):
+    prompt = (config.agent.system_prompt or "").strip()
+    if not prompt or "Soothe" in prompt:
         agent_updates["system_prompt"] = _RESEARCH_SYSTEM_PROMPT
     agent = config.agent.model_copy(update=agent_updates)
 
@@ -102,7 +122,7 @@ def apply_alithia_defaults(config: SootheConfig) -> SootheConfig:
             "tools": tools,
         }
     )
-    apply_soothe_home_defaults(updated, SOOTHE_HOME)
+    apply_soothe_home_defaults(updated, soothe_home)
     return updated
 
 
@@ -138,35 +158,38 @@ class AlithiaAgent:
 
     def __init__(
         self,
-        config_path: str | None = None,
+        config_path: str | Path | None = None,
         *,
-        nano_config_path: str | Path | None = None,
+        alithia_config_path: str | Path | None = None,
         verbose: bool = False,
     ) -> None:
         """Initialize AlithiaAgent.
 
         Args:
-            config_path: Optional override for alithia domain config path.
-            nano_config_path: Optional override for nano.yml path.
+            config_path: Optional override for nano.yml (soothe-nano).
+            alithia_config_path: Optional override for domain ``~/.alithia/config.yml``.
             verbose: Log extra bootstrap detail.
         """
         self._setup_directories()
-        self._alithia_config = load_config(config_path)
-        self._nano_config = apply_alithia_defaults(load_nano_config(nano_config_path))
+        self._alithia_config = load_alithia_config(
+            str(alithia_config_path) if alithia_config_path else None
+        )
+        self._nano_config = load_config(config_path)
         self._verbose = verbose
         self._agent = build_agent(self._nano_config, verbose=verbose)
         logger.info(
-            "AlithiaAgent initialized (SOOTHE_HOME=%s, NANO_HOME=%s)",
-            SOOTHE_HOME,
-            NANO_SOOTHE_HOME,
+            "AlithiaAgent initialized (SOOTHE_HOME=%s, nano.yml=%s)",
+            os.environ.get("SOOTHE_HOME", SOOTHE_HOME),
+            default_config_path(),
         )
 
     def _setup_directories(self) -> None:
         """Ensure alithia / soothe directory structure exists."""
-        (SOOTHE_HOME / "config").mkdir(parents=True, exist_ok=True)
-        (SOOTHE_HOME / "logs").mkdir(parents=True, exist_ok=True)
-        (SOOTHE_HOME / "memory").mkdir(parents=True, exist_ok=True)
-        (SOOTHE_HOME / "data").mkdir(parents=True, exist_ok=True)
+        home = Path(os.environ.get("SOOTHE_HOME", str(SOOTHE_HOME))).expanduser()
+        (home / "config").mkdir(parents=True, exist_ok=True)
+        (home / "logs").mkdir(parents=True, exist_ok=True)
+        (home / "memory").mkdir(parents=True, exist_ok=True)
+        (home / "data").mkdir(parents=True, exist_ok=True)
         (ALITHIA_HOME / "data").mkdir(parents=True, exist_ok=True)
 
     async def run(
@@ -242,8 +265,16 @@ class AlithiaAgent:
         return self._alithia_config
 
     @classmethod
-    def create(cls, config_path: str | None = None, **kwargs: Any) -> AlithiaAgent:
-        """Factory method for AlithiaAgent."""
+    def create(
+        cls,
+        config_path: str | Path | None = None,
+        **kwargs: Any,
+    ) -> AlithiaAgent:
+        """Factory method for AlithiaAgent.
+
+        Args:
+            config_path: Optional nano.yml path (same as flowjet ``-c``).
+        """
         return cls(config_path, **kwargs)
 
 
@@ -251,6 +282,8 @@ __all__ = [
     "AlithiaAgent",
     "apply_alithia_defaults",
     "build_agent",
+    "default_config_path",
     "default_nano_config_path",
+    "load_config",
     "load_nano_config",
 ]

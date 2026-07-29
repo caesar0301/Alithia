@@ -12,21 +12,40 @@ from soothe_nano.config.models import SubagentConfig
 from alithia_agent.agent import (
     apply_alithia_defaults,
     build_agent,
-    default_nano_config_path,
-    load_nano_config,
+    default_config_path,
+    load_config,
 )
 from alithia_agent.stream import format_stream_chunk
 
 
-def test_default_nano_config_path_under_alithia_soothe(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_default_config_path_under_alithia_soothe(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("SOOTHE_HOME", "/tmp/alithia-test/soothe")
-    assert default_nano_config_path() == Path("/tmp/alithia-test/soothe/config/nano.yml")
+    assert default_config_path() == Path("/tmp/alithia-test/soothe/config/nano.yml")
 
 
-def test_load_nano_config_zero_config_when_missing(tmp_path: Path) -> None:
+def test_load_config_zero_config_when_missing(tmp_path: Path) -> None:
     missing = tmp_path / "does-not-exist.yml"
     with pytest.raises(FileNotFoundError):
-        load_nano_config(missing)
+        load_config(missing)
+
+
+def test_load_config_reads_nano_yml(tmp_path: Path) -> None:
+    path = tmp_path / "nano.yml"
+    path.write_text(
+        "providers:\n"
+        "  - name: local\n"
+        "    provider_type: openai\n"
+        "    api_key: test\n"
+        "    models: [m]\n"
+        "router_profiles:\n"
+        "  - name: default\n"
+        "    router:\n"
+        "      default: local:m\n"
+        "active_router_profile: default\n",
+        encoding="utf-8",
+    )
+    cfg = load_config(path)
+    assert cfg.active_router_profile == "default"
 
 
 def test_apply_alithia_defaults_enables_plugins_and_deepxiv() -> None:

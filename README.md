@@ -35,7 +35,8 @@ pip install alithia
 ```bash
 # Query path — user request through in-process soothe-nano
 alithia-agent "Find new papers about transformers"
-alithia-agent "Rank my PDFs in ~/research by relevance"
+alithia-agent -c ~/.alithia/config.yml "Rank my PDFs in ~/research by relevance"
+alithia-agent --soothe-config ./nano.yml "Find new papers about transformers"
 
 # Optional local subagent hint (biases the prompt; not soothed routing)
 alithia-agent --subagent paperscout "Check for new papers"
@@ -48,17 +49,18 @@ alithia-agent daemon stop
 
 ## Configuration
 
-- **Domain:** `~/.alithia/config.yml` (paperscout / paperlens / storage / daemon)
-- **Nano runtime:** `~/.alithia/soothe/config/nano.yml` (providers / router)
-
-Copy the repo template:
+| Flag / file | Role |
+|-------------|------|
+| `-c` / `--config` → `~/.alithia/config.yml` | Domain: paperscout / paperlens / storage / daemon |
+| `--soothe-config` → `~/.alithia/soothe/config/nano.yml` | Soothe-nano providers / router |
 
 ```bash
 mkdir -p ~/.alithia/soothe/config
 cp nano.yml ~/.alithia/soothe/config/nano.yml
 ```
 
-`SOOTHE_HOME` is set to `~/.alithia/soothe` automatically.
+`SOOTHE_HOME` is set to `~/.alithia/soothe` automatically. Paperscout/paperlens and
+deepxiv tools are enabled in code defaults when omitted from `nano.yml`.
 
 ## License
 

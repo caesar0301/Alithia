@@ -99,9 +99,10 @@ Optional `--subagent NAME` is a local prompt bias only — not soothed `preferre
 
 ### 5.1 Agent bootstrap
 
-* `load_nano_config` → `SootheConfig` from `nano.yml` (or env zero-config)
+* `load_config` / `default_config_path` → `SootheConfig` from `$SOOTHE_HOME/config/nano.yml` (flowjet-style; env zero-config fallback)
 * `apply_alithia_defaults` enables paperscout/paperlens, deepxiv tools, sqlite durability
 * `build_agent` → `create_nano_agent(...)`
+* CLI: `-c/--config` selects domain `~/.alithia/config.yml`; `--soothe-config` selects nano.yml
 * `register_alithia_plugins` uses entry points, with manual fallback for editable installs
 
 ### 5.2 Plugin factories

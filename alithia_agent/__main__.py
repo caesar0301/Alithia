@@ -72,6 +72,8 @@ def setup_logging(verbose: bool, quiet: bool, *, lightweight: bool = False) -> N
 
 def parse_args() -> argparse.Namespace:
     """Parse command line arguments."""
+    from alithia_agent.agent import default_config_path
+
     parser = argparse.ArgumentParser(
         prog="alithia-agent",
         description="CLI research assistant powered by soothe-nano",
@@ -79,10 +81,19 @@ def parse_args() -> argparse.Namespace:
 
     # Global options
     parser.add_argument(
+        "-c",
         "--config",
         type=str,
         default=None,
-        help="Alithia config file path (default: ~/.alithia/config.yml)",
+        metavar="PATH",
+        help="Alithia domain config (default: ~/.alithia/config.yml)",
+    )
+    parser.add_argument(
+        "--soothe-config",
+        type=str,
+        default=None,
+        metavar="PATH",
+        help=f"Soothe-nano config / nano.yml (default: {default_config_path()})",
     )
     parser.add_argument(
         "--verbose",
@@ -297,7 +308,9 @@ def start_daemon(args: argparse.Namespace) -> int:
     # Build command
     cmd = [sys.executable, "-m", "alithia_agent", "daemon", "run"]
     if args.config:
-        cmd.extend(["--config", args.config])
+        cmd.extend(["-c", args.config])
+    if getattr(args, "soothe_config", None):
+        cmd.extend(["--soothe-config", args.soothe_config])
     if args.verbose:
         cmd.append("--verbose")
 
@@ -447,7 +460,11 @@ async def run_agent(args: argparse.Namespace) -> int:
     """
     from alithia_agent.stream import consume_stream_stdout
 
-    agent = AlithiaAgent.create(args.config, verbose=args.verbose)
+    agent = AlithiaAgent.create(
+        getattr(args, "soothe_config", None),
+        alithia_config_path=args.config,
+        verbose=args.verbose,
+    )
 
     result_stream = agent.run(
         user_input=args.prompt,
