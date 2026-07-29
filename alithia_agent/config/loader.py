@@ -112,7 +112,7 @@ DEFAULT_CONFIG = {
         "query": "cs.AI+cs.CV+cs.LG+cs.CL",
         "max_papers": 25,
         "max_papers_queried": 500,
-        "send_email": True,
+        "send_email": False,
         "send_empty": False,
         "ignore_patterns": [],
         "lookback_days": 7,

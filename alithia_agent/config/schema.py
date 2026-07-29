@@ -164,7 +164,7 @@ class PaperScoutAgentConfig(BaseModel):
     query: str = "cs.AI+cs.CV+cs.LG+cs.CL"
     max_papers: int = Field(default=25, ge=1, le=100)
     max_papers_queried: int = Field(default=500, ge=10, le=1000)
-    send_email: bool = True
+    send_email: bool = False
     send_empty: bool = False
     ignore_patterns: list[str] = Field(default_factory=list)
     big_bang: date | None = None
