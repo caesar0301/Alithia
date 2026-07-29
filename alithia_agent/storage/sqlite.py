@@ -20,11 +20,18 @@ class SQLiteStorage:
     """SQLite-based key-value storage.
 
     Implements AsyncPersistStore protocol for soothe integration.
-    Thread-safe with per-thread connection pooling.
+    Thread-safe with per-thread connections.
+
+    Note: connections are stored in ``threading.local`` so that when a worker
+    thread exits, its connection is torn down automatically. The previous
+    class-level ``_connections`` dict (keyed by ``threading.get_ident()``)
+    leaked stale connections after a thread died, and because Python reuses
+    thread IDs a *new* thread could retrieve a dead thread's now-invalid
+    connection and segfault inside ``_pysqlite_query_execute`` (see the
+    py3.11/py3.12 SIGSEGV crash reports of Jun 29 / Jul 01 2026).
     """
 
-    _connections: dict[int, sqlite3.Connection] = {}  # thread_id → connection
-    _lock = threading.Lock()
+    _lock = threading.Lock()  # serializes schema-init only
 
     def __init__(self, db_path: Path | str):
         """Initialize storage with database path.
@@ -33,6 +40,7 @@ class SQLiteStorage:
             db_path: Path to SQLite database file.
         """
         self.db_path = Path(db_path)
+        self._local = threading.local()  # per-thread connection, auto-cleaned on thread exit
         self._ensure_db_exists()
 
     def _ensure_db_exists(self) -> None:
@@ -63,18 +71,17 @@ class SQLiteStorage:
     def _get_connection(self) -> sqlite3.Connection:
         """Get thread-local connection.
 
-        Each thread gets its own connection to avoid locking issues.
+        Each thread gets its own connection stored in ``threading.local``,
+        which is torn down automatically when the thread exits — so a new
+        thread can never retrieve a dead thread's (now invalid) connection.
         """
-        thread_id = threading.get_ident()
-
-        with self._lock:
-            if thread_id not in self._connections:
-                conn = sqlite3.connect(str(self.db_path))
-                conn.row_factory = sqlite3.Row
-                self._connections[thread_id] = conn
-                logger.debug(f"Created new connection for thread {thread_id}")
-
-            return self._connections[thread_id]
+        conn = getattr(self._local, "conn", None)
+        if conn is None:
+            conn = sqlite3.connect(str(self.db_path))
+            conn.row_factory = sqlite3.Row
+            self._local.conn = conn  # dies with the thread automatically
+            logger.debug(f"Created new connection for thread {threading.get_ident()}")
+        return conn
 
     async def load(self, key: str) -> Any | None:
         """Load value by key.
@@ -402,12 +409,18 @@ class SQLiteStorage:
             return []
 
     def close(self) -> None:
-        """Close all connections."""
-        with self._lock:
-            for conn in self._connections.values():
-                conn.close()
-            self._connections.clear()
-            logger.info("SQLite storage connections closed")
+        """Close the current thread's connection.
+
+        Other threads' connections are cleaned up automatically by
+        ``threading.local`` when those threads exit. This method only
+        closes the calling thread's connection (the one that would be
+        returned by ``_get_connection``).
+        """
+        conn = getattr(self._local, "conn", None)
+        if conn is not None:
+            conn.close()
+            self._local.conn = None
+            logger.info("SQLite storage connection closed for current thread")
 
 
 class AlithiaStore:

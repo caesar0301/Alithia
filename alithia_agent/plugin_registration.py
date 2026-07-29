@@ -1,6 +1,5 @@
-"""Alithia plugin registration for soothe framework.
+"""Alithia plugin registration for soothe-nano.
 
-Provides plugin registration for paperscout and paperlens subagents.
 Plugins are registered via:
 1. Entry points in pyproject.toml (preferred, when package is installed)
 2. Manual registration fallback (for development without install)
@@ -13,18 +12,16 @@ import logging
 
 logger = logging.getLogger(__name__)
 
+_ALITHIA_PLUGIN_NAMES = frozenset({"paperscout", "paperlens", "deepxiv"})
+
 
 def _check_entry_points_registered() -> bool:
-    """Check if alithia plugins are registered via entry points.
-
-    Returns:
-        True if plugins are discoverable via soothe.plugins entry points.
-    """
+    """Return True if any alithia plugin is discoverable via soothe.plugins."""
     try:
         entry_points = importlib.metadata.entry_points(group="soothe.plugins")
         for ep in entry_points:
-            if ep.name in ("paperscout", "paperlens", "deepxiv"):
-                logger.debug(f"Found {ep.name} in soothe.plugins entry points")
+            if ep.name in _ALITHIA_PLUGIN_NAMES:
+                logger.debug("Found %s in soothe.plugins entry points", ep.name)
                 return True
     except Exception:
         pass
@@ -32,17 +29,15 @@ def _check_entry_points_registered() -> bool:
 
 
 def register_alithia_plugins() -> None:
-    """Register alithia plugins in soothe's global registry.
+    """Register alithia plugins in soothe-nano's global registry when needed.
 
-    Uses entry points when package is installed (preferred).
-    Falls back to manual registration for development without install.
+    Uses entry points when the package is installed (preferred). Falls back to
+    manual registration for development without install.
 
     Note:
-        When running via `uv run` or `pip install -e .`, entry points
-        are automatically registered. Manual registration is only needed
-        when running directly from source without installation.
+        ``create_nano_agent`` also loads plugins via entry points. Manual
+        registration is only needed when running from source without install.
     """
-    # Check if already registered via entry points
     if _check_entry_points_registered():
         logger.info("Alithia plugins available via entry points (no manual registration needed)")
         return
@@ -50,9 +45,8 @@ def register_alithia_plugins() -> None:
     logger.info("Entry points not found, using manual plugin registration")
 
     try:
-        # Create registry if not initialized
-        import soothe.plugin.global_registry as gr_module
-        from soothe.plugin.registry import PluginRegistry
+        import soothe_nano.plugin.global_registry as gr_module
+        from soothe_nano.plugin.registry import PluginRegistry
 
         if gr_module._global_registry is None:
             gr_module._global_registry = PluginRegistry()
@@ -60,17 +54,15 @@ def register_alithia_plugins() -> None:
 
         registry = gr_module._global_registry
 
-        # Import and register paperscout plugin
         from alithia_agent.paperscout import PaperScoutPlugin
 
         registry.register(
             getattr(PaperScoutPlugin, "_plugin_manifest"),
             source="config",
-            priority=30,  # PRIORITY_CONFIG level
+            priority=30,
         )
         logger.info("Manually registered paperscout plugin")
 
-        # Import and register paperlens plugin
         from alithia_agent.paperlens import PaperLensPlugin
 
         registry.register(
@@ -80,18 +72,8 @@ def register_alithia_plugins() -> None:
         )
         logger.info("Manually registered paperlens plugin")
 
-        # Import and register deepxiv plugin
-        from alithia_agent.plugins.deepxiv import DeepxivPlugin
-
-        registry.register(
-            getattr(DeepxivPlugin, "_plugin_manifest"),
-            source="config",
-            priority=30,
-        )
-        logger.info("Manually registered deepxiv plugin")
-
     except ImportError as e:
-        logger.warning(f"Could not register alithia plugins: {e}")
+        logger.warning("Could not register alithia plugins: %s", e)
         raise
 
 

@@ -1,42 +1,64 @@
 # Alithia Agent
 
-CLI research assistant for paper discovery and analysis.
+CLI research assistant for paper discovery and analysis, powered by
+[soothe-nano](https://github.com/mirasoth/soothe-nano) (same host style as FlowJet).
+
+**Boundary:** Alithia runs soothe-nano **in-process** only. It does **not** talk to
+soothed / soothe-daemon.
 
 ## Features
 
 - **PaperScout**: ArXiv paper discovery with email notifications
 - **PaperLens**: Local PDF analysis with similarity ranking
-- **DeepXiv**: Academic paper search and progressive reading toolkit (arXiv, bioRxiv, medRxiv, PMC)
+- **DeepXiv**: Academic paper search via nano’s built-in toolkit (arXiv, bioRxiv, medRxiv, PMC)
 
-## Available Plugins
+## Plugins
 
-Alithia provides the following integrated plugins:
+Paperscout and paperlens register as `soothe.plugins` entry points and load inside
+the alithia nano agent:
 
-| Plugin | Type | Description | Source |
-|--------|------|-------------|--------|
-| paperscout | Subagent | Daily ArXiv paper recommendations based on Zotero library | Built-in |
-| paperlens | Subagent | Local PDF analysis and similarity ranking | Built-in |
-| deepxiv | Tools | Academic paper search with TLDRs and section-level access | [Migrated from soothe.toolkits](docs/migration-deepxiv-to-alithia.md) |
+| Plugin | Type | Description |
+|--------|------|-------------|
+| paperscout | Subagent | Daily ArXiv recommendations from research interests / Zotero |
+| paperlens | Subagent | Local PDF analysis and similarity ranking |
+| deepxiv | Tools | Nano built-in academic search / section reading (enabled by default) |
 
 ## Installation
 
 ```bash
 pip install alithia
+# or: uv sync
 ```
 
 ## Usage
 
 ```bash
-# Run PaperScout for daily paper recommendations
-python -m alithia_agent --subagent paperscout
+# Query path — user request through in-process soothe-nano
+alithia-agent "Find new papers about transformers"
+alithia-agent "Rank my PDFs in ~/research by relevance"
 
-# Run PaperLens to analyze local PDFs
-python -m alithia_agent --subagent paperlens --query "transformers" --pdf-path ~/papers
+# Optional local subagent hint (biases the prompt; not soothed routing)
+alithia-agent --subagent paperscout "Check for new papers"
+
+# Alithia PaperScout scheduler daemon (domain cron; not soothed)
+alithia-agent daemon start
+alithia-agent daemon status
+alithia-agent daemon stop
 ```
 
 ## Configuration
 
-Configuration is stored in `~/.alithia/config.json`. See the documentation for full configuration options.
+- **Domain:** `~/.alithia/config.yml` (paperscout / paperlens / storage / daemon)
+- **Nano runtime:** `~/.alithia/soothe/config/nano.yml` (providers / router)
+
+Copy the repo template:
+
+```bash
+mkdir -p ~/.alithia/soothe/config
+cp nano.yml ~/.alithia/soothe/config/nano.yml
+```
+
+`SOOTHE_HOME` is set to `~/.alithia/soothe` automatically.
 
 ## License
 

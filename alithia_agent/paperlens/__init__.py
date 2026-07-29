@@ -118,24 +118,20 @@ class PaperLensPlugin:
         Returns:
             Subagent dict with name, description, runnable.
         """
-        # Extract alithia-specific config from kwargs
-        alithia_config = kwargs.get("alithia_config")
-        user_id = kwargs.get("user_id", "default")
+        from alithia_agent.runtime_resolve import resolve_alithia_runtime
 
-        # Build runtime config from alithia config if available
-        if alithia_config:
-            from alithia_agent.config import Config
-
-            try:
-                full_config = Config(**alithia_config)
-                runtime_config = PaperLensRuntimeConfig.build_runtime_config(full_config)
-            except Exception as e:
-                logger.warning(f"Could not build runtime config from alithia_config: {e}")
-                runtime_config = PaperLensRuntimeConfig()
-        else:
+        full_config, _store, user_id = resolve_alithia_runtime(
+            alithia_config=kwargs.get("alithia_config"),
+            store=kwargs.get("store"),
+            user_id=kwargs.get("user_id"),
+        )
+        try:
+            runtime_config = PaperLensRuntimeConfig.build_runtime_config(full_config)
+        except Exception as e:
+            logger.warning("Could not build PaperLens runtime config: %s", e)
             runtime_config = PaperLensRuntimeConfig()
 
-        logger.info(f"Creating PaperLens subagent for user {user_id}")
+        logger.info("Creating PaperLens subagent for user %s", user_id)
 
         return create_paperlens_subagent(
             config=runtime_config,

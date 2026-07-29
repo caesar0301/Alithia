@@ -1,15 +1,15 @@
 """CLI entry point for alithia-agent.
 
 Usage:
-    # Intent-based routing (automatic):
+    # Query path (explicit user request through soothe-nano):
     python -m alithia_agent "Find new papers about transformers"
     python -m alithia_agent "Rank my PDFs in ~/research by relevance"
 
-    # Explicit subagent invocation:
+    # Optional local subagent hint (biases the prompt; not soothed routing):
     python -m alithia_agent --subagent paperscout "Check for new papers"
     python -m alithia_agent --subagent paperlens "Analyze ~/papers directory"
 
-    # Daemon management:
+    # Alithia PaperScout scheduler daemon:
     python -m alithia_agent daemon start    # Start daemon (background)
     python -m alithia_agent daemon stop     # Stop daemon
     python -m alithia_agent daemon restart  # Restart daemon
@@ -73,8 +73,8 @@ def setup_logging(verbose: bool, quiet: bool, *, lightweight: bool = False) -> N
 def parse_args() -> argparse.Namespace:
     """Parse command line arguments."""
     parser = argparse.ArgumentParser(
-        prog="alithia_agent",
-        description="CLI research assistant powered by soothe framework",
+        prog="alithia-agent",
+        description="CLI research assistant powered by soothe-nano",
     )
 
     # Global options
@@ -129,7 +129,7 @@ def parse_args() -> argparse.Namespace:
         "--subagent",
         choices=["paperscout", "paperlens"],
         default=None,
-        help="Explicitly invoke a specific subagent (bypasses intent routing)",
+        help="Hint a specific subagent in the query (local convenience)",
     )
     run_parser.add_argument(
         "--thread-id",
@@ -445,50 +445,39 @@ async def run_agent(args: argparse.Namespace) -> int:
     Returns:
         Exit code (0 for success, non-zero for errors).
     """
-    # Create alithia agent
-    agent = AlithiaAgent.create(args.config)
+    from alithia_agent.stream import consume_stream_stdout
 
-    # Run user input through soothe's agent loop
-    result_stream = await agent.run(
+    agent = AlithiaAgent.create(args.config, verbose=args.verbose)
+
+    result_stream = agent.run(
         user_input=args.prompt,
         thread_id=args.thread_id,
-        subagent=args.subagent,  # Explicit override if provided
+        subagent=args.subagent,
     )
 
-    # Process stream
     output_parts: list[Any] = []
     errors: list[str] = []
 
     async for chunk in result_stream:
         if args.output == "json":
             output_parts.append(chunk)
-        else:
-            # Format for stdout
-            if isinstance(chunk, dict):
-                # Handle different chunk types
-                if "content" in chunk:
-                    print(chunk["content"], end="", flush=True)
-                elif "event" in chunk:
-                    # Soothe event - extract summary if available
-                    event = chunk.get("event", {})
-                    if isinstance(event, dict) and "summary" in event:
-                        if args.verbose:
-                            print(f"\n[{event.get('type', 'event')}] {event['summary']}")
-                elif "error" in chunk:
-                    errors.append(chunk["error"])
-                    if args.verbose:
-                        print(f"\n[ERROR] {chunk['error']}")
-            elif hasattr(chunk, "content"):
-                # LangChain message
-                print(chunk.content, end="", flush=True)
+            continue
+        if args.output == "none":
+            continue
+        try:
+            consume_stream_stdout(chunk, verbose=args.verbose)
+        except Exception as e:
+            errors.append(str(e))
+            if args.verbose:
+                print(f"\n[ERROR] {e}")
 
-    # JSON output
     if args.output == "json":
         print(json.dumps(output_parts, indent=2, default=str))
+    elif args.output == "stdout":
+        print()
 
-    # Check for errors
     if errors:
-        logger.error(f"Execution completed with {len(errors)} errors")
+        logger.error("Execution completed with %d errors", len(errors))
         return EXIT_EXEC_ERROR
 
     return EXIT_SUCCESS

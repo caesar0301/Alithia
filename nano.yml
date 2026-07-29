@@ -1,0 +1,36 @@
+# Minimal Alithia / soothe-nano config — local template.
+#
+# Usage:
+#   mkdir -p ~/.alithia/soothe/config
+#   cp nano.yml ~/.alithia/soothe/config/nano.yml
+#   # or: alithia-agent -c ./nano.yml "Find new papers about transformers"
+#
+# Alithia sets SOOTHE_HOME=~/.alithia/soothe and enables paperscout/paperlens
+# plus nano deepxiv tools in code defaults. This file mainly configures providers.
+#
+# Requires OPENAI_API_KEY (or edit providers for a local OpenAI-compatible server).
+
+providers:
+  - name: openai
+    provider_type: openai
+    api_key: "${OPENAI_API_KEY}"
+    models:
+      - gpt-4o-mini
+      - gpt-4o
+
+router_profiles:
+  - name: default
+    router:
+      default: "openai:gpt-4o-mini"
+
+active_router_profile: default
+
+subagents:
+  paperscout:
+    enabled: true
+  paperlens:
+    enabled: true
+
+tools:
+  deepxiv:
+    enabled: true

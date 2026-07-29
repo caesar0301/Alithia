@@ -21,6 +21,7 @@ This document tracks all RFC lifecycle events in chronological order (newest fir
 
 | Date | Event | RFC | Description |
 |------|-------|-----|-------------|
+| 2026-07-29 | Updated | RFC-009 | Refactored to soothe-nano in-process host (flowjet-style); soothed out of scope; query vs alithia daemon paths |
 | 2026-06-29 | Updated | RFC-010, RFC-006 | Removed deprecated code/config: dropped the `research_interests` list + `expertise_level` from `ResearcherProfileConfig` and loader defaults; removed the `SmtpConfig`/`ZoteroConfig`/`PaperScoutConfig` legacy aliases. Existing configs still load via `extra="allow"`. |
 | 2026-06-29 | Updated | RFC-010, RFC-003 | Cut: removed the legacy `zotero_papers` corpus slot + `PaperReranker(corpus=)` param. Zotero items now flow only through the markdown sync → `ResearchInterest(source="zotero")` units → the single interests-only matching logic. Eliminates the cache-double-count risk. |
 | 2026-06-29 | Created | RFC-010-research-interests-knowledge | Research interests as Markdown knowledge base; Zotero optional; unified-corpus matching |

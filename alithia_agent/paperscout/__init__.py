@@ -120,23 +120,17 @@ class PaperScoutPlugin:
         Returns:
             Subagent dict with name, description, runnable.
         """
-        # Extract alithia-specific config from kwargs
-        alithia_config = kwargs.get("alithia_config")
-        store = kwargs.get("store")
-        user_id = kwargs.get("user_id", "default")
+        from alithia_agent.runtime_resolve import resolve_alithia_runtime
 
-        # Build runtime config from alithia config if available
-        if alithia_config:
-            # Use the existing build_runtime_config from paperscout.state
-            from alithia_agent.config import Config
-
-            try:
-                full_config = Config(**alithia_config)
-                runtime_config = PaperScoutRuntimeConfig.build_runtime_config(full_config)
-            except Exception as e:
-                logger.warning(f"Could not build runtime config from alithia_config: {e}")
-                runtime_config = PaperScoutRuntimeConfig()
-        else:
+        full_config, store, user_id = resolve_alithia_runtime(
+            alithia_config=kwargs.get("alithia_config"),
+            store=kwargs.get("store"),
+            user_id=kwargs.get("user_id"),
+        )
+        try:
+            runtime_config = PaperScoutRuntimeConfig.build_runtime_config(full_config)
+        except Exception as e:
+            logger.warning("Could not build PaperScout runtime config: %s", e)
             runtime_config = PaperScoutRuntimeConfig()
 
         from_date = kwargs.get("from_date")
@@ -149,7 +143,7 @@ class PaperScoutPlugin:
                 source=source,
             )
 
-        logger.info(f"Creating PaperScout subagent for user {user_id}")
+        logger.info("Creating PaperScout subagent for user %s", user_id)
 
         return create_paperscout_subagent(
             config=runtime_config,

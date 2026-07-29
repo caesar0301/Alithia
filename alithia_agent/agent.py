@@ -1,224 +1,173 @@
-"""AlithiaAgent wrapper class for soothe framework integration.
+"""Alithia agent bootstrap on soothe-nano (flowjet-style host).
 
-Provides branded CLI entry point that:
-- Sets SOOTHE_HOME to ~/.alithia/soothe/
+Provides branded CLI entry that:
+- Uses SOOTHE_HOME=~/.alithia/soothe/
 - Loads alithia domain config from ~/.alithia/config.yml
-- Registers paperscout/paperlens/deepxiv plugins in soothe's global registry
-- Creates and manages soothe SootheRunner for protocol-orchestrated execution
+- Enables paperscout/paperlens plugins and nano deepxiv tools
+- Builds an in-process SootheNanoAgent via create_nano_agent
+
+Alithia does not use soothed / soothe-daemon.
 """
 
 from __future__ import annotations
 
 import logging
 import os
+import uuid
 from collections.abc import AsyncIterator
+from pathlib import Path
 from typing import Any, Literal
+
+from langchain_core.messages import HumanMessage
+from soothe_nano import SootheNanoAgent, create_nano_agent
+from soothe_nano.config import SOOTHE_HOME as NANO_SOOTHE_HOME
+from soothe_nano.config import SootheConfig
+from soothe_nano.config.models import SubagentConfig
 
 from alithia_agent import ALITHIA_HOME, SOOTHE_HOME
 from alithia_agent.config import Config, load_config
 from alithia_agent.soothe_defaults import apply_soothe_home_defaults
 
-# Soothe imports - handle gracefully if not fully available
-try:
-    from soothe.config.settings import SootheConfig
-    from soothe.runner import SootheRunner
-
-    HAS_SOOTHE = True
-except ImportError:
-    HAS_SOOTHE = False
-    SootheRunner = None  # type: ignore
-    SootheConfig = None  # type: ignore
-
 logger = logging.getLogger(__name__)
+
+_RESEARCH_SYSTEM_PROMPT = """\
+You are Alithia, a research assistant for academic paper discovery and analysis.
+
+Guidelines:
+- Be direct and concise. Lead with answers, not preambles.
+- Prefer paperscout for ArXiv digests, daily papers, and email notifications.
+- Prefer paperlens for ranking or analyzing local PDF collections.
+- Use deepxiv tools for targeted academic paper search and section reading.
+- Never reference your internal architecture, frameworks, or technical stack.
+"""
+
+
+def default_nano_config_path() -> Path:
+    """Return ``~/.alithia/soothe/config/nano.yml`` (respects SOOTHE_HOME)."""
+    # Prefer env / package SOOTHE_HOME (alithia redirects to ~/.alithia/soothe).
+    home = Path(os.environ.get("SOOTHE_HOME", str(SOOTHE_HOME)))
+    return home / "config" / "nano.yml"
+
+
+def load_nano_config(config_path: str | Path | None = None) -> SootheConfig:
+    """Load ``SootheConfig`` from nano.yml, or zero-config from env when missing."""
+    path = Path(config_path).expanduser() if config_path else default_nano_config_path()
+    if path.is_file():
+        return SootheConfig.from_yaml_file(str(path))
+    if config_path is not None:
+        raise FileNotFoundError(f"Config not found: {path}")
+    return SootheConfig()
+
+
+def apply_alithia_defaults(config: SootheConfig) -> SootheConfig:
+    """Apply alithia CLI defaults without requiring them in nano.yml.
+
+    - SQLite checkpointer / durability
+    - Enable paperscout / paperlens subagents
+    - Enable nano built-in deepxiv tools
+    - Research-oriented system prompt when unset / default
+    - Redirect memory paths under ~/.alithia/soothe
+    """
+    durability = config.agent.protocols.durability.model_copy(
+        update={"backend": "sqlite", "checkpointer": "sqlite"}
+    )
+    protocols = config.agent.protocols.model_copy(update={"durability": durability})
+    agent_updates: dict[str, Any] = {"protocols": protocols}
+    # Keep an explicit research prompt when the config still has the stock default.
+    if not (config.agent.system_prompt or "").strip() or "Soothe" in (
+        config.agent.system_prompt or ""
+    ):
+        agent_updates["system_prompt"] = _RESEARCH_SYSTEM_PROMPT
+    agent = config.agent.model_copy(update=agent_updates)
+
+    persistence = config.persistence.model_copy(update={"default_backend": "sqlite"})
+
+    subagents = dict(config.subagents)
+    for name in ("paperscout", "paperlens"):
+        existing = subagents.get(name)
+        if existing is None:
+            subagents[name] = SubagentConfig(enabled=True)
+        elif not existing.enabled:
+            subagents[name] = existing.model_copy(update={"enabled": True})
+
+    tools = config.tools
+    deepxiv = tools.deepxiv.model_copy(update={"enabled": True})
+    tools = tools.model_copy(update={"deepxiv": deepxiv})
+
+    updated = config.model_copy(
+        update={
+            "agent": agent,
+            "persistence": persistence,
+            "subagents": subagents,
+            "tools": tools,
+        }
+    )
+    apply_soothe_home_defaults(updated, SOOTHE_HOME)
+    return updated
+
+
+def build_agent(
+    config: SootheConfig,
+    *,
+    verbose: bool = False,
+) -> SootheNanoAgent:
+    """Build a soothe-nano agent with alithia plugins enabled."""
+    from alithia_agent.plugin_registration import register_alithia_plugins
+
+    register_alithia_plugins()
+    agent = create_nano_agent(apply_alithia_defaults(config))
+    if verbose:
+        names = []
+        for s in agent.subagents:
+            if isinstance(s, dict):
+                names.append(s.get("name", "?"))
+            else:
+                names.append(getattr(s, "name", "?"))
+        logger.debug("Nano agent ready (subagents=%s)", names)
+    return agent
 
 
 class AlithiaAgent:
-    """Alithia research assistant powered by soothe framework.
-
-    Wraps soothe's SootheRunner with alithia-specific initialization:
-    - Uses SOOTHE_HOME=~/.alithia/soothe/ (set in __init__.py)
-    - Loads alithia domain config from ~/.alithia/config.yml
-    - Registers paperscout/paperlens/deepxiv plugins in soothe's global registry
-    - Provides branded execution interface with alithia defaults
+    """Alithia research assistant powered by soothe-nano.
 
     Example:
         agent = AlithiaAgent()
         async for chunk in agent.run("Find new papers about transformers"):
             print(chunk)
-
-        # Explicitly route to paperscout subagent
-        async for chunk in agent.run("arxiv daily papers", subagent="paperscout"):
-            print(chunk)
     """
 
-    def __init__(self, config_path: str | None = None) -> None:
+    def __init__(
+        self,
+        config_path: str | None = None,
+        *,
+        nano_config_path: str | Path | None = None,
+        verbose: bool = False,
+    ) -> None:
         """Initialize AlithiaAgent.
 
         Args:
-            config_path: Optional override for alithia config path.
-
-        Note:
-            SOOTHE_HOME is already set in alithia_agent.__init__.py
-            before any soothe imports happen.
-
-        Raises:
-            RuntimeError: If soothe framework is not available.
+            config_path: Optional override for alithia domain config path.
+            nano_config_path: Optional override for nano.yml path.
+            verbose: Log extra bootstrap detail.
         """
-        if not HAS_SOOTHE:
-            raise RuntimeError(
-                "Soothe framework not available. Install soothe package to use AlithiaAgent."
-            )
-
-        # Ensure soothe directories exist
-        self._setup_soothe_directories()
-
-        # Load alithia domain config
+        self._setup_directories()
         self._alithia_config = load_config(config_path)
+        self._nano_config = apply_alithia_defaults(load_nano_config(nano_config_path))
+        self._verbose = verbose
+        self._agent = build_agent(self._nano_config, verbose=verbose)
+        logger.info(
+            "AlithiaAgent initialized (SOOTHE_HOME=%s, NANO_HOME=%s)",
+            SOOTHE_HOME,
+            NANO_SOOTHE_HOME,
+        )
 
-        # Register alithia plugins in soothe's global registry
-        # This must happen BEFORE SootheRunner initialization
-        self._register_plugins()
-
-        # Load soothe config (from SOOTHE_HOME/config/config.yml)
-        soothe_config_path = SOOTHE_HOME / "config" / "config.yml"
-        if soothe_config_path.exists():
-            self._soothe_config = SootheConfig.from_yaml_file(str(soothe_config_path))
-        else:
-            # Create default soothe config
-            self._soothe_config = self._create_default_soothe_config()
-            logger.warning(
-                f"Soothe config not found at {soothe_config_path}. "
-                "Using defaults. Create config.yml for customization."
-            )
-
-        # Keep soothe runtime paths (memory, etc.) under ~/.alithia/soothe.
-        apply_soothe_home_defaults(self._soothe_config, SOOTHE_HOME)
-
-        # Ensure alithia subagents are enabled in the config
-        # This is critical because SootheConfig._merge_subagents() validator
-        # may run before plugin registry is fully populated via entry points.
-        # We explicitly inject paperscout/paperlens here to guarantee availability.
-        self._ensure_alithia_subagents_enabled()
-
-        # Ensure DeepXiv academic paper tools are enabled (core feature for alithia)
-        self._ensure_deepxiv_tools_enabled()
-
-        # Create soothe SootheRunner (Layer 2 with protocol orchestration)
-        self._runner = self._create_runner()
-
-        logger.info(f"AlithiaAgent initialized (SOOTHE_HOME={SOOTHE_HOME})")
-
-    def _setup_soothe_directories(self) -> None:
-        """Ensure soothe directory structure exists."""
+    def _setup_directories(self) -> None:
+        """Ensure alithia / soothe directory structure exists."""
         (SOOTHE_HOME / "config").mkdir(parents=True, exist_ok=True)
         (SOOTHE_HOME / "logs").mkdir(parents=True, exist_ok=True)
         (SOOTHE_HOME / "memory").mkdir(parents=True, exist_ok=True)
+        (SOOTHE_HOME / "data").mkdir(parents=True, exist_ok=True)
         (ALITHIA_HOME / "data").mkdir(parents=True, exist_ok=True)
-
-    def _register_plugins(self) -> None:
-        """Register alithia plugins in soothe's global registry."""
-        from alithia_agent.plugin_registration import register_alithia_plugins
-
-        register_alithia_plugins()
-        logger.debug("Alithia plugins registered in soothe global registry")
-
-    def _ensure_alithia_subagents_enabled(self) -> None:
-        """Ensure paperscout and paperlens subagents are enabled in soothe config.
-
-        The SootheConfig._merge_subagents validator adds plugin-discovered subagents
-        only if `is_plugins_loaded()` returns True at validation time. However,
-        the validator runs during config construction BEFORE plugins are fully
-        loaded via entry points. This method explicitly injects alithia subagents
-        to guarantee they are available for task tool routing.
-        """
-        from soothe.config.models import SubagentConfig
-
-        # Get or create alithia subagent entries
-        alithia_subagents = ["paperscout", "paperlens", "deepxiv"]
-
-        for name in alithia_subagents:
-            if name not in self._soothe_config.subagents:
-                self._soothe_config.subagents[name] = SubagentConfig(enabled=True)
-                logger.info(f"Injected subagent '{name}' into soothe config")
-            elif not self._soothe_config.subagents[name].enabled:
-                # Ensure it's enabled even if user config disabled it
-                self._soothe_config.subagents[name].enabled = True
-                logger.info(f"Enabled subagent '{name}' in soothe config")
-
-    def _ensure_deepxiv_tools_enabled(self) -> None:
-        """Ensure DeepXiv academic paper tools are enabled in soothe config.
-
-        DeepXiv tools are disabled by default in soothe. This method enables them
-        for alithia since academic paper search is a core feature.
-        """
-        if not hasattr(self._soothe_config, "tools"):
-            return
-
-        tools_config = self._soothe_config.tools
-        if hasattr(tools_config, "deepxiv"):
-            if not tools_config.deepxiv.enabled:
-                tools_config.deepxiv.enabled = True
-                logger.info("Enabled DeepXiv tools in soothe config")
-
-    def _create_default_soothe_config(self) -> Any:
-        """Create default soothe configuration with alithia subagents enabled.
-
-        Returns:
-            SootheConfig with minimal defaults for alithia, including paperscout
-            and paperlens subagents enabled by default.
-        """
-        # Create default config matching SootheConfig structure
-        # providers: list of ModelProviderConfig
-        # tools: ToolsConfig with enabled tool categories
-        # subagents: dict of SubagentConfig
-        # NOTE: paperscout and paperlens are added explicitly here because
-        # the SootheConfig._merge_subagents validator runs BEFORE plugins
-        # are loaded via entry points. By pre-registering them here, they
-        # survive the config validation pass and are available for resolution.
-        from soothe.config.models import SubagentConfig
-
-        default_config = {
-            "providers": [
-                {
-                    "name": "openai",
-                    "api_key": os.environ.get("OPENAI_API_KEY", ""),
-                },
-            ],
-            "router": {"default": "openai:gpt-4o-mini"},
-            "subagents": {
-                # Alithia custom subagents - enabled by default
-                "paperscout": SubagentConfig(enabled=True),
-                "paperlens": SubagentConfig(enabled=True),
-                "deepxiv": SubagentConfig(enabled=True),
-            },
-            "tools": {
-                "file_ops": {"enabled": True},
-                "wizsearch": {"enabled": True},
-                "deepxiv": {"enabled": True},
-            },
-            "memory": [],  # No memory plugins by default
-            "debug": False,
-        }
-
-        return SootheConfig(**default_config)
-
-    def _create_runner(self) -> Any:
-        """Create soothe SootheRunner with alithia configuration.
-
-        SootheRunner is Layer 2 of soothe architecture, providing:
-        - Protocol orchestration (intent classification, goal engine)
-        - Canonical StreamChunk format with soothe.* events
-        - preferred_subagent parameter for explicit routing
-
-        Returns:
-            SootheRunner instance ready for astream() execution.
-        """
-        # SootheRunner handles all agent creation internally
-        # Plugins were registered earlier in _register_plugins()
-        runner = SootheRunner(self._soothe_config)
-
-        logger.debug("SootheRunner created with alithia configuration")
-        return runner
 
     async def run(
         self,
@@ -227,28 +176,30 @@ class AlithiaAgent:
         thread_id: str | None = None,
         subagent: str | None = None,
     ) -> AsyncIterator[Any]:
-        """Run user input through soothe's runner loop.
+        """Run user input through the in-process nano agent.
 
         Args:
             user_input: Natural language input from user.
             thread_id: Optional thread identifier for persistence.
-            subagent: Optional explicit subagent name (bypasses intent routing).
-                When specified, uses SootheRunner's preferred_subagent parameter
-                which sets routing_hint="subagent" in RoutingClassification.
+            subagent: Optional local convenience hint appended to the query
+                (biases the model toward a named specialist). Not soothed routing.
 
-        Returns:
-            AsyncIterator of StreamChunk tuples from soothe execution.
-            Each chunk is (namespace, mode, data) in canonical format.
+        Yields:
+            Nano ``astream`` chunks ``(namespace, mode, data)``.
         """
-        logger.info(f"Running user input: {user_input[:50]}...")
-
-        # Use SootheRunner.astream() with preferred_subagent for explicit routing
-        # This is the clean Layer 2 API that handles RoutingClassification internally
-        return self._runner.astream(  # type: ignore[no-any-return]
-            user_input,
-            thread_id=thread_id,
-            preferred_subagent=subagent,  # Explicit routing when provided
-        )
+        prompt = user_input
+        if subagent:
+            prompt = f"[Please use the {subagent} subagent for this request.]\n\n{user_input}"
+        tid = thread_id or f"alithia-{uuid.uuid4().hex[:12]}"
+        logger.info("Running user input (thread=%s): %s...", tid, prompt[:50])
+        config = {"configurable": {"thread_id": tid}}
+        async for chunk in self._agent.astream(
+            {"messages": [HumanMessage(content=prompt)]},
+            config=config,
+            stream_mode=["messages", "updates", "custom"],
+            subgraphs=True,
+        ):
+            yield chunk
 
     async def run_paperscout(
         self,
@@ -257,19 +208,7 @@ class AlithiaAgent:
         to_date: str | None = None,
         source: Literal["manual", "scheduler", "scheduler_retry", "gap_fill"] = "manual",
     ) -> Any:
-        """Run PaperScout directly for an explicit date range.
-
-        Bypasses soothe StrangeLoop and executes the LangGraph workflow with
-        configured from_date/to_date parameters.
-
-        Args:
-            from_date: Start date (YYYY-MM-DD).
-            to_date: End date (YYYY-MM-DD). Defaults to from_date.
-            source: Run source tag (manual, scheduler, scheduler_retry, gap_fill).
-
-        Returns:
-            PaperScoutRunResult from the workflow execution.
-        """
+        """Run PaperScout directly for an explicit date range (daemon path)."""
         from alithia_agent.paperscout.runner import run_paperscout_for_dates
         from alithia_agent.storage.sqlite import AlithiaStore
 
@@ -288,9 +227,14 @@ class AlithiaAgent:
         )
 
     @property
-    def runner(self) -> Any:
-        """Access underlying soothe SootheRunner."""
-        return self._runner
+    def nano_agent(self) -> SootheNanoAgent:
+        """Access underlying soothe-nano agent."""
+        return self._agent
+
+    @property
+    def runner(self) -> SootheNanoAgent:
+        """Backward-compatible alias for ``nano_agent``."""
+        return self._agent
 
     @property
     def alithia_config(self) -> Config:
@@ -298,16 +242,15 @@ class AlithiaAgent:
         return self._alithia_config
 
     @classmethod
-    def create(cls, config_path: str | None = None) -> AlithiaAgent:
-        """Factory method for AlithiaAgent.
-
-        Args:
-            config_path: Optional config file path override.
-
-        Returns:
-            AlithiaAgent instance.
-        """
-        return cls(config_path)
+    def create(cls, config_path: str | None = None, **kwargs: Any) -> AlithiaAgent:
+        """Factory method for AlithiaAgent."""
+        return cls(config_path, **kwargs)
 
 
-__all__ = ["AlithiaAgent"]
+__all__ = [
+    "AlithiaAgent",
+    "apply_alithia_defaults",
+    "build_agent",
+    "default_nano_config_path",
+    "load_nano_config",
+]
