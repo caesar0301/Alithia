@@ -2,7 +2,7 @@
 
 from pathlib import Path
 
-from alithia_agent.research_interests import load_research_interests
+from alithia.research_interests import load_research_interests
 
 
 def _write(path: Path, content: str) -> Path:

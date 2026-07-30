@@ -5,7 +5,7 @@ from datetime import date
 import pytest
 from pydantic import ValidationError
 
-from alithia_agent.research_interests import ResearchInterest
+from alithia.research_interests import ResearchInterest
 
 
 def test_defaults():

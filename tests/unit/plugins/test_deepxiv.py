@@ -10,8 +10,8 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from alithia_agent.plugins.deepxiv import DeepxivPlugin
-from alithia_agent.plugins.deepxiv.toolkit import (
+from alithia.plugins.deepxiv import DeepxivPlugin
+from alithia.plugins.deepxiv.toolkit import (
     DeepxivGetFullPaperInput,
     DeepxivGetFullPaperTool,
     DeepxivPaperBriefInput,
@@ -874,7 +874,7 @@ class TestDeepxivPlugin:
         """Test plugin handles missing deepxiv_sdk gracefully."""
         plugin = DeepxivPlugin()
 
-        with patch("alithia_agent.plugins.deepxiv.DeepxivToolkit") as mock_toolkit_class:
+        with patch("alithia.plugins.deepxiv.DeepxivToolkit") as mock_toolkit_class:
             mock_toolkit_class.side_effect = ImportError("No module named 'deepxiv_sdk'")
             await plugin.on_load(mock_context)
 

@@ -5,8 +5,8 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
-from alithia_agent.models import ArxivPaper, ScoredPaper
-from alithia_agent.paperscout.digest_store import (
+from alithia.models import ArxivPaper, ScoredPaper
+from alithia.paperscout.digest_store import (
     build_daily_digest_record,
     digest_storage_key,
     list_daily_digest_dates,
@@ -14,7 +14,7 @@ from alithia_agent.paperscout.digest_store import (
     save_daily_digest,
     serialize_scored_paper,
 )
-from alithia_agent.paperscout.nodes import make_nodes
+from alithia.paperscout.nodes import make_nodes
 
 
 def _sample_scored() -> ScoredPaper:

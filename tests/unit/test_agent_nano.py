@@ -9,13 +9,13 @@ import pytest
 from soothe_nano.config import SootheConfig
 from soothe_nano.config.models import SubagentConfig
 
-from alithia_agent.agent import (
+from alithia.agent import (
     apply_alithia_defaults,
     build_agent,
     default_config_path,
     load_config,
 )
-from alithia_agent.stream import format_stream_chunk
+from alithia.stream import format_stream_chunk
 
 
 def test_default_config_path_under_alithia_soothe(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -73,9 +73,9 @@ def test_build_agent_calls_create_nano_agent(monkeypatch: pytest.MonkeyPatch) ->
     fake_agent = MagicMock(name="nano")
     fake_agent.subagents = []
     create = MagicMock(return_value=fake_agent)
-    monkeypatch.setattr("alithia_agent.agent.create_nano_agent", create)
+    monkeypatch.setattr("alithia.agent.create_nano_agent", create)
     monkeypatch.setattr(
-        "alithia_agent.plugin_registration.register_alithia_plugins",
+        "alithia.plugin_registration.register_alithia_plugins",
         lambda: None,
     )
 

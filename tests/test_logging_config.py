@@ -5,7 +5,7 @@ from __future__ import annotations
 import logging
 from pathlib import Path
 
-from alithia_agent.logging_config import configure_logging
+from alithia.logging_config import configure_logging
 
 
 def _close_root_handlers() -> None:
@@ -37,8 +37,8 @@ def test_log_rotation_creates_backup_files(tmp_path: Path) -> None:
 
 
 def test_daemon_config_defaults_use_rotation_constants() -> None:
-    from alithia_agent.config.schema import DaemonConfig
-    from alithia_agent.logging_config import DEFAULT_LOG_BACKUP_COUNT, DEFAULT_LOG_MAX_BYTES
+    from alithia.config.schema import DaemonConfig
+    from alithia.logging_config import DEFAULT_LOG_BACKUP_COUNT, DEFAULT_LOG_MAX_BYTES
 
     daemon = DaemonConfig()
     assert daemon.log_max_bytes == DEFAULT_LOG_MAX_BYTES

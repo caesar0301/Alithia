@@ -75,7 +75,7 @@ for arg in "$@"; do
 done
 
 # Source paths checked by ruff (matches Makefile layout)
-FORMAT_PATHS="alithia_agent/ tests/"
+FORMAT_PATHS="src/alithia/ tests/"
 
 # Sync command kept in lockstep with `make sync`, plus dev extras for lint/test tools.
 # Use UV_PYPI_MIRROR to override the default PyPI index (for networks with connectivity issues).
@@ -132,25 +132,25 @@ validate_package_dependencies() {
 
     cd "$WORKSPACE_ROOT"
 
-    print_info "Checking: alithia_agent must not import soothe_daemon or soothe_cli..."
+    print_info "Checking: alithia must not import soothe_daemon or soothe_cli..."
 
     local forbidden_imports
     forbidden_imports=$(
         grep -rEl 'from soothe_daemon|import soothe_daemon|from soothe_cli|import soothe_cli' \
-            alithia_agent/ --include='*.py' 2>/dev/null || true
+            src/alithia/ --include='*.py' 2>/dev/null || true
     )
 
     if [ -n "$forbidden_imports" ]; then
-        print_failure "alithia_agent imports soothe_daemon/soothe_cli (violations found)"
+        print_failure "alithia imports soothe_daemon/soothe_cli (violations found)"
         local violations
         violations=$(
             grep -rE 'from soothe_daemon|import soothe_daemon|from soothe_cli|import soothe_cli' \
-                alithia_agent/ --include='*.py' | head -10
+                src/alithia/ --include='*.py' | head -10
         )
         record_failure_log "Import boundary" "$violations"
         return 1
     fi
-    print_success "alithia_agent does not import soothe_daemon or soothe_cli"
+    print_success "alithia does not import soothe_daemon or soothe_cli"
 
     print_info "Checking: workspace integrity..."
 

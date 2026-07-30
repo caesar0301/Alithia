@@ -5,8 +5,8 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from alithia_agent.models import ArxivPaper, ZoteroPaper
-from alithia_agent.paperscout.state import (
+from alithia.models import ArxivPaper, ZoteroPaper
+from alithia.paperscout.state import (
     PaperScoutRuntimeConfig,
     SmtpRuntimeConfig,
     ZoteroRuntimeConfig,

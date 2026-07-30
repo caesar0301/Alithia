@@ -4,8 +4,8 @@ from __future__ import annotations
 
 from unittest.mock import MagicMock, patch
 
-from alithia_agent.config.schema import Config, PaperScoutAgentConfig
-from alithia_agent.runtime_resolve import resolve_alithia_runtime
+from alithia.config.schema import Config, PaperScoutAgentConfig
+from alithia.runtime_resolve import resolve_alithia_runtime
 
 
 def _minimal_config(**kwargs: object) -> Config:
@@ -19,8 +19,8 @@ def test_resolve_loads_config_when_kwargs_omitted() -> None:
     cfg = _minimal_config()
     store = MagicMock(name="store")
     with (
-        patch("alithia_agent.config.load_config", return_value=cfg) as load,
-        patch("alithia_agent.storage.sqlite.AlithiaStore", return_value=store),
+        patch("alithia.config.load_config", return_value=cfg) as load,
+        patch("alithia.storage.sqlite.AlithiaStore", return_value=store),
     ):
         out_cfg, out_store, uid = resolve_alithia_runtime()
     load.assert_called_once()

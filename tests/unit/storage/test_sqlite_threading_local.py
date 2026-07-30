@@ -24,7 +24,7 @@ import sqlite3
 import threading
 from pathlib import Path
 
-from alithia_agent.storage.sqlite import SQLiteStorage
+from alithia.storage.sqlite import SQLiteStorage
 
 
 def _new_storage(tmp_path: Path) -> SQLiteStorage:

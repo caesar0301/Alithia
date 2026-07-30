@@ -16,11 +16,11 @@ import logging
 from datetime import date, timedelta
 from pathlib import Path
 
-from alithia_agent.config import load_config
-from alithia_agent.paperscout.implementation import create_paperscout_graph
-from alithia_agent.paperscout.runner import build_scheduler_config
-from alithia_agent.paperscout.state import PaperScoutRuntimeConfig
-from alithia_agent.storage.sqlite import SQLiteStorage
+from alithia.config import load_config
+from alithia.paperscout.implementation import create_paperscout_graph
+from alithia.paperscout.runner import build_scheduler_config
+from alithia.paperscout.state import PaperScoutRuntimeConfig
+from alithia.storage.sqlite import SQLiteStorage
 
 logging.basicConfig(
     level=logging.INFO,

@@ -24,7 +24,7 @@ Requirements:
 
 Environment:
     The script uses a mock store (no persistence) for demonstration.
-    In production, use the PostgreSQL store from alithia_agent.storage.
+    In production, use the PostgreSQL store from alithia.storage.
 """
 
 import asyncio
@@ -35,9 +35,9 @@ from pathlib import Path
 # Add project root to path (before local imports)  # noqa: E402
 sys.path.insert(0, str(Path(__file__).parent.parent))  # noqa: E402
 
-from alithia_agent.config import load_config
-from alithia_agent.paperscout.implementation import create_paperscout_graph
-from alithia_agent.paperscout.state import AgentState, PaperScoutRuntimeConfig
+from alithia.config import load_config
+from alithia.paperscout.implementation import create_paperscout_graph
+from alithia.paperscout.state import AgentState, PaperScoutRuntimeConfig
 
 # Configuration parameters (adjust as needed)
 LOOKBACK_DAYS = 7  # Days to look back for new papers
@@ -56,7 +56,7 @@ logger = logging.getLogger(__name__)
 class MockStore:
     """In-memory mock store for demonstration (no persistence).
 
-    In production, use AsyncPersistStore from alithia_agent.storage
+    In production, use AsyncPersistStore from alithia.storage
     for PostgreSQL-backed persistence with exactly-once semantics.
     """
 

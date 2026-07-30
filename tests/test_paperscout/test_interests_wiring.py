@@ -12,8 +12,8 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
-from alithia_agent.paperscout.nodes import make_nodes
-from alithia_agent.paperscout.state import PaperScoutRuntimeConfig
+from alithia.paperscout.nodes import make_nodes
+from alithia.paperscout.state import PaperScoutRuntimeConfig
 
 
 def _runtime_config(**overrides) -> PaperScoutRuntimeConfig:
@@ -76,7 +76,7 @@ def test_profile_analysis_fails_with_missing_interests_dir():
 
 def test_profile_analysis_passes_with_zotero_and_no_interests(tmp_path):
     # zotero configured, no interest files → passes (existing path preserved).
-    from alithia_agent.paperscout.state import ZoteroRuntimeConfig
+    from alithia.paperscout.state import ZoteroRuntimeConfig
 
     cfg = _runtime_config(
         research_interests_dir=str(tmp_path),  # exists but empty
@@ -123,7 +123,7 @@ async def test_data_collection_loads_interests_into_state(tmp_path, monkeypatch)
 
     monkeypatch.setattr(arxiv, "Client", _FakeClient)
     # Patch affiliation extractor to a no-op.
-    import alithia_agent.paperscout.nodes as nodes_mod
+    import alithia.paperscout.nodes as nodes_mod
 
     fake_extractor = MagicMock()
     fake_extractor.enrich_papers = AsyncMock(side_effect=lambda papers: papers)
@@ -157,7 +157,7 @@ async def test_data_collection_loads_interests_into_state(tmp_path, monkeypatch)
 def test_relevance_assessment_passes_interests_to_reranker(monkeypatch):
     from datetime import datetime
 
-    from alithia_agent.models import ArxivPaper, ScoredPaper
+    from alithia.models import ArxivPaper, ScoredPaper
 
     paper = ArxivPaper(
         title="T",
@@ -178,11 +178,11 @@ def test_relevance_assessment_passes_interests_to_reranker(monkeypatch):
         def rerank(self):
             return [ScoredPaper(paper=paper, score=7.0)]
 
-    import alithia_agent.paperscout.nodes as nodes_mod
+    import alithia.paperscout.nodes as nodes_mod
 
     monkeypatch.setattr(nodes_mod, "PaperReranker", _SpyReranker)
 
-    from alithia_agent.research_interests import ResearchInterest
+    from alithia.research_interests import ResearchInterest
 
     interest = ResearchInterest(title="X", body="b")
     cfg = _runtime_config(max_papers=5)

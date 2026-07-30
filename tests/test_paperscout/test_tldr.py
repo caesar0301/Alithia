@@ -5,8 +5,8 @@ from __future__ import annotations
 from datetime import datetime
 from unittest.mock import MagicMock, patch
 
-from alithia_agent.models import ArxivPaper
-from alithia_agent.paperscout.tldr import TldrGenerator, generate_tldrs
+from alithia.models import ArxivPaper
+from alithia.paperscout.tldr import TldrGenerator, generate_tldrs
 
 
 def _make_paper(

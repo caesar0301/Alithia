@@ -9,8 +9,8 @@ the embedding-path tests with a fake encoder).
 
 import pytest
 
-from alithia_agent.paperscout.reranker import PaperReranker
-from alithia_agent.research_interests import ResearchInterest
+from alithia.paperscout.reranker import PaperReranker
+from alithia.research_interests import ResearchInterest
 
 
 def _interest(title: str = "Interest", body: str = "body text " * 12) -> ResearchInterest:

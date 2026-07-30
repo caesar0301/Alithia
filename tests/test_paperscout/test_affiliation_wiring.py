@@ -8,9 +8,9 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
-from alithia_agent.models import ArxivPaper
-from alithia_agent.paperscout.nodes import make_nodes
-from alithia_agent.paperscout.state import PaperScoutRuntimeConfig
+from alithia.models import ArxivPaper
+from alithia.paperscout.nodes import make_nodes
+from alithia.paperscout.state import PaperScoutRuntimeConfig
 
 
 def _runtime_config(**overrides) -> PaperScoutRuntimeConfig:
@@ -85,7 +85,7 @@ async def test_data_collection_passes_llm_config_when_key_set(tmp_path, monkeypa
     _write_interest(tmp_path)
     published = _patch_arxiv_one_paper(monkeypatch)
 
-    import alithia_agent.paperscout.nodes as nodes_mod
+    import alithia.paperscout.nodes as nodes_mod
 
     captured: dict = {}
 
@@ -120,7 +120,7 @@ async def test_data_collection_no_llm_config_without_key(tmp_path, monkeypatch):
     _write_interest(tmp_path)
     published = _patch_arxiv_one_paper(monkeypatch)
 
-    import alithia_agent.paperscout.nodes as nodes_mod
+    import alithia.paperscout.nodes as nodes_mod
 
     captured: dict = {}
 
@@ -145,7 +145,7 @@ async def test_data_collection_records_affiliations_metric(tmp_path, monkeypatch
     _write_interest(tmp_path)
     published = _patch_arxiv_one_paper(monkeypatch)
 
-    import alithia_agent.paperscout.nodes as nodes_mod
+    import alithia.paperscout.nodes as nodes_mod
 
     async def _enrich(papers: list[ArxivPaper]) -> list[ArxivPaper]:
         for paper in papers:
@@ -170,7 +170,7 @@ async def test_content_generation_preserves_prior_metrics(tmp_path, monkeypatch)
     """content_generation merges tldrs_generated into existing metrics."""
     from datetime import UTC, datetime
 
-    from alithia_agent.models import ArxivPaper, ScoredPaper
+    from alithia.models import ArxivPaper, ScoredPaper
 
     paper = ArxivPaper(
         title="T",
@@ -183,7 +183,7 @@ async def test_content_generation_preserves_prior_metrics(tmp_path, monkeypatch)
     scored = [ScoredPaper(paper=paper, score=8.0)]
 
     monkeypatch.setattr(
-        "alithia_agent.paperscout.nodes.generate_tldrs",
+        "alithia.paperscout.nodes.generate_tldrs",
         lambda papers, cfg: 1,
     )
 

@@ -22,14 +22,14 @@ from datetime import date
 from pathlib import Path
 from typing import Any
 
-from alithia_agent import ALITHIA_HOME
-from alithia_agent.config.loader import load_config
-from alithia_agent.paperscout.digest_store import (
+from alithia import ALITHIA_HOME
+from alithia.config.loader import load_config
+from alithia.paperscout.digest_store import (
     digest_key_prefix,
     list_daily_digest_dates,
     load_daily_digest,
 )
-from alithia_agent.storage.sqlite import SQLiteStorage
+from alithia.storage.sqlite import SQLiteStorage
 
 CSV_COLUMNS = [
     "digest_date",

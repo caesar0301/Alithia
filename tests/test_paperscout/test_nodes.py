@@ -2,7 +2,7 @@
 
 from datetime import date
 
-from alithia_agent.paperscout.nodes import _build_arxiv_category_query
+from alithia.paperscout.nodes import _build_arxiv_category_query
 
 
 def test_build_arxiv_category_query_single_day():

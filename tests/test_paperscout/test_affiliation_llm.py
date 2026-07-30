@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from unittest.mock import MagicMock, patch
 
-from alithia_agent.paperscout.affiliation_llm import AffiliationLLMExtractor
+from alithia.paperscout.affiliation_llm import AffiliationLLMExtractor
 
 
 def _fake_openai_response(text: str) -> MagicMock:
@@ -174,7 +174,7 @@ class TestNormalization:
 class TestBatching:
     def test_many_papers_split_into_multiple_requests(self):
         """More than _BATCH_PAPERS triggers >1 LLM call; results merge."""
-        from alithia_agent.paperscout.affiliation_llm import _BATCH_PAPERS
+        from alithia.paperscout.affiliation_llm import _BATCH_PAPERS
 
         ext = _make_extractor()
         n = _BATCH_PAPERS + 3

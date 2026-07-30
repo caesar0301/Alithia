@@ -121,7 +121,7 @@ test:
 	uv run pytest tests/ -v
 
 test-coverage:
-	uv run pytest tests/ -v --cov=alithia_agent --cov-report=term-missing
+	uv run pytest tests/ -v --cov=alithia --cov-report=term-missing
 
 lint:
 	uv run --with ruff ruff check .
@@ -133,12 +133,12 @@ format:
 	uv run --with ruff ruff format .
 
 format-check:
-	uv run --with ruff ruff format --check alithia_agent/
+	uv run --with ruff ruff format --check src/alithia/
 
 check: lint format-check
 
 typecheck:
-	uv run --with mypy mypy alithia_agent/
+	uv run --with mypy mypy src/alithia/
 
 # Release commands
 build:
@@ -161,7 +161,7 @@ publish:
 # Maintenance commands
 clean:
 	rm -rf .ruff_cache/ .pytest_cache/ .mypy_cache/
-	rm -rf *.egg-info __pycache__ alithia_agent/__pycache__
+	rm -rf *.egg-info __pycache__ src/alithia/__pycache__
 	find . -type d -name "__pycache__" -exec rm -rf {} + 2>/dev/null || true
 	rm -rf .venv/lib/python*/site-packages/*.pyc
 

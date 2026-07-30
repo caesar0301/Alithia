@@ -6,7 +6,7 @@ from unittest.mock import AsyncMock, patch
 
 import pytest
 
-from alithia_agent.config.schema import (
+from alithia.config.schema import (
     Config,
     DaemonSchedulerConfig,
     PaperScoutAgentConfig,
@@ -14,13 +14,13 @@ from alithia_agent.config.schema import (
     StorageConfig,
     ZoteroProfileConfig,
 )
-from alithia_agent.daemon.scheduler import PaperScoutScheduler
-from alithia_agent.paperscout.runner import (
+from alithia.daemon.scheduler import PaperScoutScheduler
+from alithia.paperscout.runner import (
     PaperScoutRunResult,
     build_scheduler_config,
     run_paperscout_for_dates,
 )
-from alithia_agent.paperscout.state import (
+from alithia.paperscout.state import (
     PaperScoutRuntimeConfig,
     SmtpRuntimeConfig,
     ZoteroRuntimeConfig,
@@ -94,7 +94,7 @@ async def test_run_paperscout_for_dates_returns_failed_on_workflow_error(
     mock_store = AsyncMock()
 
     with patch(
-        "alithia_agent.paperscout.runner.create_paperscout_graph",
+        "alithia.paperscout.runner.create_paperscout_graph",
     ) as mock_create_graph:
         compiled = AsyncMock()
         compiled.ainvoke = AsyncMock(side_effect=RuntimeError("workflow exploded"))
@@ -121,7 +121,7 @@ async def test_run_paperscout_for_dates_returns_sent_with_papers(
     mock_store = AsyncMock()
 
     with patch(
-        "alithia_agent.paperscout.runner.create_paperscout_graph",
+        "alithia.paperscout.runner.create_paperscout_graph",
     ) as mock_create_graph:
         compiled = AsyncMock()
         compiled.ainvoke = AsyncMock(

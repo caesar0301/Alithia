@@ -5,10 +5,10 @@ from pathlib import Path
 
 import pytest
 
-from alithia_agent.config.schema import DaemonSchedulerConfig
-from alithia_agent.daemon.gap_scanner import GapScanner
-from alithia_agent.daemon.scheduler import PaperScoutScheduler
-from alithia_agent.storage.sqlite import SQLiteStorage
+from alithia.config.schema import DaemonSchedulerConfig
+from alithia.daemon.gap_scanner import GapScanner
+from alithia.daemon.scheduler import PaperScoutScheduler
+from alithia.storage.sqlite import SQLiteStorage
 
 
 def test_daemon_scheduler_config_defaults() -> None:

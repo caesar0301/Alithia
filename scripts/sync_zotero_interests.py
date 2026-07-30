@@ -25,9 +25,9 @@ import logging
 import os
 from pathlib import Path
 
-from alithia_agent import ALITHIA_HOME
-from alithia_agent.paperscout.state import ZoteroRuntimeConfig
-from alithia_agent.research_interests import sync_zotero_to_markdown
+from alithia import ALITHIA_HOME
+from alithia.paperscout.state import ZoteroRuntimeConfig
+from alithia.research_interests import sync_zotero_to_markdown
 
 ZOTERO_ID_ENV = "ZOTERO_ID"
 ZOTERO_KEY_ENV = "ZOTERO_KEY"

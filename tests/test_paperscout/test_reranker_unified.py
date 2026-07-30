@@ -18,9 +18,9 @@ from unittest.mock import patch
 import numpy as np
 import pytest
 
-from alithia_agent.models import ArxivPaper
-from alithia_agent.paperscout.reranker import PaperReranker, weighted_similarity_to_score
-from alithia_agent.research_interests import ResearchInterest
+from alithia.models import ArxivPaper
+from alithia.paperscout.reranker import PaperReranker, weighted_similarity_to_score
+from alithia.research_interests import ResearchInterest
 
 
 class _FakeEncoder:
@@ -76,7 +76,7 @@ def _interest(
 @pytest.fixture
 def patched_encoder():
     with patch(
-        "alithia_agent.paperscout.reranker.load_encoder",
+        "alithia.paperscout.reranker.load_encoder",
         return_value=(_FakeEncoder(), "fastembed"),
     ):
         yield
@@ -156,7 +156,7 @@ def test_fallback_rank_draws_keywords_from_interest_tags():
     interests = [_interest("Multimodal", "irrelevant body", tags=["contrastive", "visionlanguage"])]
 
     with patch(
-        "alithia_agent.paperscout.reranker.load_encoder",
+        "alithia.paperscout.reranker.load_encoder",
         return_value=(None, "fallback"),
     ):
         scored = PaperReranker(papers=[mm_paper], interests=interests).rerank()
@@ -211,7 +211,7 @@ def test_opposing_embeddings_produce_valid_scores():
     ]
 
     with patch(
-        "alithia_agent.paperscout.reranker.load_encoder",
+        "alithia.paperscout.reranker.load_encoder",
         return_value=(_OpposingEncoder(), "fastembed"),
     ):
         scored = PaperReranker(papers=[paper], interests=interests).rerank()

@@ -2,7 +2,7 @@
 
 from datetime import datetime
 
-from alithia_agent.models import (
+from alithia.models import (
     ArxivPaper,
     DateRange,
     EmailContent,

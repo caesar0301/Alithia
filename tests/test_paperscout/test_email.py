@@ -2,8 +2,8 @@
 
 from datetime import datetime
 
-from alithia_agent.models import ArxivPaper, ScoredPaper
-from alithia_agent.paperscout.email import (
+from alithia.models import ArxivPaper, ScoredPaper
+from alithia.paperscout.email import (
     construct_email_content,
     create_empty_email_html,
     create_paper_html,

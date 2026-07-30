@@ -13,8 +13,8 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from alithia_agent.research_interests import sync_zotero_to_markdown
-from alithia_agent.research_interests.zotero_sync import SyncResult
+from alithia.research_interests import sync_zotero_to_markdown
+from alithia.research_interests.zotero_sync import SyncResult
 
 
 def _install_fake_pyzotero(items: list[dict]) -> MagicMock:

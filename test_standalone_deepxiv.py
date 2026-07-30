@@ -12,11 +12,11 @@ def test_imports():
     print("=" * 60)
 
     try:
-        from alithia_agent.plugins.deepxiv import DeepxivPlugin  # noqa: F401
+        from alithia.plugins.deepxiv import DeepxivPlugin  # noqa: F401
 
         print("✓ DeepxivPlugin imported successfully")
 
-        from alithia_agent.plugins.deepxiv.toolkit import (  # noqa: F401
+        from alithia.plugins.deepxiv.toolkit import (  # noqa: F401
             DeepxivGetFullPaperTool,
             DeepxivPaperBriefTool,
             DeepxivPaperMetadataTool,
@@ -42,7 +42,7 @@ def test_no_soothe_references():
 
     import inspect
 
-    from alithia_agent.plugins.deepxiv import DeepxivPlugin, toolkit
+    from alithia.plugins.deepxiv import DeepxivPlugin, toolkit
 
     # Check source code for references
     toolkit_source = inspect.getsource(toolkit)
@@ -63,7 +63,7 @@ def test_toolkit_initialization():
     print("=" * 60)
 
     try:
-        from alithia_agent.plugins.deepxiv.toolkit import DeepxivToolkit
+        from alithia.plugins.deepxiv.toolkit import DeepxivToolkit
 
         toolkit = DeepxivToolkit(token="test_token", timeout=30, max_retries=2)
         print("✓ DeepxivToolkit initialized successfully")
@@ -93,7 +93,7 @@ def test_plugin_initialization():
     print("=" * 60)
 
     try:
-        from alithia_agent.plugins.deepxiv import DeepxivPlugin
+        from alithia.plugins.deepxiv import DeepxivPlugin
 
         plugin = DeepxivPlugin()
         print("✓ DeepxivPlugin instantiated successfully")
@@ -121,7 +121,7 @@ def test_tool_schemas():
     print("=" * 60)
 
     try:
-        from alithia_agent.plugins.deepxiv.toolkit import (
+        from alithia.plugins.deepxiv.toolkit import (
             DeepxivGetFullPaperInput,
             DeepxivPaperBriefInput,
             DeepxivPaperMetadataInput,
@@ -165,7 +165,7 @@ def test_helper_functions():
         # Test _resolve_env
         import os
 
-        from alithia_agent.plugins.deepxiv.toolkit import (
+        from alithia.plugins.deepxiv.toolkit import (
             _author_display_name,
             _format_author_names,
             _preview,

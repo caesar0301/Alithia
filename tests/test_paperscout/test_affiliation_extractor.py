@@ -11,8 +11,8 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from alithia_agent.models import ArxivPaper
-from alithia_agent.paperscout.affiliation_extractor import (
+from alithia.models import ArxivPaper
+from alithia.paperscout.affiliation_extractor import (
     AffiliationExtractor,
     enrich_papers_with_affiliations,
 )
@@ -231,7 +231,7 @@ class TestEnrichPapersWithAffiliations:
     @pytest.mark.asyncio
     async def test_enrich_papers_with_affiliations(self, sample_paper):
         with patch(
-            "alithia_agent.paperscout.affiliation_extractor.AffiliationExtractor.enrich_papers",
+            "alithia.paperscout.affiliation_extractor.AffiliationExtractor.enrich_papers",
             new_callable=AsyncMock,
         ) as mock_enrich:
             mock_enrich.return_value = [sample_paper]

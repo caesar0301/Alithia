@@ -5,7 +5,7 @@ from __future__ import annotations
 from pathlib import Path
 from types import SimpleNamespace
 
-from alithia_agent.soothe_defaults import apply_soothe_home_defaults, memory_persist_dir
+from alithia.soothe_defaults import apply_soothe_home_defaults, memory_persist_dir
 
 
 def _config_with_persist_dir(persist_dir: str | None) -> SimpleNamespace:

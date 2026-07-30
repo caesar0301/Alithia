@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from unittest.mock import MagicMock, patch
 
-from alithia_agent.plugin_registration import (
+from alithia.plugin_registration import (
     _check_entry_points_registered,
     register_alithia_plugins,
 )
@@ -24,7 +24,7 @@ def test_check_entry_points_registered_false_when_empty() -> None:
 
 def test_register_skips_manual_when_entry_points_present() -> None:
     with patch(
-        "alithia_agent.plugin_registration._check_entry_points_registered",
+        "alithia.plugin_registration._check_entry_points_registered",
         return_value=True,
     ):
         # Should return early without touching soothe_nano registry.
@@ -40,7 +40,7 @@ def test_register_manual_fallback_registers_manifests() -> None:
 
     with (
         patch(
-            "alithia_agent.plugin_registration._check_entry_points_registered",
+            "alithia.plugin_registration._check_entry_points_registered",
             return_value=False,
         ),
         patch("soothe_nano.plugin.global_registry._global_registry", None),
@@ -49,11 +49,11 @@ def test_register_manual_fallback_registers_manifests() -> None:
             return_value=registry,
         ),
         patch(
-            "alithia_agent.paperscout.PaperScoutPlugin",
+            "alithia.paperscout.PaperScoutPlugin",
             paperscout_cls,
         ),
         patch(
-            "alithia_agent.paperlens.PaperLensPlugin",
+            "alithia.paperlens.PaperLensPlugin",
             paperlens_cls,
         ),
     ):
