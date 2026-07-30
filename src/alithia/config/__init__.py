@@ -13,6 +13,7 @@ from alithia.config.schema import (
     GithubProfileConfig,
     GoogleScholarProfileConfig,
     LlmProfileConfig,
+    OmrAgentConfig,
     PaperLensAgentConfig,
     PaperScoutAgentConfig,
     ResearcherProfileConfig,
@@ -40,5 +41,6 @@ __all__ = [
     "SupabaseConfig",
     "PaperScoutAgentConfig",
     "PaperLensAgentConfig",
+    "OmrAgentConfig",
     "TurnstileConfig",
 ]

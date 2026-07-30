@@ -52,6 +52,7 @@ def test_apply_alithia_defaults_enables_plugins_and_deepxiv() -> None:
     cfg = apply_alithia_defaults(SootheConfig())
     assert cfg.subagents["paperscout"].enabled is True
     assert cfg.subagents["paperlens"].enabled is True
+    assert cfg.subagents["omr"].enabled is True
     assert cfg.tools.deepxiv.enabled is True
     assert cfg.persistence.default_backend == "sqlite"
     assert cfg.agent.protocols.durability.checkpointer == "sqlite"
@@ -62,11 +63,13 @@ def test_apply_alithia_defaults_reenables_disabled_subagents() -> None:
         subagents={
             "paperscout": SubagentConfig(enabled=False),
             "paperlens": SubagentConfig(enabled=False),
+            "omr": SubagentConfig(enabled=False),
         }
     )
     cfg = apply_alithia_defaults(base)
     assert cfg.subagents["paperscout"].enabled is True
     assert cfg.subagents["paperlens"].enabled is True
+    assert cfg.subagents["omr"].enabled is True
 
 
 def test_build_agent_calls_create_nano_agent(monkeypatch: pytest.MonkeyPatch) -> None:

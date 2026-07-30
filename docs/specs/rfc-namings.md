@@ -36,6 +36,7 @@ Authoritative terminology reference for alithia-agent RFC specifications.
 | PaperLens | RFC-001, RFC-002 | Subagent for PDF discovery and ranking |
 | PaperScout | RFC-003, RFC-002 | Subagent for ArXiv discovery and email notifications |
 | Gap Scanner | RFC-003-paperscout | Component detecting/filling missed notifications |
+| OmniResearch | RFC-011 | Subagent for structured research workflows with pattern routing |
 
 ---
 
@@ -67,6 +68,26 @@ Authoritative terminology reference for alithia-agent RFC specifications.
 | Deduplication | RFC-002, RFC-004 | Preventing duplicate processing/notification |
 | Reranking | RFC-003-paperscout | Paper scoring using sentence embeddings |
 | Time-decay weighting | RFC-003-paperscout | Recent papers weighted higher in corpus |
+
+---
+
+## OmniResearch Terms
+
+| Term | Source RFC | Brief Description |
+|------|-----------|-------------------|
+| Pattern routing | RFC-011 | Auto-detecting research intent and selecting workflow pattern |
+| Skill tree | RFC-011 | State tracking for skill progression (unlocked/ready/locked/completed) |
+| Gate enforcement | RFC-011 | Quality criteria checks at skill boundaries (Gates A, B, C, D) |
+| Evidence-First | RFC-011 | Research pattern: literature surveys starting from papers |
+| Idea-First | RFC-011 | Research pattern: exploratory research starting from insights |
+| Decision-First | RFC-011 | Research pattern: engineering decisions validation |
+| Experiment-First | RFC-011 | Research pattern: hypothesis testing with rapid iteration |
+| Rapid-Prototype | RFC-011 | Research pattern: fast exploration without gate constraints |
+| Bootstrap node | RFC-011 | Workspace creation node (directories, CLAUDE.md, skill tree) |
+| Collection node | RFC-011 | Material collection node with 4 handlers |
+| Evidence node | RFC-011 | Evidence extraction and brief generation node |
+| OmrAgentConfig | RFC-006, RFC-011 | Configuration schema for OmniResearch subagent |
+| OmrRuntimeConfig | RFC-011 | Runtime config derived from global config + soothe workspace |
 
 ---
 

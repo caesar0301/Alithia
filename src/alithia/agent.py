@@ -103,7 +103,7 @@ def apply_alithia_defaults(config: SootheConfig) -> SootheConfig:
     persistence = config.persistence.model_copy(update={"default_backend": "sqlite"})
 
     subagents = dict(config.subagents)
-    for name in ("paperscout", "paperlens"):
+    for name in ("paperscout", "paperlens", "omr"):
         existing = subagents.get(name)
         if existing is None:
             subagents[name] = SubagentConfig(enabled=True)

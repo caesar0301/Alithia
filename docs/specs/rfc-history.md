@@ -21,6 +21,7 @@ This document tracks all RFC lifecycle events in chronological order (newest fir
 
 | Date | Event | RFC | Description |
 |------|-------|-----|-------------|
+| 2026-07-30 | Created | RFC-011-omni-research-subagent | OmniResearch soothe subagent architecture (pattern routing, skill tree, core pipeline); merged from feat/omni-research as RFC-011 to avoid collision with research-interests RFC-010 |
 | 2026-07-29 | Updated | RFC-009 | Refactored to soothe-nano in-process host (flowjet-style); soothed out of scope; query vs alithia daemon paths |
 | 2026-06-29 | Updated | RFC-010, RFC-006 | Removed deprecated code/config: dropped the `research_interests` list + `expertise_level` from `ResearcherProfileConfig` and loader defaults; removed the `SmtpConfig`/`ZoteroConfig`/`PaperScoutConfig` legacy aliases. Existing configs still load via `extra="allow"`. |
 | 2026-06-29 | Updated | RFC-010, RFC-003 | Cut: removed the legacy `zotero_papers` corpus slot + `PaperReranker(corpus=)` param. Zotero items now flow only through the markdown sync → `ResearchInterest(source="zotero")` units → the single interests-only matching logic. Eliminates the cache-double-count risk. |
@@ -53,11 +54,11 @@ _No versioned RFC updates yet._
 
 | Metric | Value |
 |--------|-------|
-| Total RFCs created | 10 |
+| Total RFCs created | 11 |
 | Conceptual Design | 1 |
-| Architecture Design | 6 |
+| Architecture Design | 7 |
 | Implementation Interface Design | 3 |
-| Total lines | ~4,200 |
+| Total lines | ~4,800 |
 
 ---
 

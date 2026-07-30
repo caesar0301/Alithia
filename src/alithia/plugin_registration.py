@@ -12,7 +12,7 @@ import logging
 
 logger = logging.getLogger(__name__)
 
-_ALITHIA_PLUGIN_NAMES = frozenset({"paperscout", "paperlens", "deepxiv"})
+_ALITHIA_PLUGIN_NAMES = frozenset({"paperscout", "paperlens", "omr"})
 
 
 def _check_entry_points_registered() -> bool:
@@ -71,6 +71,15 @@ def register_alithia_plugins() -> None:
             priority=30,
         )
         logger.info("Manually registered paperlens plugin")
+
+        from alithia.omr import OmniResearchPlugin
+
+        registry.register(
+            getattr(OmniResearchPlugin, "_plugin_manifest"),
+            source="config",
+            priority=30,
+        )
+        logger.info("Manually registered omr plugin")
 
     except ImportError as e:
         logger.warning("Could not register alithia plugins: %s", e)

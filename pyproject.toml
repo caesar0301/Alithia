@@ -18,6 +18,9 @@ dependencies = [
     "docling>=2.0.0",
     "deepxiv-sdk>=0.1.0",
     "httpx>=0.25.0",
+    # OmniResearch (omr) subagent dependencies
+    "pdfplumber>=0.10.0",
+    "html2text>=2020.1.16",
 ]
 
 [project.optional-dependencies]
@@ -35,6 +38,7 @@ alithia-agent = "alithia.__main__:main"
 [project.entry-points."soothe.plugins"]
 paperscout = "alithia.paperscout:PaperScoutPlugin"
 paperlens = "alithia.paperlens:PaperLensPlugin"
+omr = "alithia.omr:OmniResearchPlugin"
 
 [build-system]
 requires = ["hatchling"]
@@ -78,5 +82,8 @@ module = [
     "soothe_sdk.*",
     "deepxiv_sdk.*",
     "httpx",
+    "html2text",
+    "langgraph.*",
+    "pdfplumber",
 ]
 ignore_missing_imports = true

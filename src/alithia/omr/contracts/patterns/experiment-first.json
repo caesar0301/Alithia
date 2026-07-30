@@ -1,0 +1,28 @@
+{
+  "name": "Experiment-First",
+  "description": "Empirical research starting from building and testing. Hands-on validation with retroactive documentation.",
+  "graph": {
+    "entry_points": ["omr-evaluation"],
+    "nodes": ["omr-evidence", "omr-decision", "omr-synthesis", "omr-wiki"],
+    "edges": [
+      "omr-evaluation → omr-evidence",
+      "omr-evidence → omr-decision",
+      "omr-decision → omr-synthesis",
+      "omr-synthesis → omr-wiki"
+    ]
+  },
+  "skill_gates": {
+    "omr-synthesis": "gate_d"
+  },
+  "contract_overrides": {
+    "omr-evaluation": {
+      "requires": []
+    }
+  },
+  "recommendations": {
+    "agency": "semi-automated or fully-automated",
+    "estimated_time": "1-2 days",
+    "synthesis_mode": "brief",
+    "description": "Best for quick validation, proof-of-concept, empirical testing, rapid prototyping. Evaluation before evidence allows experimentation-first approach."
+  }
+}

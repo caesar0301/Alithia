@@ -1,0 +1,30 @@
+{
+  "name": "Decision-First",
+  "description": "Hypothesis-driven research starting from architecture stance. Engineering-focused with strong validation.",
+  "graph": {
+    "entry_points": ["omr-decision"],
+    "nodes": ["omr-evidence", "omr-research-plan", "omr-evaluation", "omr-synthesis", "omr-wiki"],
+    "edges": [
+      "omr-decision → omr-evidence",
+      "omr-evidence → omr-research-plan",
+      "omr-research-plan → omr-evaluation",
+      "omr-evaluation → omr-synthesis",
+      "omr-synthesis → omr-wiki"
+    ]
+  },
+  "skill_gates": {
+    "omr-evaluation": "gate_c",
+    "omr-synthesis": "gate_d"
+  },
+  "contract_overrides": {
+    "omr-decision": {
+      "requires": []
+    }
+  },
+  "recommendations": {
+    "agency": "semi-automated",
+    "estimated_time": "2-3 days",
+    "synthesis_mode": "report",
+    "description": "Best for engineering research, prototype-driven investigation. Architecture decision precedes evidence gathering."
+  }
+}

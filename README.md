@@ -11,6 +11,7 @@ soothed / soothe-daemon.
 - **PaperScout**: ArXiv paper discovery with email notifications
 - **PaperLens**: Local PDF analysis with similarity ranking
 - **DeepXiv**: Academic paper search via nano’s built-in toolkit (arXiv, bioRxiv, medRxiv, PMC)
+- **OmniResearch (omr)**: Structured research workflows with pattern routing (Evidence-First, Idea-First, Decision-First, Experiment-First, Rapid-Prototype). See [RFC-011](docs/specs/RFC-011-omni-research-subagent.md).
 
 ## Plugins
 
@@ -21,6 +22,7 @@ the alithia nano agent:
 |--------|------|-------------|
 | paperscout | Subagent | Daily ArXiv recommendations from research interests / Zotero |
 | paperlens | Subagent | Local PDF analysis and similarity ranking |
+| omr | Subagent | Structured research workflow with pattern routing (Evidence-First, etc.) |
 | deepxiv | Tools | Nano built-in academic search / section reading (enabled by default) |
 
 ## Installation
@@ -40,6 +42,7 @@ alithia-agent --soothe-config ./nano.yml "Find new papers about transformers"
 
 # Optional local subagent hint (biases the prompt; not soothed routing)
 alithia-agent --subagent paperscout "Check for new papers"
+alithia-agent --subagent omr "Start research about agent memory"
 
 # Alithia PaperScout scheduler daemon (domain cron; not soothed)
 alithia-agent daemon start

@@ -18,6 +18,7 @@ Master index of all RFC specifications.
 | [RFC-008-data-models](RFC-008-data-models.md) | Shared Data Model Contracts | Implementation Interface Design | Draft | 2026-06-06 | 2026-06-29 |
 | [RFC-009-soothe-integration](RFC-009-soothe-integration.md) | Soothe-Nano Host Architecture | Architecture Design | Draft | 2026-06-07 | 2026-07-29 |
 | [RFC-010-research-interests-knowledge](RFC-010-research-interests-knowledge.md) | Research Interests Knowledge Base | Architecture Design | Draft | 2026-06-29 | 2026-06-29 |
+| [RFC-011-omni-research-subagent](RFC-011-omni-research-subagent.md) | OmniResearch Soothe Subagent Architecture | Architecture Design | Draft | 2026-06-17 | 2026-06-17 |
 
 ---
 
@@ -43,6 +44,8 @@ RFC-002-world-view (Conceptual — foundation, no dependencies)
     ├── RFC-009-soothe-integration ──────────────┤  (depends on RFC-002, RFC-007)
     │                                            │
     └── RFC-010-research-interests-knowledge ────┘  (depends on RFC-002, RFC-003, RFC-006, RFC-008)
+    │
+    └── RFC-011-omni-research-subagent ──────────┘  (depends on RFC-002, RFC-007, RFC-009)
 ```
 
 ---
@@ -75,21 +78,22 @@ RFC-002-world-view (Conceptual — foundation, no dependencies)
 ### By Kind
 
 - **Conceptual Design**: [RFC-002-world-view](RFC-002-world-view.md)
-- **Architecture Design**: [RFC-001-paperlens-workflow](RFC-001-paperlens-workflow.md), [RFC-003-paperscout-workflow](RFC-003-paperscout-workflow.md), [RFC-004-storage-layer](RFC-004-storage-layer.md), [RFC-006-configuration](RFC-006-configuration.md), [RFC-009-soothe-integration](RFC-009-soothe-integration.md), [RFC-010-research-interests-knowledge](RFC-010-research-interests-knowledge.md)
+- **Architecture Design**: [RFC-001-paperlens-workflow](RFC-001-paperlens-workflow.md), [RFC-003-paperscout-workflow](RFC-003-paperscout-workflow.md), [RFC-004-storage-layer](RFC-004-storage-layer.md), [RFC-006-configuration](RFC-006-configuration.md), [RFC-009-soothe-integration](RFC-009-soothe-integration.md), [RFC-010-research-interests-knowledge](RFC-010-research-interests-knowledge.md), [RFC-011-omni-research-subagent](RFC-011-omni-research-subagent.md)
 - **Implementation Interface Design**: [RFC-005-cli-interface](RFC-005-cli-interface.md), [RFC-007-plugin-integration](RFC-007-plugin-integration.md), [RFC-008-data-models](RFC-008-data-models.md)
 
 ### By Status
 
-- **Draft**: All RFCs (001-010)
+- **Draft**: All RFCs (001-011)
 - **Review**: _None yet_
 - **Frozen**: _None yet_
 
 ### By Stage
 
 - **Core**: RFC-002, RFC-001, RFC-004, RFC-005, RFC-006, RFC-007, RFC-008
-- **DataCollection**: RFC-003, RFC-010
+- **DataCollection**: RFC-003, RFC-010, RFC-011
 - **Relevance**: RFC-003, RFC-010
 - **Notification**: RFC-003
+- **Research**: RFC-011
 
 ---
 
@@ -98,10 +102,10 @@ RFC-002-world-view (Conceptual — foundation, no dependencies)
 | Kind | Count | Purpose |
 |------|-------|---------|
 | Conceptual Design | 1 | System vision, principles, taxonomy, invariants |
-| Architecture Design | 6 | Workflow architecture, storage, configuration, soothe, knowledge base |
+| Architecture Design | 7 | Workflow architecture, storage, configuration, soothe, knowledge base, omr subagent |
 | Implementation Interface Design | 3 | CLI, plugin integration, data models |
 
-**Total: 10 RFCs**
+**Total: 11 RFCs**
 
 ---
 

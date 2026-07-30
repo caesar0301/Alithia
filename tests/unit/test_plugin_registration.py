@@ -37,6 +37,8 @@ def test_register_manual_fallback_registers_manifests() -> None:
     paperscout_cls._plugin_manifest = object()
     paperlens_cls = MagicMock()
     paperlens_cls._plugin_manifest = object()
+    omr_cls = MagicMock()
+    omr_cls._plugin_manifest = object()
 
     with (
         patch(
@@ -56,7 +58,11 @@ def test_register_manual_fallback_registers_manifests() -> None:
             "alithia.paperlens.PaperLensPlugin",
             paperlens_cls,
         ),
+        patch(
+            "alithia.omr.OmniResearchPlugin",
+            omr_cls,
+        ),
     ):
         register_alithia_plugins()
 
-    assert registry.register.call_count == 2
+    assert registry.register.call_count == 3

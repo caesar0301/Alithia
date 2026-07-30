@@ -203,6 +203,44 @@ class PaperLensAgentConfig(BaseModel):
     include_full_text: bool = False
 
 
+class OmrAgentConfig(BaseModel):
+    """OmniResearch agent configuration.
+
+    Configuration for the OmniResearch (omr) subagent that runs structured,
+    pattern-based research workflows. See RFC-011.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    # Workspace settings
+    workspace_base: str = Field(
+        default="omr-output",
+        description="Base directory for research workspaces (relative to soothe workspace)",
+    )
+
+    # Pattern settings
+    default_pattern: Literal[
+        "auto",
+        "evidence-first",
+        "idea-first",
+        "decision-first",
+        "experiment-first",
+        "rapid-prototype",
+    ] = Field(default="auto", description="Default research pattern")
+
+    # Collection settings
+    collection_depth: Literal["default", "full-repo", "download-dataset"] = "default"
+    max_papers_per_query: int = Field(default=10, ge=1, le=50)
+    max_repos_per_query: int = Field(default=5, ge=1, le=20)
+
+    # Evidence settings
+    evidence_confidence_threshold: float = Field(default=0.7, ge=0.0, le=1.0)
+    min_sources_for_evidence: int = Field(default=3, ge=1, le=10)
+
+    # Synthesis settings (for future phases)
+    synthesis_mode: Literal["survey", "report", "manuscript", "brief"] = "survey"
+
+
 # ============================================================
 # Turnstile (CAPTCHA)
 # ============================================================
@@ -300,6 +338,7 @@ class Config(BaseModel):
     storage: StorageConfig = Field(default_factory=StorageConfig)
     paperscout_agent: PaperScoutAgentConfig = Field(default_factory=PaperScoutAgentConfig)
     paperlens_agent: PaperLensAgentConfig = Field(default_factory=PaperLensAgentConfig)
+    omr_agent: OmrAgentConfig = Field(default_factory=OmrAgentConfig)
     turnstile: TurnstileConfig = Field(default_factory=TurnstileConfig)
     daemon: DaemonConfig = Field(default_factory=DaemonConfig)
     debug: bool = False
@@ -342,6 +381,7 @@ __all__ = [
     "SupabaseConfig",
     "PaperScoutAgentConfig",
     "PaperLensAgentConfig",
+    "OmrAgentConfig",
     "TurnstileConfig",
     "DaemonSchedulerConfig",
     "DaemonConfig",
