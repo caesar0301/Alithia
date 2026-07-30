@@ -44,7 +44,7 @@ def _merge_input_state(
     """Merge soothe/subagent input with required PaperScout state fields."""
     merged = _default_agent_state(runtime_config, user_id)
     if isinstance(input_state, dict):
-        merged.update(input_state)
+        merged.update(input_state)  # type: ignore[typeddict-item]
     merged["config"] = runtime_config
     merged["user_id"] = user_id
     return merged

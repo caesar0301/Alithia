@@ -27,7 +27,7 @@ import logging
 import tarfile
 import tempfile
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 from alithia.models import ArxivPaper
 from alithia.paperscout.affiliation_llm import AffiliationLLMExtractor
@@ -119,7 +119,7 @@ class AffiliationExtractor:
 
                 # Check if it's a tarball (LaTeX source)
                 if "application/gzip" in content_type or "application/x-tar" in content_type:
-                    return response.content
+                    return cast(bytes, response.content)
 
                 # If it's PDF, no LaTeX source available
                 if "application/pdf" in content_type:
@@ -127,7 +127,7 @@ class AffiliationExtractor:
                     return None
 
                 # Unknown format - try to process anyway
-                return response.content
+                return cast(bytes, response.content)
 
             elif response.status_code == 404:
                 logger.debug(f"ArXiv source not found for {arxiv_id}")

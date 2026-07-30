@@ -22,7 +22,7 @@ Design notes:
 from __future__ import annotations
 
 import logging
-from typing import Any
+from typing import Any, cast
 
 from alithia.models import ArxivPaper
 
@@ -144,7 +144,7 @@ class TldrGenerator:
             if not text:
                 return None
             paper.tldr = text
-            return text
+            return cast(str, text)
         except Exception as e:
             logger.warning(
                 f"TLDR generation failed for {paper.arxiv_id}: {e}; falling back to summary"

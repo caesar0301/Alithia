@@ -20,7 +20,7 @@ import logging
 import os
 import re
 from functools import wraps
-from typing import Any
+from typing import Any, cast
 
 from langchain_core.tools import BaseTool
 from pydantic import BaseModel, Field
@@ -502,7 +502,7 @@ class DeepxivSearchTool(BaseTool):
             score = paper.get("score", 0)
             citations = paper.get("citation_count", 0)
             authors = paper.get("authors", [])
-            author_names = _format_author_names(authors, limit=3)
+            author_names = _format_author_names(cast(list[object], authors), limit=3)
             categories = paper.get("categories", [])
             cat_str = ", ".join(categories[:3]) if categories else ""
 
@@ -516,7 +516,7 @@ class DeepxivSearchTool(BaseTool):
 
     async def _arun(self, **kwargs: Any) -> str:
         """Async execution (runs sync)."""
-        return self._run(**kwargs)
+        return cast(str, self._run(**kwargs))
 
 
 class DeepxivPaperBriefTool(BaseTool):
@@ -586,7 +586,7 @@ class DeepxivPaperBriefTool(BaseTool):
 
     async def _arun(self, **kwargs: Any) -> str:
         """Async execution (runs sync)."""
-        return self._run(**kwargs)
+        return cast(str, self._run(**kwargs))
 
 
 class DeepxivPaperMetadataTool(BaseTool):
@@ -671,7 +671,7 @@ class DeepxivPaperMetadataTool(BaseTool):
 
     async def _arun(self, **kwargs: Any) -> str:
         """Async execution (runs sync)."""
-        return self._run(**kwargs)
+        return cast(str, self._run(**kwargs))
 
 
 class DeepxivReadSectionTool(BaseTool):
@@ -713,11 +713,11 @@ class DeepxivReadSectionTool(BaseTool):
             return f"Section '{section_name}' not found in paper '{paper_id}'."
 
         header = f"**{section_name}** from {paper_id}\n{'=' * 50}\n\n"
-        return header + content
+        return header + str(content)
 
     async def _arun(self, **kwargs: Any) -> str:
         """Async execution (runs sync)."""
-        return self._run(**kwargs)
+        return cast(str, self._run(**kwargs))
 
 
 class DeepxivGetFullPaperTool(BaseTool):
@@ -755,11 +755,11 @@ class DeepxivGetFullPaperTool(BaseTool):
             return f"Paper '{paper_id}' not found or content unavailable."
 
         header = f"**Full Paper: {paper_id}**\n{'=' * 50}\n\n"
-        return header + content
+        return header + str(content)
 
     async def _arun(self, **kwargs: Any) -> str:
         """Async execution (runs sync)."""
-        return self._run(**kwargs)
+        return cast(str, self._run(**kwargs))
 
 
 class DeepxivTrendingTool(BaseTool):
@@ -819,7 +819,7 @@ class DeepxivTrendingTool(BaseTool):
 
     async def _arun(self, **kwargs: Any) -> str:
         """Async execution (runs sync)."""
-        return self._run(**kwargs)
+        return cast(str, self._run(**kwargs))
 
 
 class DeepxivWebsearchTool(BaseTool):
@@ -883,7 +883,7 @@ class DeepxivWebsearchTool(BaseTool):
 
     async def _arun(self, **kwargs: Any) -> str:
         """Async execution (runs sync)."""
-        return self._run(**kwargs)
+        return cast(str, self._run(**kwargs))
 
 
 __all__ = [

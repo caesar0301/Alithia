@@ -7,7 +7,7 @@ date. Does not persist rendered email HTML.
 from __future__ import annotations
 
 from datetime import date, datetime
-from typing import Any
+from typing import Any, cast
 
 from alithia.models import AcademicPaper, ArxivPaper, ScoredPaper
 from alithia.paperscout.state import PaperScoutRuntimeConfig
@@ -135,7 +135,7 @@ async def load_daily_digest(
     digest_date: str,
 ) -> dict[str, Any] | None:
     """Load a persisted daily digest record."""
-    return await store.load(digest_storage_key(user_id, digest_date))
+    return cast(dict[str, Any] | None, await store.load(digest_storage_key(user_id, digest_date)))
 
 
 async def list_daily_digest_dates(store: Any, user_id: str) -> list[str]:

@@ -57,6 +57,7 @@ select = ["E", "F", "W", "I", "UP"]
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
 testpaths = ["tests"]
+pythonpath = ["."]
 
 [tool.mypy]
 python_version = "3.11"
@@ -72,7 +73,6 @@ module = [
     "fastembed",
     "sklearn.*",
     "docling.*",
-    "modelscope.*",
     "langchain_core.*",
     "soothe_nano.*",
     "soothe_sdk.*",

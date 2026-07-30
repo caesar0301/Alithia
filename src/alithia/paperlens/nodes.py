@@ -69,7 +69,6 @@ def make_nodes(config: Any, llm: Any | None = None) -> dict[str, Any]:
     parser = DoclingParser(llm=llm)
     similarity_engine = SimilarityEngine(
         model_name=config.sbert_model,
-        use_gpu=config.use_gpu,
     )
 
     def validate_input_node(state: AgentState) -> dict[str, Any]:
